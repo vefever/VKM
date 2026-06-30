@@ -1,5 +1,4 @@
 {
-
   "name": "tanstack_start_ts",
   "private": true,
   "sideEffects": false,
@@ -70,7 +69,6 @@
     "vaul": "^1.1.2",
     "vite-tsconfig-paths": "^6.0.2",
     "zod": "^3.24.2"
-  },
   "devDependencies": {
     "@eslint/js": "^9.32.0",
     "@types/node": "^22.16.5",
