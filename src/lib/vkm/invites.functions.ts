@@ -447,14 +447,20 @@ export const getInviteByToken = createServerFn({ method: "GET" })
     // anon, returns only safe fields) using the PUBLISHABLE key — so the invite
     // page works without the service-role secret being present in the worker.
     const { supabase } = await import("@/integrations/supabase/client");
-    // The RPC isn't in the generated Database types until they're regenerated;
-    // cast the call so the name/args/return are typed locally without `any`.
-    const rpc = supabase.rpc as unknown as (
-      fn: "get_invite_public",
-      args: { _token: string },
-    ) => Promise<{ data: InvitePublicRow[] | null; error: { message: string } | null }>;
+    // The RPC isn't in the generated Database types until they're regenerated, so
+    // we retype the CLIENT locally and call `.rpc` directly. Do NOT extract the
+    // method (`const rpc = supabase.rpc; rpc(...)`) — that detaches it from the
+    // client, leaving `this` undefined inside supabase-js so the call throws
+    // (turning the invite page into "Invite unavailable"). Calling `sb.rpc(...)`
+    // as a method keeps `this` bound to the client (via the proxy).
+    const sb = supabase as unknown as {
+      rpc: (
+        fn: "get_invite_public",
+        args: { _token: string },
+      ) => Promise<{ data: InvitePublicRow[] | null; error: { message: string } | null }>;
+    };
 
-    const { data: rows, error } = await rpc("get_invite_public", { _token: data.token });
+    const { data: rows, error } = await sb.rpc("get_invite_public", { _token: data.token });
     if (error) {
       console.error("getInviteByToken: lookup failed:", error.message);
       return null;
