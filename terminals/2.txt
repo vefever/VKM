@@ -1,0 +1,7 @@
+---
+pid: 19536
+cwd: "D:\VKM"
+command: "cd D:\\VKM; npx tsc --noEmit 2>&1"
+started_at: 2026-06-29T12:52:07.070Z
+running_for_ms: 6150007  
+---

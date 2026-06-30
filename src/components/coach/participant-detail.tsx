@@ -1,0 +1,1105 @@
+import { useCallback, useEffect, useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { Link } from "@tanstack/react-router";
+import { format, formatDistanceToNowStrict } from "date-fns";
+import {
+  ChevronLeft,
+  ChevronDown,
+  Download,
+  Phone,
+  CalendarDays,
+  Briefcase,
+  Trophy,
+  Flame,
+  Footprints,
+  Droplets,
+  Dumbbell,
+  CheckCircle2,
+  Loader2,
+  Star,
+  Check,
+  X,
+  ExternalLink,
+  Flag,
+  Plus,
+  Trash2,
+  NotebookPen,
+  Bell,
+  Send,
+  Users,
+  type LucideIcon,
+} from "lucide-react";
+import { SectionCard } from "@/components/vkm/section-card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { useAuth } from "@/hooks/use-auth";
+import { addCoachTask, notifyParticipant } from "@/components/coach/coach-tasks-data";
+import { cn } from "@/lib/utils";
+import { safeHref } from "@/lib/safe-url";
+import {
+  VKM_WEEKS,
+  VKM_MILESTONES,
+  isOfflineWeek,
+  stageFor,
+  type ProgramWeek,
+} from "@/lib/vkm/program";
+import { useParticipantProfile, useParticipantTeam, type WeekRow } from "@/components/coach/coach-data";
+import { useParticipantHabits } from "@/components/habits/habit-tracker";
+import { HabitGrid } from "@/components/habits/habit-grid";
+import { ProofAttachments } from "@/components/participant/proof-attachments";
+import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
+import { goalProgress, PILLAR_COLOR, type Pillar } from "@/components/participant/vision-data";
+
+const inr = (n: number | null | undefined) =>
+  n == null ? "—" : `₹${Number(n).toLocaleString("en-IN")}`;
+
+const STATUS: Record<string, string> = {
+  approved: "bg-[oklch(0.93_0.06_160)] text-[oklch(0.35_0.12_160)]",
+  pending: "bg-gold/15 text-[oklch(0.45_0.1_85)]",
+  rejected: "bg-[oklch(0.93_0.06_25)] text-[oklch(0.45_0.16_25)]",
+  none: "bg-muted text-muted-foreground",
+};
+
+export function ParticipantDetail({
+  userId,
+  eyebrow,
+  backTo,
+}: {
+  userId: string;
+  eyebrow: string;
+  backTo: string;
+}) {
+  const { profile, brain, weeks, points, milestones, loading, reviewWeek } =
+    useParticipantProfile(userId);
+  const habits = useParticipantHabits(userId);
+
+  const name = profile?.full_name ?? "Participant";
+  const weeksDone = weeks.filter((w) => w.proof_status === "approved").length;
+  const attended = weeks.filter((w) => w.attended).length;
+  const stage = stageFor(points).name;
+  const pct = Math.round((weeksDone / 16) * 100);
+  const byWeek = new Map(weeks.map((w) => [w.week_no, w]));
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.4 }}
+      className="space-y-5"
+    >
+      {/* Toolbar (not printed) */}
+      <div className="no-print flex items-center justify-between gap-3">
+        <Button variant="ghost" className="rounded-full" asChild>
+          <Link to={backTo}>
+            <ChevronLeft className="h-4 w-4" /> Participants
+          </Link>
+        </Button>
+        <Button className="rounded-full bg-gradient-navy shadow-vkm" onClick={() => window.print()}>
+          <Download className="h-4 w-4" /> Download report
+        </Button>
+      </div>
+
+      <div data-print-report className="space-y-5">
+        {/* Header / progress card */}
+        <div className="overflow-hidden rounded-3xl bg-gradient-navy p-6 text-primary-foreground shadow-vkm-float">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-primary-foreground/70">
+            {eyebrow} · Progress Card
+          </p>
+          <div className="mt-3 flex flex-wrap items-center gap-4">
+            <span className="inline-flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-gold text-xl font-bold text-navy">
+              {name
+                .split(" ")
+                .map((s) => s[0])
+                .slice(0, 2)
+                .join("")
+                .toUpperCase()}
+            </span>
+            <div className="min-w-0 flex-1">
+              <h1 className="text-2xl font-semibold leading-tight">{name}</h1>
+              <p className="text-sm text-primary-foreground/70">
+                {brain?.business_name ? `${brain.business_name} · ` : ""}Batch 16 · {stage}
+              </p>
+            </div>
+            <div className="relative h-20 w-20 shrink-0">
+              <svg viewBox="0 0 80 80" className="h-20 w-20 -rotate-90">
+                <circle
+                  cx="40"
+                  cy="40"
+                  r="34"
+                  fill="none"
+                  stroke="oklch(1 0 0 / 0.15)"
+                  strokeWidth="7"
+                />
+                <motion.circle
+                  cx="40"
+                  cy="40"
+                  r="34"
+                  fill="none"
+                  stroke="oklch(0.78 0.13 85)"
+                  strokeWidth="7"
+                  strokeLinecap="round"
+                  initial={{ strokeDasharray: `0 ${2 * Math.PI * 34}` }}
+                  animate={{
+                    strokeDasharray: `${(pct / 100) * 2 * Math.PI * 34} ${2 * Math.PI * 34}`,
+                  }}
+                  transition={{ duration: 1, ease: "easeOut" }}
+                />
+              </svg>
+              <span className="absolute inset-0 flex items-center justify-center text-sm font-bold">
+                {pct}%
+              </span>
+            </div>
+          </div>
+          <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
+            <HeroStat label="Weeks done" value={`${weeksDone}/16`} />
+            <HeroStat label="Total points" value={String(points)} />
+            <HeroStat label="Stage" value={stage} />
+            <HeroStat label="Attendance" value={`${attended}/16`} />
+          </div>
+        </div>
+
+        {loading ? (
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Loader2 className="h-4 w-4 animate-spin" /> Loading record…
+          </div>
+        ) : (
+          <>
+            {/* Coach actions — set a reminder or notify this participant */}
+            <CoachActions userId={userId} name={name} />
+
+            {/* Personal */}
+            <SectionCard title="Personal information">
+              <dl className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                <Field icon={Phone} label="Phone" value={profile?.phone ?? "—"} />
+                <Field
+                  icon={CalendarDays}
+                  label="Joined"
+                  value={
+                    profile?.created_at ? format(new Date(profile.created_at), "d MMM yyyy") : "—"
+                  }
+                />
+                <Field icon={Trophy} label="Current stage" value={stage} />
+              </dl>
+            </SectionCard>
+
+            {/* Business Brain */}
+            <SectionCard
+              title="Business Brain"
+              subtitle="Captured during onboarding — powers the AI Advisor"
+            >
+              {brain ? (
+                <dl className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                  <Field icon={Briefcase} label="Business" value={brain.business_name ?? "—"} />
+                  <Field label="Industry" value={brain.industry ?? "—"} />
+                  <Field label="Location" value={brain.location ?? "—"} />
+                  <Field
+                    label="Years running"
+                    value={brain.years_running != null ? String(brain.years_running) : "—"}
+                  />
+                  <Field label="Current MRR" value={inr(brain.current_mrr_inr)} />
+                  <Field label="Target MRR" value={inr(brain.target_mrr_inr)} />
+                  <Field
+                    label="Team size"
+                    value={brain.team_size != null ? String(brain.team_size) : "—"}
+                  />
+                  <Field
+                    label="Monthly leads"
+                    value={brain.monthly_leads != null ? String(brain.monthly_leads) : "—"}
+                  />
+                  <Field
+                    label="Closing rate"
+                    value={brain.closing_rate_pct != null ? `${brain.closing_rate_pct}%` : "—"}
+                  />
+                  <Field label="Avg deal" value={inr(brain.avg_deal_inr)} />
+                  <Field
+                    className="sm:col-span-3"
+                    label="Top products / services"
+                    value={brain.top_products ?? "—"}
+                  />
+                  <Field
+                    className="sm:col-span-3"
+                    label="Lead sources"
+                    value={brain.lead_sources ?? "—"}
+                  />
+                  <Field
+                    className="sm:col-span-3"
+                    label="Biggest challenges"
+                    value={brain.top_challenges ?? "—"}
+                  />
+                  <Field
+                    className="sm:col-span-3"
+                    label="Success in 4 months"
+                    value={brain.success_definition ?? "—"}
+                  />
+                </dl>
+              ) : (
+                <p className="py-2 text-sm text-muted-foreground">
+                  Business Brain not captured yet.
+                </p>
+              )}
+            </SectionCard>
+
+            {/* Team roster — read-only view of the participant's own team */}
+            <TeamCard userId={userId} reportedSize={brain?.team_size ?? null} />
+
+            {/* 16-week program — expandable per-week proof review */}
+            <SectionCard
+              title="16-Week Program"
+              subtitle={`${weeksDone} of 16 approved · tap a week to see the proof & decide`}
+            >
+              <div className="space-y-1.5">
+                {VKM_WEEKS.map((wk) => (
+                  <WeekReviewRow
+                    key={wk.week}
+                    wk={wk}
+                    row={byWeek.get(wk.week)}
+                    onReview={reviewWeek}
+                  />
+                ))}
+              </div>
+            </SectionCard>
+
+            {/* Habits & activity */}
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-5 sm:gap-4">
+              <MiniStat
+                icon={CheckCircle2}
+                color="#10b981"
+                label="Habits today"
+                value={`${habits.todayDone}/12`}
+              />
+              <MiniStat icon={Flame} color="#f59e0b" label="Streak" value={`${habits.streak}d`} />
+              <MiniStat
+                icon={Footprints}
+                color="#10b981"
+                label="Steps"
+                value={String(habits.steps)}
+              />
+              <MiniStat
+                icon={Droplets}
+                color="#0ea5e9"
+                label="Water"
+                value={`${(habits.waterMl / 1000).toFixed(1)}L`}
+              />
+              <MiniStat
+                icon={Dumbbell}
+                color="#ef4444"
+                label="Workout"
+                value={`${habits.workoutMinutes}m`}
+              />
+            </div>
+            {!habits.loading && (
+              <HabitGrid
+                config={habits.config}
+                dayState={habits.dayState}
+                title="Habit tracker"
+                isDone={habits.isDone}
+                proofsFor={habits.proofsFor}
+              />
+            )}
+
+            {/* Today's habit proofs */}
+            <SectionCard
+              title="Daily habit proofs"
+              subtitle={`Evidence submitted for day ${habits.programDay}`}
+            >
+              {habits.todayProofs.length === 0 ? (
+                <p className="py-3 text-sm text-muted-foreground">
+                  No habit proofs submitted today yet.
+                </p>
+              ) : (
+                <div className="space-y-4">
+                  {habits.todayProofs.map(({ habit, files }) => {
+                    const Icon = habit.icon;
+                    return (
+                      <div key={habit.id}>
+                        <div className="mb-1.5 flex items-center gap-2">
+                          <span
+                            className="inline-flex h-7 w-7 items-center justify-center rounded-lg text-white"
+                            style={{
+                              background: `linear-gradient(135deg, ${habit.from}, ${habit.to})`,
+                            }}
+                          >
+                            <Icon className="h-4 w-4" />
+                          </span>
+                          <span className="text-sm font-medium text-foreground">{habit.name}</span>
+                        </div>
+                        <ProofAttachments files={files} />
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </SectionCard>
+
+            {/* Today's engagement (Focus) */}
+            <ParticipantToday userId={userId} />
+
+            {/* Vision & goals */}
+            <ParticipantVision userId={userId} />
+
+            {/* Coaching log (1:1 notes — staff only) */}
+            <CoachingLog userId={userId} />
+
+            {/* Milestones */}
+            <SectionCard title="Milestones" subtitle="Goal Setter → Growth Champion">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                {VKM_MILESTONES.map((m) => {
+                  const unlocked = milestones.includes(m.code);
+                  return (
+                    <div
+                      key={m.code}
+                      className={cn(
+                        "flex items-center gap-3 rounded-2xl border p-3",
+                        unlocked ? "border-gold/40 bg-gold/[0.06]" : "border-border bg-card",
+                      )}
+                    >
+                      <span
+                        className={cn(
+                          "inline-flex h-10 w-10 items-center justify-center rounded-xl",
+                          unlocked
+                            ? "bg-gradient-gold text-navy"
+                            : "bg-muted text-muted-foreground",
+                        )}
+                      >
+                        <Star className="h-5 w-5" />
+                      </span>
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-medium text-foreground">{m.name}</p>
+                        <p className="text-xs text-muted-foreground">Week {m.unlockWeek}</p>
+                      </div>
+                      <Badge
+                        variant={unlocked ? "default" : "outline"}
+                        className="ml-auto rounded-full"
+                      >
+                        {unlocked ? "Unlocked" : "Locked"}
+                      </Badge>
+                    </div>
+                  );
+                })}
+              </div>
+            </SectionCard>
+          </>
+        )}
+      </div>
+    </motion.div>
+  );
+}
+
+// Coaching log — private 1:1 notes (staff-only RLS). Tracks the coaching itself.
+type CoachingNote = {
+  id: string;
+  summary: string;
+  next_step: string | null;
+  occurred_at: string;
+  coach_id: string;
+};
+
+function CoachingLog({ userId }: { userId: string }) {
+  const { user } = useAuth();
+  const [notes, setNotes] = useState<CoachingNote[]>([]);
+  const [authors, setAuthors] = useState<Record<string, string>>({});
+  const [loading, setLoading] = useState(true);
+  const [summary, setSummary] = useState("");
+  const [nextStep, setNextStep] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  const load = useCallback(async () => {
+    const { data } = await supabase
+      .from("coaching_notes")
+      .select("id, summary, next_step, occurred_at, coach_id")
+      .eq("participant_id", userId)
+      .order("occurred_at", { ascending: false });
+    const rows = (data ?? []) as CoachingNote[];
+    setNotes(rows);
+    const ids = [...new Set(rows.map((n) => n.coach_id))];
+    if (ids.length) {
+      const { data: profs } = await supabase.from("profiles").select("id, full_name").in("id", ids);
+      const m: Record<string, string> = {};
+      (profs ?? []).forEach((p) => (m[p.id] = p.full_name ?? "Coach"));
+      setAuthors(m);
+    }
+    setLoading(false);
+  }, [userId]);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  async function add() {
+    if (!summary.trim() || !user) return;
+    setBusy(true);
+    const { error } = await supabase.from("coaching_notes").insert({
+      participant_id: userId,
+      coach_id: user.id,
+      summary: summary.trim(),
+      next_step: nextStep.trim() || null,
+    });
+    setBusy(false);
+    if (error) return toast.error("Could not save note", { description: error.message });
+    setSummary("");
+    setNextStep("");
+    toast.success("1:1 logged");
+    void load();
+  }
+
+  async function remove(id: string) {
+    setNotes((n) => n.filter((x) => x.id !== id));
+    await supabase.from("coaching_notes").delete().eq("id", id);
+  }
+
+  return (
+    <SectionCard
+      className="no-print"
+      title={
+        <span className="flex items-center gap-2">
+          <NotebookPen className="h-4 w-4 text-navy" /> Coaching log
+        </span>
+      }
+      subtitle="Private 1:1 notes — visible to staff only, never the participant"
+    >
+      <div className="space-y-2">
+        <Textarea
+          value={summary}
+          onChange={(e) => setSummary(e.target.value)}
+          placeholder="What did you cover in the 1:1? Wins, blockers, decisions…"
+          className="min-h-[72px] rounded-lg"
+        />
+        <Input
+          value={nextStep}
+          onChange={(e) => setNextStep(e.target.value)}
+          placeholder="Next step / commitment (optional)"
+          className="rounded-lg"
+        />
+        <div className="flex justify-end">
+          <Button
+            onClick={add}
+            disabled={busy || !summary.trim()}
+            className="rounded-lg bg-gradient-navy text-primary-foreground hover:opacity-90"
+          >
+            {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />} Log
+            1:1
+          </Button>
+        </div>
+      </div>
+
+      <div className="mt-4 space-y-2.5">
+        {loading ? (
+          <div className="flex justify-center py-4">
+            <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+          </div>
+        ) : notes.length === 0 ? (
+          <p className="py-2 text-center text-xs text-muted-foreground">
+            No 1:1s logged yet — record your first session above.
+          </p>
+        ) : (
+          notes.map((n) => (
+            <div key={n.id} className="rounded-xl border border-border bg-card p-3">
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-[11px] text-muted-foreground">
+                  {format(new Date(n.occurred_at), "d MMM yyyy")} ·{" "}
+                  {n.coach_id === user?.id ? "You" : (authors[n.coach_id] ?? "Coach")}
+                </p>
+                {n.coach_id === user?.id && (
+                  <button
+                    type="button"
+                    onClick={() => remove(n.id)}
+                    className="app-press inline-flex h-7 w-7 items-center justify-center rounded-lg text-muted-foreground hover:text-destructive"
+                    aria-label="Delete note"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
+                )}
+              </div>
+              <p className="mt-1 whitespace-pre-wrap text-sm text-foreground">{n.summary}</p>
+              {n.next_step && (
+                <p className="mt-1.5 text-xs font-medium text-[oklch(0.45_0.1_85)]">
+                  → {n.next_step}
+                </p>
+              )}
+            </div>
+          ))
+        )}
+      </div>
+    </SectionCard>
+  );
+}
+
+// Coach actions — a reminder for yourself (shows on your dashboard) or a
+// notification to the participant. Interactive, so excluded from the printed report.
+function CoachActions({ userId, name }: { userId: string; name: string }) {
+  const { user } = useAuth();
+  const first = name.split(" ")[0];
+  const [task, setTask] = useState("");
+  const [due, setDue] = useState("");
+  const [savingTask, setSavingTask] = useState(false);
+  const [notifyOpen, setNotifyOpen] = useState(false);
+
+  async function addTask() {
+    if (!task.trim() || !user) return;
+    setSavingTask(true);
+    try {
+      await addCoachTask({
+        coachId: user.id,
+        participantId: userId,
+        title: task.trim(),
+        due_on: due || null,
+      });
+      setTask("");
+      setDue("");
+      toast.success("Reminder added", { description: "It’s on your dashboard." });
+    } catch (e) {
+      toast.error("Could not add", { description: (e as Error).message });
+    } finally {
+      setSavingTask(false);
+    }
+  }
+
+  return (
+    <SectionCard
+      className="no-print"
+      title="Coach actions"
+      subtitle="Set yourself a reminder about this participant, or send them a notification."
+    >
+      <div className="space-y-3">
+        <div className="flex flex-wrap gap-2">
+          <Input
+            value={task}
+            onChange={(e) => setTask(e.target.value)}
+            placeholder={`Reminder about ${first}…`}
+            className="h-10 min-w-[180px] flex-1 rounded-lg"
+          />
+          <Input
+            type="date"
+            value={due}
+            onChange={(e) => setDue(e.target.value)}
+            className="h-10 w-[150px] rounded-lg"
+            aria-label="Due date"
+          />
+          <Button
+            onClick={addTask}
+            disabled={savingTask || !task.trim()}
+            className="h-10 rounded-lg bg-gradient-navy text-primary-foreground hover:opacity-90"
+          >
+            {savingTask ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Plus className="h-4 w-4" />
+            )}{" "}
+            Add reminder
+          </Button>
+        </div>
+        <Button variant="outline" className="rounded-lg" onClick={() => setNotifyOpen(true)}>
+          <Bell className="h-4 w-4" /> Send {first} a notification
+        </Button>
+      </div>
+      <NotifyDialog open={notifyOpen} onOpenChange={setNotifyOpen} userId={userId} name={name} />
+    </SectionCard>
+  );
+}
+
+function NotifyDialog({
+  open,
+  onOpenChange,
+  userId,
+  name,
+}: {
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+  userId: string;
+  name: string;
+}) {
+  const [title, setTitle] = useState("");
+  const [body, setBody] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  async function send() {
+    if (!title.trim()) return;
+    setBusy(true);
+    try {
+      await notifyParticipant({
+        userId,
+        title: title.trim(),
+        body: body.trim() || undefined,
+        link: "/participant",
+      });
+      toast.success("Notification sent", { description: `${name} will see it in their bell.` });
+      onOpenChange(false);
+      setTitle("");
+      setBody("");
+    } catch (e) {
+      toast.error("Couldn’t send", { description: (e as Error).message });
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Bell className="h-5 w-5 text-gold" /> Notify {name}
+          </DialogTitle>
+        </DialogHeader>
+        <div className="space-y-3">
+          <Input
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            placeholder="Title — e.g. Great week, keep going!"
+            className="rounded-lg"
+          />
+          <Textarea
+            value={body}
+            onChange={(e) => setBody(e.target.value)}
+            placeholder="Message (optional)…"
+            className="min-h-[80px] rounded-lg"
+          />
+        </div>
+        <div className="flex justify-end gap-2">
+          <Button variant="ghost" onClick={() => onOpenChange(false)}>
+            Cancel
+          </Button>
+          <Button
+            onClick={send}
+            disabled={busy || !title.trim()}
+            className="bg-gradient-navy text-primary-foreground hover:opacity-90"
+          >
+            {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}{" "}
+            Send
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// Today's Focus engagement — focus_sessions + daily_actions have staff-read RLS.
+function ParticipantToday({ userId }: { userId: string }) {
+  const [data, setData] = useState<{
+    minutes: number;
+    sessions: number;
+    done: number;
+    total: number;
+  } | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    const today = new Date();
+    const dateStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(
+      today.getDate(),
+    ).padStart(2, "0")}`;
+    void (async () => {
+      const [{ data: fs }, { data: da }] = await Promise.all([
+        supabase
+          .from("focus_sessions")
+          .select("minutes")
+          .eq("user_id", userId)
+          .gte("created_at", `${dateStr}T00:00:00`),
+        supabase
+          .from("daily_actions")
+          .select("done")
+          .eq("user_id", userId)
+          .eq("action_date", dateStr),
+      ]);
+      if (!active) return;
+      const sessions = fs ?? [];
+      const actions = da ?? [];
+      setData({
+        minutes: sessions.reduce((n, r) => n + (r.minutes ?? 0), 0),
+        sessions: sessions.length,
+        done: actions.filter((a) => a.done).length,
+        total: actions.length,
+      });
+    })();
+    return () => {
+      active = false;
+    };
+  }, [userId]);
+
+  return (
+    <SectionCard title="Today's engagement" subtitle="Deep work & daily actions, live from the app">
+      <div className="grid grid-cols-3 gap-3">
+        <MiniStat
+          icon={Flame}
+          color="#f59e0b"
+          label="Deep work"
+          value={data ? `${data.minutes}m` : "—"}
+        />
+        <MiniStat
+          icon={Trophy}
+          color="#3b6fb0"
+          label="Sessions"
+          value={data ? String(data.sessions) : "—"}
+        />
+        <MiniStat
+          icon={CheckCircle2}
+          color="#10b981"
+          label="Actions"
+          value={data ? `${data.done}/${data.total}` : "—"}
+        />
+      </div>
+    </SectionCard>
+  );
+}
+
+// The participant's Vision — surfaced to the coach (vision_* has staff-read RLS).
+function ParticipantVision({ userId }: { userId: string }) {
+  const [data, setData] = useState<{
+    primary: string | null;
+    oneYr: string | null;
+    goals: {
+      id: string;
+      title: string;
+      category: string;
+      target_value: number | null;
+      current_value: number | null;
+      status: string;
+    }[];
+  } | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let active = true;
+    void (async () => {
+      const [{ data: s }, { data: g }] = await Promise.all([
+        supabase
+          .from("vision_statements")
+          .select("primary_goal, statement_1yr")
+          .eq("user_id", userId)
+          .maybeSingle(),
+        supabase
+          .from("vision_goals")
+          .select("id, title, category, target_value, current_value, status")
+          .eq("user_id", userId)
+          .eq("year", 1)
+          .order("sort_order"),
+      ]);
+      if (!active) return;
+      setData({
+        primary: s?.primary_goal ?? null,
+        oneYr: s?.statement_1yr ?? null,
+        goals: g ?? [],
+      });
+      setLoading(false);
+    })();
+    return () => {
+      active = false;
+    };
+  }, [userId]);
+
+  return (
+    <SectionCard title="Vision & Goals" subtitle="Their #1 goal and this year's plan">
+      {loading ? (
+        <div className="flex justify-center py-6">
+          <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {data?.primary ? (
+            <div className="rounded-xl border border-gold/40 bg-gold/[0.06] p-3">
+              <p className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-gold">
+                <Flag className="h-3.5 w-3.5" /> #1 goal this year
+              </p>
+              <p className="mt-0.5 text-sm font-semibold text-foreground">{data.primary}</p>
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground">No #1 goal set yet.</p>
+          )}
+          {data?.oneYr && <p className="text-xs italic text-muted-foreground">“{data.oneYr}”</p>}
+          {data && data.goals.length > 0 ? (
+            <div className="space-y-1.5">
+              {data.goals.map((goal) => {
+                const pct = goalProgress(goal);
+                const color = PILLAR_COLOR[goal.category as Pillar] ?? "#888";
+                return (
+                  <div
+                    key={goal.id}
+                    className="flex items-center gap-2.5 rounded-lg border border-border bg-card px-3 py-2"
+                  >
+                    <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: color }} />
+                    <span className="min-w-0 flex-1 truncate text-sm text-foreground">
+                      {goal.title}
+                    </span>
+                    {goal.target_value != null && (
+                      <div className="hidden h-1.5 w-16 overflow-hidden rounded-full bg-secondary sm:block">
+                        <div
+                          className="h-full rounded-full"
+                          style={{ width: `${pct}%`, background: color }}
+                        />
+                      </div>
+                    )}
+                    <span className="shrink-0 text-xs font-semibold tabular-nums text-muted-foreground">
+                      {pct}%
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <p className="text-xs text-muted-foreground">No goals set for this year yet.</p>
+          )}
+        </div>
+      )}
+    </SectionCard>
+  );
+}
+
+function HeroStat({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-2xl bg-white/5 p-3">
+      <p className="text-[11px] uppercase tracking-wider text-primary-foreground/60">{label}</p>
+      <p className="mt-1 text-lg font-semibold">{value}</p>
+    </div>
+  );
+}
+
+function Field({
+  icon: Icon,
+  label,
+  value,
+  className,
+}: {
+  icon?: LucideIcon;
+  label: string;
+  value: string;
+  className?: string;
+}) {
+  return (
+    <div className={className}>
+      <dt className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+        {Icon && <Icon className="h-3.5 w-3.5" />} {label}
+      </dt>
+      <dd className="mt-0.5 text-sm text-foreground">{value}</dd>
+    </div>
+  );
+}
+
+function TeamCard({ userId, reportedSize }: { userId: string; reportedSize: number | null }) {
+  const { members, loading } = useParticipantTeam(userId);
+  const active = members.filter((m) => m.status === "active").length;
+  const payroll = members.reduce((n, m) => n + (m.monthly_salary_inr ?? 0), 0);
+  return (
+    <SectionCard
+      title="Team"
+      subtitle={
+        loading
+          ? "Loading…"
+          : `${members.length} member${members.length === 1 ? "" : "s"}` +
+            ` · ${active} active` +
+            (payroll ? ` · ${inr(payroll)}/mo payroll` : "") +
+            (reportedSize != null && reportedSize !== members.length ? ` · reported size ${reportedSize}` : "")
+      }
+    >
+      {loading ? (
+        <div className="flex justify-center py-6"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>
+      ) : members.length === 0 ? (
+        <p className="flex items-center gap-2 py-2 text-sm text-muted-foreground">
+          <Users className="h-4 w-4" /> No team members added yet.
+        </p>
+      ) : (
+        <div className="space-y-1.5">
+          {members.map((m) => (
+            <div key={m.id} className="flex items-center justify-between gap-3 rounded-lg border border-border bg-card px-3 py-2">
+              <div className="min-w-0">
+                <p className="truncate text-sm font-medium text-foreground">{m.name}</p>
+                <p className="truncate text-xs text-muted-foreground">
+                  {[m.role, m.department].filter(Boolean).join(" · ") || "—"}
+                </p>
+              </div>
+              <div className="flex shrink-0 items-center gap-2">
+                {m.monthly_salary_inr != null && (
+                  <span className="text-xs tabular-nums text-muted-foreground">{inr(m.monthly_salary_inr)}/mo</span>
+                )}
+                <span className={cn("rounded-full px-2 py-0.5 text-[10px] font-medium",
+                  m.status === "active" ? "bg-[oklch(0.93_0.06_160)] text-[oklch(0.35_0.12_160)]" : "bg-muted text-muted-foreground")}>
+                  {m.status}
+                </span>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </SectionCard>
+  );
+}
+
+function MiniStat({
+  icon: Icon,
+  color,
+  label,
+  value,
+}: {
+  icon: LucideIcon;
+  color: string;
+  label: string;
+  value: string;
+}) {
+  return (
+    <div className="rounded-2xl border border-border bg-card p-3.5 shadow-vkm">
+      <Icon className="h-5 w-5" style={{ color }} />
+      <p className="mt-1.5 text-xl font-bold tabular-nums text-foreground">{value}</p>
+      <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+        {label}
+      </p>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Per-week expandable proof review (coach / mentor / admin act here).
+// ---------------------------------------------------------------------------
+function WeekReviewRow({
+  wk,
+  row,
+  onReview,
+}: {
+  wk: ProgramWeek;
+  row?: WeekRow;
+  onReview: (id: string, status: "approved" | "rejected", note: string) => Promise<void>;
+}) {
+  const [open, setOpen] = useState(false);
+  const [note, setNote] = useState("");
+  const [busy, setBusy] = useState(false);
+  const status = row?.proof_status ?? "none";
+  const submitted = !!row?.task_done;
+
+  async function act(s: "approved" | "rejected") {
+    if (!row) return;
+    setBusy(true);
+    await onReview(row.id, s, note || row.coach_note || "");
+    setBusy(false);
+    const pts = row.week_no >= 1 && row.week_no <= 14 ? "+250 pts · " : "";
+    if (s === "approved")
+      toast.success("Proof approved", { description: `${pts}participant notified.` });
+    else toast("Changes requested", { description: "Participant notified." });
+  }
+
+  return (
+    <div className="overflow-hidden rounded-xl border border-border">
+      <button
+        onClick={() => setOpen((o) => !o)}
+        className="flex w-full items-center gap-3 px-3 py-2.5 text-left transition-colors hover:bg-secondary/40"
+      >
+        <span className="w-6 shrink-0 text-sm font-bold tabular-nums text-foreground">
+          {wk.week}
+        </span>
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-sm font-medium text-foreground">{wk.topic}</p>
+          <p className="text-[11px] text-muted-foreground">
+            {wk.mode}
+            {isOfflineWeek(wk.week) ? " 📍" : ""}
+            {submitted
+              ? ` · submitted ${formatDistanceToNowStrict(new Date(row!.created_at), { addSuffix: true })}`
+              : ""}
+          </p>
+        </div>
+        {submitted && status === "pending" && (
+          <span className="hidden rounded-full bg-gold/15 px-2 py-0.5 text-[10px] font-semibold text-[oklch(0.45_0.1_85)] sm:inline">
+            needs review
+          </span>
+        )}
+        <span
+          className={cn(
+            "inline-flex rounded-full px-2 py-0.5 text-xs font-medium capitalize",
+            STATUS[status],
+          )}
+        >
+          {status === "none" ? "not started" : status}
+        </span>
+        <ChevronDown
+          className={cn(
+            "h-4 w-4 shrink-0 text-muted-foreground transition-transform",
+            open && "rotate-180",
+          )}
+        />
+      </button>
+
+      <AnimatePresence>
+        {open && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            className="overflow-hidden border-t border-border"
+          >
+            <div className="space-y-3 px-3 py-3">
+              <p className="text-xs text-muted-foreground">
+                <span className="font-medium text-foreground">Task:</span> {wk.task} ·{" "}
+                <span className="font-medium text-foreground">Proof:</span> {wk.proof}
+              </p>
+
+              {submitted ? (
+                <>
+                  {safeHref(row?.proof_url) && (
+                    <a
+                      href={safeHref(row?.proof_url)}
+                      target="_blank"
+                      rel="noopener noreferrer nofollow"
+                      className="inline-flex items-center gap-1.5 text-sm font-medium text-[#3b6fb0] hover:underline"
+                    >
+                      <ExternalLink className="h-4 w-4" /> Open submitted proof link
+                    </a>
+                  )}
+                  {row?.proof_files && row.proof_files.length > 0 && (
+                    <ProofAttachments files={row.proof_files} />
+                  )}
+                  {row?.proof_note && (
+                    <p className="rounded-xl bg-secondary/60 px-3 py-2 text-sm text-foreground">
+                      “{row.proof_note}”
+                    </p>
+                  )}
+                  {row?.coach_note && status !== "pending" && (
+                    <p className="text-xs text-muted-foreground">Coach note: {row.coach_note}</p>
+                  )}
+                  <textarea
+                    value={note}
+                    onChange={(e) => setNote(e.target.value)}
+                    placeholder={
+                      row?.coach_note
+                        ? `Previous: ${row.coach_note}`
+                        : "Feedback / reason (sent to participant)…"
+                    }
+                    className="min-h-[52px] w-full rounded-xl border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  />
+                  <div className="flex items-center justify-end gap-2">
+                    <Button
+                      variant="outline"
+                      disabled={busy}
+                      onClick={() => act("rejected")}
+                      className={cn(
+                        "rounded-xl border-destructive/40 text-destructive hover:bg-destructive/10 hover:text-destructive",
+                        status === "rejected" && "bg-destructive/10",
+                      )}
+                    >
+                      <X className="h-4 w-4" /> Reject
+                    </Button>
+                    <Button
+                      disabled={busy}
+                      onClick={() => act("approved")}
+                      className="rounded-xl bg-[#10b981] text-white hover:opacity-90"
+                    >
+                      {busy ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Check className="h-4 w-4" />
+                      )}
+                      {status === "approved" ? "Approved (+40)" : "Approve (+40)"}
+                    </Button>
+                  </div>
+                </>
+              ) : (
+                <p className="text-sm text-muted-foreground">
+                  Awaiting the participant's proof for this week.
+                </p>
+              )}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}

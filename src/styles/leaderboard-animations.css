@@ -1,0 +1,93 @@
+/* LevelUp-style leaderboard animations */
+
+@keyframes lb-twinkle {
+  0%,
+  100% {
+    opacity: 0.2;
+  }
+  50% {
+    opacity: 0.8;
+  }
+}
+
+@keyframes lb-shimmer-sweep {
+  0% {
+    transform: translateX(-130%) skewX(-12deg);
+  }
+  100% {
+    transform: translateX(230%) skewX(-12deg);
+  }
+}
+
+@keyframes lb-border-glow {
+  0%,
+  100% {
+    box-shadow:
+      0 0 0 0 rgba(200, 168, 75, 0.45),
+      0 0 18px rgba(200, 168, 75, 0.3);
+  }
+  50% {
+    box-shadow:
+      0 0 0 2px rgba(200, 168, 75, 0.7),
+      0 0 32px rgba(200, 168, 75, 0.6);
+  }
+}
+
+@keyframes lb-coin-bounce {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-3px);
+  }
+}
+
+/* ---- helper classes ---- */
+.lb-star {
+  position: absolute;
+  width: 2px;
+  height: 2px;
+  border-radius: 9999px;
+  background: #ffffff;
+  animation: lb-twinkle var(--lb-dur, 3s) ease-in-out infinite;
+  animation-delay: var(--lb-delay, 0s);
+  will-change: opacity;
+}
+
+.lb-shimmer {
+  position: relative;
+  overflow: hidden;
+}
+.lb-shimmer::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    110deg,
+    transparent 35%,
+    rgba(255, 255, 255, 0.45) 50%,
+    transparent 65%
+  );
+  transform: translateX(-130%) skewX(-12deg);
+  animation: lb-shimmer-sweep var(--lb-shimmer-dur, 3s) ease-in-out infinite;
+  pointer-events: none;
+}
+
+.lb-glow-pulse {
+  animation: lb-border-glow 2s ease-in-out infinite;
+}
+
+.lb-coin {
+  display: inline-block;
+  animation: lb-coin-bounce 1.5s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lb-star,
+  .lb-shimmer::after,
+  .lb-glow-pulse,
+  .lb-coin {
+    animation: none;
+  }
+}

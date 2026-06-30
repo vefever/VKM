@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#0B2545" />
+    <title>Offline · VK Mentorship</title>
+    <style>
+      :root { color-scheme: light dark; }
+      * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+      html, body { height: 100%; margin: 0; }
+      body {
+        font-family: "Outfit", ui-sans-serif, system-ui, -apple-system, sans-serif;
+        background: linear-gradient(135deg, #0b2545 0%, #14315e 100%);
+        color: #f7f4ee;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: max(env(safe-area-inset-top), 24px) 24px max(env(safe-area-inset-bottom), 24px);
+        text-align: center;
+      }
+      .card { max-width: 360px; width: 100%; }
+      .badge {
+        width: 64px; height: 64px; margin: 0 auto 20px;
+        display: flex; align-items: center; justify-content: center;
+        border-radius: 20px;
+        background: linear-gradient(135deg, #c9a227 0%, #e7c65a 100%);
+        color: #0b2545; font-weight: 800; font-size: 22px;
+        box-shadow: 0 16px 40px -12px rgba(201, 162, 39, 0.6);
+      }
+      h1 { font-size: 22px; margin: 0 0 8px; letter-spacing: -0.02em; }
+      p { margin: 0 0 24px; color: rgba(247, 244, 238, 0.7); font-size: 14px; line-height: 1.5; }
+      button {
+        appearance: none; border: 0; cursor: pointer;
+        background: #f7f4ee; color: #0b2545;
+        font-weight: 600; font-size: 15px; font-family: inherit;
+        padding: 12px 22px; border-radius: 14px; width: 100%;
+        transition: transform 0.12s ease, filter 0.12s ease;
+      }
+      button:active { transform: scale(0.97); filter: brightness(0.96); }
+    </style>
+  </head>
+  <body>
+    <div class="card">
+      <div class="badge">VK</div>
+      <h1>You're offline</h1>
+      <p>VK Mentorship can't reach the network right now. Check your connection — your progress is safe and will sync when you're back.</p>
+      <button onclick="location.reload()">Try again</button>
+    </div>
+  </body>
+</html>

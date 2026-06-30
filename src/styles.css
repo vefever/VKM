@@ -1,0 +1,637 @@
+@import "tailwindcss" source(none);
+@source "../src";
+@import "tw-animate-css";
+@import "@fontsource/outfit/300.css";
+@import "@fontsource/outfit/400.css";
+@import "@fontsource/outfit/500.css";
+@import "@fontsource/outfit/600.css";
+@import "@fontsource/outfit/700.css";
+
+@custom-variant dark (&:is(.dark *));
+
+/*
+ * VK Mentorship (VKM) design system.
+ * Brand: premium navy + gold on cream. Inspired by Apple × Linear × Notion.
+ */
+
+@theme inline {
+  --font-sans: "Outfit", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Outfit", ui-sans-serif, system-ui, sans-serif;
+
+  --radius-sm: 0.5rem;
+  --radius-md: 0.875rem;
+  --radius-lg: 1rem;
+  --radius-xl: 1.5rem;
+  --radius-2xl: 2rem;
+  --radius-3xl: 2.5rem;
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-ring-offset-background: var(--background);
+
+  --color-gold: var(--gold);
+  --color-gold-soft: var(--gold-soft);
+  --color-navy: var(--navy);
+  --color-navy-soft: var(--navy-soft);
+  --color-cream: var(--cream);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-danger: var(--danger);
+  --color-neutral: var(--neutral);
+  --color-ink: var(--ink);
+
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+
+  --shadow-soft:
+    0 1px 2px oklch(0.21 0.06 265 / 0.04), 0 8px 24px -12px oklch(0.21 0.06 265 / 0.08);
+  --shadow-float:
+    0 4px 12px oklch(0.21 0.06 265 / 0.05), 0 24px 48px -16px oklch(0.21 0.06 265 / 0.14);
+  --shadow-gold: 0 8px 32px -8px oklch(0.71 0.135 85 / 0.35);
+}
+
+:root {
+  --radius: 1rem;
+
+  /* Brand surfaces */
+  --background: oklch(0.962 0.013 90); /* #F7F4EE cream-bg */
+  --foreground: oklch(0.21 0.05 265); /* navy ink */
+  --ink: oklch(0.18 0.03 260); /* #101828 */
+
+  --card: oklch(1 0 0); /* pure white floating cards */
+  --card-foreground: oklch(0.21 0.05 265);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.21 0.05 265);
+
+  /* Primary = Navy */
+  --primary: oklch(0.24 0.07 265); /* #0B2545 */
+  --primary-foreground: oklch(0.98 0.01 90);
+  --navy: oklch(0.24 0.07 265);
+  --navy-soft: oklch(0.32 0.07 264); /* #14315E */
+
+  /* Secondary = soft cream surface */
+  --secondary: oklch(0.93 0.028 90); /* #F4ECD6 cream */
+  --secondary-foreground: oklch(0.24 0.07 265);
+  --cream: oklch(0.93 0.028 90);
+
+  /* Muted */
+  --muted: oklch(0.94 0.015 90);
+  --muted-foreground: oklch(0.4 0.03 260); /* darkened for WCAG AA on cream */
+
+  /* Accent = Gold */
+  --accent: oklch(0.78 0.13 85); /* #E7C65A light gold */
+  --accent-foreground: oklch(0.24 0.07 265);
+  --gold: oklch(0.71 0.135 85); /* #C9A227 */
+  --gold-soft: oklch(0.82 0.115 88);
+
+  --destructive: oklch(0.62 0.2 25); /* #D9534F */
+  --destructive-foreground: oklch(0.99 0 0);
+  --success: oklch(0.71 0.14 160); /* #46B98A */
+  --warning: oklch(0.82 0.14 80); /* #F4B942 */
+  --danger: oklch(0.62 0.2 25);
+  --neutral: oklch(0.75 0.04 255); /* #9DB0CC */
+
+  --border: oklch(0.85 0.015 90); /* slightly darker so 1px hairlines stay visible */
+  --input: oklch(0.9 0.012 90);
+  --ring: oklch(0.71 0.135 85);
+
+  --chart-1: oklch(0.24 0.07 265);
+  --chart-2: oklch(0.71 0.135 85);
+  --chart-3: oklch(0.71 0.14 160);
+  --chart-4: oklch(0.62 0.2 25);
+  --chart-5: oklch(0.32 0.07 264);
+
+  --sidebar: oklch(0.96 0.012 90);
+  --sidebar-foreground: oklch(0.24 0.07 265);
+  --sidebar-primary: oklch(0.24 0.07 265);
+  --sidebar-primary-foreground: oklch(0.98 0.01 90);
+  --sidebar-accent: oklch(0.93 0.028 90);
+  --sidebar-accent-foreground: oklch(0.24 0.07 265);
+  --sidebar-border: oklch(0.88 0.015 90);
+  --sidebar-ring: oklch(0.71 0.135 85);
+}
+
+@layer base {
+  * {
+    border-color: var(--color-border);
+  }
+
+  html,
+  body {
+    background-color: var(--color-background);
+    color: var(--color-foreground);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    font-feature-settings: "ss01", "cv11";
+  }
+
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    font-family: var(--font-display);
+    letter-spacing: -0.02em;
+  }
+}
+
+@utility bg-gradient-navy {
+  background-image: linear-gradient(135deg, var(--navy) 0%, var(--navy-soft) 100%);
+}
+
+@utility bg-gradient-gold {
+  background-image: linear-gradient(135deg, var(--gold) 0%, var(--gold-soft) 100%);
+}
+
+@utility bg-gradient-cream {
+  background-image: linear-gradient(180deg, var(--background) 0%, var(--cream) 100%);
+}
+
+@utility text-gradient-gold {
+  background: linear-gradient(135deg, var(--gold) 0%, var(--gold-soft) 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+}
+
+@utility shadow-vkm {
+  box-shadow: var(--shadow-soft);
+}
+
+@utility shadow-vkm-float {
+  box-shadow: var(--shadow-float);
+}
+
+@utility shadow-gold-glow {
+  box-shadow:
+    0 0 0 1px oklch(0.71 0.135 85 / 0.25),
+    0 8px 32px -8px oklch(0.71 0.135 85 / 0.45);
+}
+
+@utility text-gradient-navy {
+  background: linear-gradient(135deg, var(--navy) 0%, var(--gold) 50%, var(--navy-soft) 100%);
+  background-size: 200% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+  animation: vkm-gradient-x 6s ease-in-out infinite;
+}
+
+@utility hover-lift {
+  transition:
+    transform 0.35s cubic-bezier(0.2, 0.8, 0.2, 1),
+    box-shadow 0.35s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.hover-lift:hover {
+  transform: translateY(-3px);
+  box-shadow: var(--shadow-float);
+}
+
+@utility glass {
+  background: color-mix(in oklab, var(--card) 70%, transparent);
+  backdrop-filter: saturate(150%) blur(14px);
+  -webkit-backdrop-filter: saturate(150%) blur(14px);
+}
+
+@utility ring-gold {
+  box-shadow: inset 0 0 0 1px oklch(0.71 0.135 85 / 0.4);
+}
+
+@utility bg-grid {
+  background-image:
+    linear-gradient(to right, oklch(0.24 0.07 265 / 0.06) 1px, transparent 1px),
+    linear-gradient(to bottom, oklch(0.24 0.07 265 / 0.06) 1px, transparent 1px);
+  background-size: 32px 32px;
+}
+
+@utility bg-dots {
+  background-image: radial-gradient(oklch(0.24 0.07 265 / 0.12) 1px, transparent 1px);
+  background-size: 18px 18px;
+}
+
+@utility mask-fade-y {
+  mask-image: linear-gradient(to bottom, black 40%, transparent 100%);
+  -webkit-mask-image: linear-gradient(to bottom, black 40%, transparent 100%);
+}
+
+@utility mask-fade-radial {
+  mask-image: radial-gradient(ellipse at center, black 40%, transparent 75%);
+  -webkit-mask-image: radial-gradient(ellipse at center, black 40%, transparent 75%);
+}
+
+/* ============ Keyframes — next-level micro-motion ============ */
+@keyframes vkm-shimmer {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+@keyframes vkm-gradient-x {
+  0%,
+  100% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+}
+@keyframes vkm-aurora {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0) scale(1);
+    opacity: 0.55;
+  }
+  33% {
+    transform: translate3d(6%, -4%, 0) scale(1.08);
+    opacity: 0.7;
+  }
+  66% {
+    transform: translate3d(-4%, 5%, 0) scale(0.95);
+    opacity: 0.5;
+  }
+}
+@keyframes vkm-float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-6px);
+  }
+}
+@keyframes vkm-glow-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 oklch(0.71 0.135 85 / 0.35);
+  }
+  50% {
+    box-shadow: 0 0 0 8px oklch(0.71 0.135 85 / 0);
+  }
+}
+@keyframes vkm-spin-slow {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@keyframes vkm-beam {
+  0% {
+    transform: translateX(-100%) skewX(-12deg);
+    opacity: 0;
+  }
+  20% {
+    opacity: 0.6;
+  }
+  100% {
+    transform: translateX(220%) skewX(-12deg);
+    opacity: 0;
+  }
+}
+@keyframes vkm-marquee {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+@keyframes vkm-blink {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.3;
+  }
+}
+
+@utility animate-shimmer {
+  animation: vkm-shimmer 2.2s ease-in-out infinite;
+}
+@utility animate-gradient-x {
+  animation: vkm-gradient-x 6s ease-in-out infinite;
+  background-size: 200% 100%;
+}
+@utility animate-aurora {
+  animation: vkm-aurora 14s ease-in-out infinite;
+}
+@utility animate-float {
+  animation: vkm-float 5s ease-in-out infinite;
+}
+@utility animate-glow-pulse {
+  animation: vkm-glow-pulse 2.2s ease-out infinite;
+}
+@utility animate-spin-slow {
+  animation: vkm-spin-slow 12s linear infinite;
+}
+@utility animate-beam {
+  animation: vkm-beam 3s ease-in-out infinite;
+}
+@utility animate-marquee {
+  animation: vkm-marquee 28s linear infinite;
+}
+@utility animate-blink {
+  animation: vkm-blink 1.6s ease-in-out infinite;
+}
+
+/* ============ Snappy clicks — sitewide press feedback ============ */
+@layer base {
+  /* Tighter default transition timing on all interactive surfaces */
+  button,
+  a,
+  [role="button"],
+  [role="tab"],
+  [role="menuitem"],
+  [role="option"],
+  [data-slot="button"],
+  summary,
+  label[for],
+  input[type="checkbox"],
+  input[type="radio"],
+  input[type="submit"],
+  input[type="button"] {
+    transition-duration: 120ms;
+    transition-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+  }
+
+  /* Sharp press: quick scale-down + brightness dip, instant on press */
+  button:not(:disabled):active,
+  a:active,
+  [role="button"]:not([aria-disabled="true"]):active,
+  [role="tab"]:active,
+  [role="menuitem"]:active,
+  [data-slot="button"]:not(:disabled):active,
+  input[type="submit"]:not(:disabled):active,
+  input[type="button"]:not(:disabled):active {
+    transform: scale(0.97);
+    filter: brightness(0.96);
+    transition-duration: 60ms;
+  }
+
+  /* Focus ring snaps in fast, not over time */
+  *:focus-visible {
+    transition-duration: 0ms !important;
+  }
+}
+
+/* ============ Native-app feel (PWA standalone) ============ */
+@layer base {
+  html,
+  body {
+    /* Prevent iOS rubber-band/pull-to-refresh & overscroll chaining */
+    overscroll-behavior-y: none;
+    -webkit-overflow-scrolling: touch;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+  body {
+    /* Disable callout & long-press menu on chrome */
+    -webkit-touch-callout: none;
+  }
+  /* Re-enable text selection inside actual content */
+  p,
+  span,
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6,
+  li,
+  td,
+  th,
+  input,
+  textarea,
+  [contenteditable="true"],
+  .allow-select {
+    -webkit-user-select: text;
+    user-select: text;
+  }
+  /* Buttons/nav/icons should feel like native taps — no selection */
+  button,
+  a,
+  nav,
+  header,
+  aside,
+  [role="button"],
+  [role="tab"],
+  [role="menuitem"] {
+    -webkit-user-select: none;
+    user-select: none;
+  }
+  /* Smooth momentum scrolling for any internal scroll container */
+  .native-scroll {
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+  }
+}
+
+/* Safe-area utilities */
+@utility pt-safe {
+  padding-top: max(env(safe-area-inset-top), 0px);
+}
+@utility pb-safe {
+  padding-bottom: max(env(safe-area-inset-bottom), 0px);
+}
+@utility pl-safe {
+  padding-left: max(env(safe-area-inset-left), 0px);
+}
+@utility pr-safe {
+  padding-right: max(env(safe-area-inset-right), 0px);
+}
+@utility mt-safe {
+  margin-top: max(env(safe-area-inset-top), 0px);
+}
+@utility mb-safe {
+  margin-bottom: max(env(safe-area-inset-bottom), 0px);
+}
+@utility h-screen-mobile {
+  height: 100svh;
+}
+@utility min-h-screen-mobile {
+  min-height: 100svh;
+}
+
+/* ============ Mobile ergonomics ============ */
+@layer base {
+  /* Prevent a stray-wide element from causing horizontal scroll WITHOUT making
+     html/body a scroll container (overflow on the root can break vertical
+     scrolling). `clip` never establishes a scroll container and never touches
+     the vertical axis, and it doesn't clip position:fixed descendants. */
+  [data-app-root] {
+    max-width: 100%;
+    overflow-x: clip;
+  }
+}
+
+/* iOS zooms the viewport when focusing an input < 16px — pin to 16px on phones
+   so focusing the chat box / forms feels native (no jump-zoom). */
+@media (max-width: 640px) {
+  input:not([type="checkbox"]):not([type="radio"]),
+  textarea,
+  select {
+    font-size: 16px;
+  }
+}
+
+/* Comfortable minimum hit area for icon-only controls on touch devices */
+@media (pointer: coarse) {
+  .tap-target {
+    min-height: 44px;
+    min-width: 44px;
+  }
+}
+
+/* When running as installed PWA, behave like an app.
+   IMPORTANT: use natural document scrolling. A fixed body + inner scroller
+   breaks vertical scrolling because the app shell is a flex row (content gets
+   clipped to one screen height). We only tame overscroll/rubber-band here. */
+@media (display-mode: standalone) {
+  html,
+  body {
+    overscroll-behavior-y: none;
+  }
+}
+
+/* ============ Print — clean single-element report ============ */
+@media print {
+  @page {
+    margin: 14mm;
+  }
+  body * {
+    visibility: hidden;
+  }
+  [data-print-report],
+  [data-print-report] * {
+    visibility: visible;
+  }
+  [data-print-report] {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+  }
+  /* Render brand colours/backgrounds (navy header, gold badges) in the PDF. */
+  [data-print-report] {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  /* Keep each card whole across page breaks. */
+  [data-print-report] section,
+  [data-print-report] .hover-lift {
+    break-inside: avoid;
+  }
+  /* Strip interactive controls — they aren't part of a static report. */
+  [data-print-report] input,
+  [data-print-report] textarea,
+  [data-print-report] [data-no-print] {
+    display: none !important;
+  }
+  .no-print {
+    display: none !important;
+  }
+}
+
+/* ============ Water tracker waves ============ */
+@keyframes wm-wave {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+.water-wave {
+  animation: wm-wave var(--wm-dur, 2.6s) linear infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .water-wave {
+    animation: none;
+  }
+}
+
+/* ============ Native app feel (touch / PWA) ============ */
+/* #6 — stop overscroll bounce / white-page bleed */
+html,
+body {
+  overscroll-behavior: none;
+}
+
+[data-app-root] {
+  /* #5 — kill the grey tap flash + iOS long-press callout on UI chrome */
+  -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: none;
+}
+
+/* #4 — UI chrome isn't selectable; content (chat/notes/inputs) stays selectable */
+@media (pointer: coarse) {
+  [data-app-root] button,
+  [data-app-root] a,
+  [data-app-root] [role="button"],
+  [data-app-root] label {
+    -webkit-user-select: none;
+    user-select: none;
+  }
+  [data-app-root] input,
+  [data-app-root] textarea,
+  [data-app-root] [contenteditable="true"],
+  [data-app-root] [data-selectable],
+  [data-app-root] [data-selectable] * {
+    -webkit-user-select: text;
+    user-select: text;
+  }
+}
+
+/* #23 — press states on tappable surfaces */
+@media (pointer: coarse) {
+  .app-press {
+    transition:
+      transform 0.12s cubic-bezier(0.34, 1.56, 0.64, 1),
+      opacity 0.12s ease;
+  }
+  .app-press:active {
+    transform: scale(0.97);
+  }
+}
+
+/* #8 — safe-area helper for floating chrome */
+.pb-safe-nav {
+  padding-bottom: max(env(safe-area-inset-bottom), 0px);
+}
