@@ -5,6 +5,8 @@ import tailwindcss from "@tailwindcss/vite";
 import tsConfigPaths from "vite-tsconfig-paths";
 import { nitro } from "nitro/vite";
 
+import { cloudflare } from "@cloudflare/vite-plugin";
+
 export default defineConfig(({ mode }) => {
   // Mirror Vite's import.meta.env injection for VITE_-prefixed vars so the SSR
   // and client builds agree on the same values.
@@ -59,10 +61,12 @@ export default defineConfig(({ mode }) => {
         // plain static files (e.g. cPanel public_html) — the client router takes over.
         spa: { enabled: true },
       }),
-      // Static Node preset; the prerendered client + index.html land in
-      // .output/public, which is what you upload to cPanel's public_html.
-      nitro({ preset: "node-server" }),
       viteReact(),
+      cloudflare({
+        viteEnvironment: {
+          name: "ssr"
+        }
+      }),
     ],
   };
 });
