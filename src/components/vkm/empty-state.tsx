@@ -50,23 +50,27 @@ export function EmptyState({
         className="pointer-events-none absolute inset-x-0 -bottom-24 mx-auto h-48 w-48 rounded-full bg-gradient-navy opacity-10 blur-3xl"
       />
 
-      {/* Icon medallion */}
-      <div className="relative mx-auto mb-5 inline-flex">
-        <motion.span
-          animate={{ scale: [1, 1.06, 1], opacity: [0.55, 0.85, 0.55] }}
-          transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
-          className="absolute inset-0 -m-3 rounded-3xl bg-gradient-gold opacity-30 blur-xl"
-        />
-        <span className="relative inline-flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-navy text-primary-foreground shadow-vkm-float ring-1 ring-white/15">
-          <Icon className="h-7 w-7" />
-          <Sparkles className="absolute -right-1.5 -top-1.5 h-4 w-4 text-gold drop-shadow animate-glow-pulse" />
+      {/* Icon medallion — own centered row so the eyebrow sits below it */}
+      <div className="mb-5 flex justify-center">
+        <span className="relative inline-flex">
+          <motion.span
+            animate={{ scale: [1, 1.06, 1], opacity: [0.55, 0.85, 0.55] }}
+            transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
+            className="pointer-events-none absolute inset-0 -m-3 rounded-3xl bg-gradient-gold opacity-30 blur-xl"
+          />
+          <span className="relative inline-flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-navy text-primary-foreground shadow-vkm-float ring-1 ring-white/15">
+            <Icon className="h-7 w-7" />
+            <span className="absolute -right-2 -top-2 inline-flex h-6 w-6 items-center justify-center rounded-full border border-gold/30 bg-card shadow-vkm">
+              <Sparkles className="h-3.5 w-3.5 text-gold animate-glow-pulse" />
+            </span>
+          </span>
         </span>
       </div>
 
-      <p className="inline-flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.18em] text-gold">
+      <div className="flex items-center justify-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.18em] text-gold">
         <span className="inline-block h-1.5 w-1.5 rounded-full bg-gold animate-blink shadow-gold-glow" />
         {eyebrow}
-      </p>
+      </div>
       <h3 className="mt-2 text-xl font-semibold tracking-tight text-foreground md:text-2xl">
         {title}
       </h3>
