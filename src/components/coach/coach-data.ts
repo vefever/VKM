@@ -598,3 +598,86 @@ export function useCoachPerformance() {
 
   return { stats, loading, error };
 }
+
+// ---------------------------------------------------------------------------
+// COACH — proof review history (approved + rejected, filterable by batch/user)
+// ---------------------------------------------------------------------------
+export type HistoryProof = {
+  id: string;
+  user_id: string;
+  name: string;
+  avatar_url: string | null;
+  week_no: number;
+  proof_status: "approved" | "rejected";
+  proof_url: string | null;
+  proof_files: Attachment[];
+  proof_note: string | null;
+  coach_note: string | null;
+  reviewed_at: string | null;
+  attended: boolean;
+  points: number;
+  batch_id: string | null;
+  batch_name: string | null;
+  created_at: string;
+};
+
+export function useProofHistory() {
+  const [items, setItems] = useState<HistoryProof[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const load = useCallback(async () => {
+    const { data } = await supabase
+      .from("weekly_progress")
+      .select(
+        "id, user_id, week_no, proof_status, proof_url, proof_files, proof_note, coach_note, reviewed_at, attended, points, batch_id, created_at",
+      )
+      .in("proof_status", ["approved", "rejected"])
+      .order("reviewed_at", { ascending: false });
+
+    const rows = data ?? [];
+    const userIds = [...new Set(rows.map((r) => r.user_id))];
+    const batchIds = [...new Set(rows.map((r) => r.batch_id).filter(Boolean))] as string[];
+
+    const [display, batchRes] = await Promise.all([
+      profilesDisplayFor(userIds),
+      batchIds.length > 0
+        ? supabase.from("batches").select("id, name").in("id", batchIds)
+        : Promise.resolve({ data: [] as { id: string; name: string }[] }),
+    ]);
+
+    const batchMap: Record<string, string> = {};
+    ((batchRes as { data: { id: string; name: string }[] | null }).data ?? []).forEach((b) => {
+      batchMap[b.id] = b.name;
+    });
+
+    setItems(
+      rows.map((r) => {
+        const prof = display.get(r.user_id);
+        return {
+          ...r,
+          proof_files: (r.proof_files ?? []) as Attachment[],
+          proof_status: r.proof_status as "approved" | "rejected",
+          name: prof?.name ?? "Participant",
+          avatar_url: prof?.avatar ?? null,
+          batch_name: r.batch_id ? (batchMap[r.batch_id] ?? null) : null,
+        };
+      }),
+    );
+    setLoading(false);
+  }, []);
+
+  useEffect(() => {
+    void load().catch(() => setLoading(false));
+    const ch = supabase
+      .channel("proof_history")
+      .on("postgres_changes", { event: "*", schema: "public", table: "weekly_progress" }, () =>
+        load(),
+      )
+      .subscribe();
+    return () => {
+      supabase.removeChannel(ch);
+    };
+  }, [load]);
+
+  return { items, loading };
+}

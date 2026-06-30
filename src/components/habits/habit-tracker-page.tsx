@@ -826,17 +826,23 @@ function HabitProofModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 p-0 sm:items-center sm:p-4"
+      className="fixed inset-0 z-[80] flex items-end justify-center bg-black/60 backdrop-blur-sm sm:items-center sm:p-4"
       onClick={onClose}
     >
       <motion.div
-        initial={{ opacity: 0, y: 24 }}
-        animate={{ opacity: 1, y: 0 }}
-        exit={{ opacity: 0, y: 24 }}
+        initial={{ y: "100%" }}
+        animate={{ y: 0 }}
+        exit={{ y: "100%" }}
+        transition={{ type: "spring", stiffness: 380, damping: 38 }}
         onClick={(e) => e.stopPropagation()}
-        className="w-full max-w-md overflow-hidden rounded-t-3xl bg-card shadow-vkm-float sm:rounded-3xl"
+        className="flex max-h-[88dvh] w-full max-w-md flex-col overflow-hidden rounded-t-3xl bg-card shadow-vkm-float sm:max-h-[85vh] sm:rounded-3xl"
       >
-        <div className="flex items-center gap-3 border-b border-border p-4">
+        {/* Grab handle — native bottom-sheet feel on mobile */}
+        <div className="flex shrink-0 justify-center pt-2.5 sm:hidden">
+          <span className="h-1.5 w-10 rounded-full bg-muted-foreground/25" />
+        </div>
+
+        <div className="flex shrink-0 items-center gap-3 border-b border-border p-4">
           <span
             className="inline-flex h-10 w-10 items-center justify-center rounded-xl text-white"
             style={{ background: `linear-gradient(135deg, ${habit.from}, ${habit.to})` }}
@@ -856,7 +862,7 @@ function HabitProofModal({
           </button>
         </div>
 
-        <div className="space-y-3 p-4">
+        <div className="flex-1 space-y-3 overflow-y-auto p-4 pb-[calc(env(safe-area-inset-bottom)+1rem)]">
           {doneToday ? (
             <>
               <p className="inline-flex items-center gap-1.5 text-sm font-medium text-[oklch(0.45_0.13_160)]">

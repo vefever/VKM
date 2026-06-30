@@ -1,170 +1,125 @@
 import { useEffect, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import { X, Loader2, AlertTriangle, Video, ExternalLink } from "lucide-react";
-import { getZoomSignature } from "@/components/meetings/meetings-data";
-import { installZoomReactShim } from "@/components/meetings/zoom-react-shim";
-
-type Status = "connecting" | "joined" | "error";
+import { supabase } from "@/integrations/supabase/client";
+import { safeHref } from "@/lib/safe-url";
 
 /**
- * In-app Zoom meeting using the Meeting SDK (Component View) — runs inside the
- * app, no redirect. The signature is minted server-side by the `zoom` edge fn.
- * The SDK is dynamically imported so it never touches the server bundle.
+ * Join launcher — opens the Zoom meeting in the Zoom app / Zoom web client.
  *
- * Mobile/PWA: the Component View canvas is sized to the live viewport (not a
- * fixed desktop size), the overlay respects safe-area insets, and an
- * "Open in Zoom app" fallback is always available for devices where the web
- * Meeting SDK can't run a full call.
+ * We deliberately do NOT embed the Zoom Meeting SDK (Component View): it's built
+ * for React 18 and crashes on React 19 ("ReactCurrentOwner"). Opening the join
+ * URL works reliably on every device — desktop and mobile — with no SDK.
+ *
+ * Props are kept compatible with the previous in-app modal so call sites are
+ * unchanged. `userName` is accepted but unused.
  */
 export function ZoomMeetingModal({
   meetingId,
   topic,
-  userName,
   joinUrl,
   onClose,
 }: {
   meetingId: string;
   topic: string;
-  userName: string;
+  userName?: string;
   joinUrl?: string | null;
   onClose: () => void;
 }) {
-  const rootRef = useRef<HTMLDivElement>(null);
-  const clientRef = useRef<{ leave: () => void } | null>(null);
-  const destroyRef = useRef<(() => void) | null>(null);
-  const [status, setStatus] = useState<Status>("connecting");
+  const [url, setUrl] = useState<string | null>(safeHref(joinUrl ?? undefined) ?? null);
+  const [loading, setLoading] = useState(!joinUrl);
   const [error, setError] = useState("");
+  const opened = useRef(false);
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      try {
-        const info = await getZoomSignature(meetingId);
-        if (cancelled || !rootRef.current) return;
-        // Patch React-18 internals the SDK expects before loading it (React 19 compat).
-        installZoomReactShim();
-        const { default: ZoomMtgEmbedded } = await import("@zoom/meetingsdk/embedded");
-        const client = ZoomMtgEmbedded.createClient();
-        clientRef.current = client as unknown as { leave: () => void };
-        destroyRef.current = () => ZoomMtgEmbedded.destroyClient();
-
-        // Fit the meeting canvas to the actual screen (minus the header bar).
-        const vw = Math.max(320, Math.floor(window.innerWidth));
-        const vh = Math.max(400, Math.floor(window.innerHeight));
-        const size = { width: vw, height: Math.max(320, vh - 56) };
-
-        await client.init({
-          zoomAppRoot: rootRef.current,
-          language: "en-US",
-          patchJsMedia: true,
-          customize: {
-            video: {
-              isResizable: true,
-              viewSizes: { default: size, ribbon: size },
-            },
-          },
-        });
-        await client.join({
-          signature: info.signature,
-          sdkKey: info.sdkKey,
-          meetingNumber: info.meetingNumber,
-          password: info.password,
-          userName,
-        });
-        if (!cancelled) setStatus("joined");
-      } catch (e) {
-        if (!cancelled) {
-          setError((e as Error).message || "Could not start the meeting");
-          setStatus("error");
+      let target = safeHref(joinUrl ?? undefined) ?? null;
+      // Some flows (e.g. just-created meetings) don't carry the link — look it up.
+      if (!target && meetingId) {
+        const { data } = await supabase
+          .from("meetings")
+          .select("join_url")
+          .eq("id", meetingId)
+          .maybeSingle();
+        target = safeHref(data?.join_url ?? undefined) ?? null;
+      }
+      if (cancelled) return;
+      if (!target) {
+        setError("This meeting doesn't have a Zoom link yet. Ask your coach to (re)create it.");
+        setLoading(false);
+        return;
+      }
+      setUrl(target);
+      setLoading(false);
+      // Best-effort auto-open in a new tab (may be blocked by the browser — the
+      // button below is the reliable, gesture-driven fallback).
+      if (!opened.current) {
+        opened.current = true;
+        try {
+          window.open(target, "_blank", "noopener,noreferrer");
+        } catch {
+          /* popup blocked — user taps the button */
         }
       }
     })();
-
     return () => {
       cancelled = true;
-      try {
-        clientRef.current?.leave();
-        destroyRef.current?.();
-      } catch {
-        /* already torn down */
-      }
     };
-  }, [meetingId, userName]);
+  }, [meetingId, joinUrl]);
 
   return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      style={{ height: "100dvh" }}
-      className="fixed inset-0 z-[70] flex flex-col overflow-hidden bg-black/95 pt-safe"
+    <div
+      className="fixed inset-0 z-[80] flex items-end justify-center bg-black/60 backdrop-blur-sm sm:items-center sm:p-4"
+      onClick={onClose}
     >
-      {/* Header */}
-      <div className="flex h-14 shrink-0 items-center justify-between gap-2 px-3 sm:px-4">
-        <p className="flex min-w-0 items-center gap-2 text-sm font-medium text-white">
-          <Video className="h-4 w-4 shrink-0" /> <span className="truncate">{topic}</span>
-        </p>
-        <div className="flex shrink-0 items-center gap-2">
-          {joinUrl && (
+      <motion.div
+        initial={{ y: "100%" }}
+        animate={{ y: 0 }}
+        exit={{ y: "100%" }}
+        transition={{ type: "spring", stiffness: 380, damping: 38 }}
+        onClick={(e) => e.stopPropagation()}
+        className="w-full max-w-md rounded-t-3xl bg-card p-6 pb-[calc(env(safe-area-inset-bottom)+1.25rem)] text-center shadow-vkm-float sm:rounded-3xl"
+      >
+        <div className="mx-auto mb-4 inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-[#2D8CFF]/15 text-[#2D8CFF]">
+          <Video className="h-7 w-7" />
+        </div>
+        <h3 className="text-lg font-semibold text-foreground">Join “{topic}”</h3>
+
+        {loading ? (
+          <p className="mt-2 flex items-center justify-center gap-2 text-sm text-muted-foreground">
+            <Loader2 className="h-4 w-4 animate-spin" /> Preparing your meeting…
+          </p>
+        ) : error ? (
+          <p className="mx-auto mt-2 flex max-w-xs items-center justify-center gap-1.5 text-sm text-muted-foreground">
+            <AlertTriangle className="h-4 w-4 shrink-0 text-amber-500" /> {error}
+          </p>
+        ) : (
+          <p className="mx-auto mt-2 max-w-xs text-sm text-muted-foreground">
+            Your meeting is opening in Zoom. If it didn't open automatically, tap below.
+          </p>
+        )}
+
+        <div className="mt-5 flex flex-col gap-2">
+          {url && (
             <a
-              href={joinUrl}
+              href={url}
               target="_blank"
-              rel="noreferrer"
-              className="inline-flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1.5 text-xs font-medium text-white hover:bg-white/20"
+              rel="noopener noreferrer"
+              onClick={() => setTimeout(onClose, 400)}
+              className="inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-[#2D8CFF] text-sm font-semibold text-white hover:bg-[#2D8CFF]/90"
             >
-              <ExternalLink className="h-3.5 w-3.5" />
-              <span className="hidden sm:inline">Open in Zoom</span>
+              <ExternalLink className="h-4 w-4" /> Open meeting in Zoom
             </a>
           )}
           <button
             onClick={onClose}
-            className="app-press inline-flex h-9 w-9 items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/20"
-            aria-label="Leave meeting"
+            className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-secondary text-sm font-medium text-foreground hover:bg-secondary/70"
           >
-            <X className="h-4 w-4" />
+            <X className="h-4 w-4" /> Close
           </button>
         </div>
-      </div>
-
-      {/* Meeting canvas */}
-      <div className="relative min-h-0 flex-1">
-        <div ref={rootRef} className="flex h-full w-full items-center justify-center" />
-
-        {status === "connecting" && (
-          <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-3 text-white/80">
-            <Loader2 className="h-7 w-7 animate-spin" />
-            <p className="text-sm">Connecting to your Zoom meeting…</p>
-          </div>
-        )}
-
-        {status === "error" && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 px-6 text-center text-white/90">
-            <AlertTriangle className="h-8 w-8 text-amber-400" />
-            <p className="max-w-md text-sm">{error}</p>
-            <p className="max-w-xs text-xs text-white/60">
-              Some mobile browsers can’t run the in-app call. You can join in the Zoom app instead.
-            </p>
-            <div className="mt-1 flex flex-wrap items-center justify-center gap-2">
-              {joinUrl && (
-                <a
-                  href={joinUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="inline-flex items-center gap-1.5 rounded-full bg-[#2D8CFF] px-4 py-2 text-sm font-medium text-white hover:bg-[#2D8CFF]/90"
-                >
-                  <ExternalLink className="h-4 w-4" /> Open in Zoom app
-                </a>
-              )}
-              <button
-                onClick={onClose}
-                className="rounded-full bg-white/10 px-4 py-2 text-sm hover:bg-white/20"
-              >
-                Close
-              </button>
-            </div>
-          </div>
-        )}
-      </div>
-    </motion.div>
+      </motion.div>
+    </div>
   );
 }

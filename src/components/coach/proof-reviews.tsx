@@ -17,6 +17,9 @@ import {
   User,
   Clock,
   MessageSquare,
+  History,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/vkm/page-header";
@@ -30,8 +33,10 @@ import { weekByNumber } from "@/lib/vkm/program";
 import {
   useProofQueue,
   useHabitProofFeed,
+  useProofHistory,
   type PendingProof,
   type HabitProofItem,
+  type HistoryProof,
 } from "@/components/coach/coach-data";
 import { ProofAttachments } from "@/components/participant/proof-attachments";
 import { AvatarBadge } from "@/components/vkm/avatar-badge";
@@ -47,12 +52,13 @@ const REJECT_NOTES = [
   "Add a short note explaining what you did.",
 ];
 
-type Tab = "weekly" | "habits" | "business";
+type Tab = "weekly" | "habits" | "business" | "history";
 type Sort = "oldest" | "newest" | "week";
 
 export function ProofReviews() {
   const { items, loading, error, review, requestChanges, unreview, reload } = useProofQueue();
   const habitFeed = useHabitProofFeed();
+  const historyData = useProofHistory();
   const [tab, setTab] = useState<Tab>("weekly");
 
   const oldestDays = items.length
@@ -66,6 +72,7 @@ export function ProofReviews() {
     { id: "weekly", label: "Weekly proofs", count: items.length },
     { id: "habits", label: "Habit proofs", count: habitFeed.items.length },
     { id: "business", label: "Business numbers" },
+    { id: "history", label: "History", count: historyData.items.length },
   ];
 
   return (
@@ -140,6 +147,7 @@ export function ProofReviews() {
       )}
       {tab === "habits" && <HabitFeed feed={habitFeed} />}
       {tab === "business" && <SnapshotReviewQueue />}
+      {tab === "history" && <ProofHistoryTab data={historyData} />}
     </motion.div>
   );
 }
@@ -613,6 +621,329 @@ function HabitProofRow({ item }: { item: HabitProofItem }) {
         </div>
       </div>
       <ProofAttachments files={item.files} />
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Proof review history — batch-wise and user-wise filtering
+// ---------------------------------------------------------------------------
+function ProofHistoryTab({ data }: { data: ReturnType<typeof useProofHistory> }) {
+  const { items, loading } = data;
+  const [batchFilter, setBatchFilter] = useState<string>("__all__");
+  const [userFilter, setUserFilter] = useState<string>("__all__");
+  const [statusFilter, setStatusFilter] = useState<"all" | "approved" | "rejected">("all");
+  const [q, setQ] = useState("");
+
+  // Derive unique batches and participants from loaded data
+  const batches = useMemo(() => {
+    const map = new Map<string, string>();
+    items.forEach((i) => {
+      const key = i.batch_id ?? "__none__";
+      if (!map.has(key)) map.set(key, i.batch_name ?? "No batch");
+    });
+    return [...map.entries()].sort((a, b) => a[1].localeCompare(b[1]));
+  }, [items]);
+
+  const participants = useMemo(() => {
+    const map = new Map<string, string>();
+    items
+      .filter((i) => batchFilter === "__all__" || (i.batch_id ?? "__none__") === batchFilter)
+      .forEach((i) => {
+        if (!map.has(i.user_id)) map.set(i.user_id, i.name);
+      });
+    return [...map.entries()].sort((a, b) => a[1].localeCompare(b[1]));
+  }, [items, batchFilter]);
+
+  // Reset user filter when batch changes
+  const handleBatchFilter = (v: string) => {
+    setBatchFilter(v);
+    setUserFilter("__all__");
+  };
+
+  const visible = useMemo(() => {
+    return items.filter((i) => {
+      if (batchFilter !== "__all__" && (i.batch_id ?? "__none__") !== batchFilter) return false;
+      if (userFilter !== "__all__" && i.user_id !== userFilter) return false;
+      if (statusFilter !== "all" && i.proof_status !== statusFilter) return false;
+      if (q.trim() && !i.name.toLowerCase().includes(q.toLowerCase())) return false;
+      return true;
+    });
+  }, [items, batchFilter, userFilter, statusFilter, q]);
+
+  if (loading) {
+    return (
+      <div className="flex items-center gap-2 py-8 text-sm text-muted-foreground">
+        <Loader2 className="h-4 w-4 animate-spin" /> Loading history…
+      </div>
+    );
+  }
+
+  if (items.length === 0) {
+    return (
+      <EmptyState
+        icon={History}
+        eyebrow="No history yet"
+        title="No reviewed proofs"
+        description="Approved and rejected proofs will appear here once you start reviewing."
+      />
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      {/* Filters */}
+      <div className="flex flex-wrap items-center gap-2">
+        {/* Name search */}
+        <div className="relative min-w-[160px] flex-1 sm:max-w-xs">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            placeholder="Search participant…"
+            className="h-9 rounded-lg pl-9"
+          />
+        </div>
+
+        {/* Status toggle */}
+        <div className="flex items-center rounded-lg border border-border bg-card p-0.5">
+          {(["all", "approved", "rejected"] as const).map((s) => (
+            <button
+              key={s}
+              type="button"
+              onClick={() => setStatusFilter(s)}
+              className={cn(
+                "rounded-md px-3 py-1 text-xs font-medium capitalize transition-colors",
+                statusFilter === s
+                  ? s === "approved"
+                    ? "bg-[#10b981] text-white"
+                    : s === "rejected"
+                      ? "bg-destructive text-white"
+                      : "bg-gradient-navy text-primary-foreground"
+                  : "text-muted-foreground hover:text-foreground",
+              )}
+            >
+              {s}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Batch pills */}
+      {batches.length > 0 && (
+        <div className="flex flex-wrap gap-1.5">
+          <button
+            type="button"
+            onClick={() => handleBatchFilter("__all__")}
+            className={cn(
+              "rounded-full px-3 py-1 text-xs font-medium transition-colors",
+              batchFilter === "__all__"
+                ? "bg-gradient-navy text-primary-foreground shadow-vkm"
+                : "bg-secondary/60 text-muted-foreground hover:text-foreground",
+            )}
+          >
+            All batches
+          </button>
+          {batches.map(([id, name]) => (
+            <button
+              key={id}
+              type="button"
+              onClick={() => handleBatchFilter(id)}
+              className={cn(
+                "rounded-full px-3 py-1 text-xs font-medium transition-colors",
+                batchFilter === id
+                  ? "bg-gradient-navy text-primary-foreground shadow-vkm"
+                  : "bg-secondary/60 text-muted-foreground hover:text-foreground",
+              )}
+            >
+              {name}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* Participant pills (only when a batch is selected, or always if few) */}
+      {participants.length > 1 && (
+        <div className="flex flex-wrap gap-1.5">
+          <button
+            type="button"
+            onClick={() => setUserFilter("__all__")}
+            className={cn(
+              "rounded-full px-3 py-1 text-xs font-medium transition-colors",
+              userFilter === "__all__"
+                ? "bg-gold/20 text-[oklch(0.42_0.1_85)] ring-1 ring-gold/40"
+                : "bg-secondary/40 text-muted-foreground hover:text-foreground",
+            )}
+          >
+            All participants
+          </button>
+          {participants.map(([id, name]) => (
+            <button
+              key={id}
+              type="button"
+              onClick={() => setUserFilter(id)}
+              className={cn(
+                "rounded-full px-3 py-1 text-xs font-medium transition-colors",
+                userFilter === id
+                  ? "bg-gold/20 text-[oklch(0.42_0.1_85)] ring-1 ring-gold/40"
+                  : "bg-secondary/40 text-muted-foreground hover:text-foreground",
+              )}
+            >
+              {name}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* Summary line */}
+      <p className="text-xs text-muted-foreground">
+        {visible.length} {visible.length === 1 ? "entry" : "entries"}
+        {visible.length !== items.length && ` of ${items.length} total`}
+      </p>
+
+      {visible.length === 0 ? (
+        <p className="py-8 text-center text-sm text-muted-foreground">
+          No proofs match the selected filters.
+        </p>
+      ) : (
+        <div className="space-y-2">
+          {visible.map((item) => (
+            <HistoryCard key={item.id} item={item} />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function HistoryCard({ item }: { item: HistoryProof }) {
+  const [expanded, setExpanded] = useState(false);
+  const week = weekByNumber(item.week_no);
+  const approved = item.proof_status === "approved";
+  const hasDetail =
+    !!item.proof_note || !!item.coach_note || !!item.proof_url || item.proof_files.length > 0;
+
+  return (
+    <div
+      className={cn(
+        "rounded-2xl border bg-card transition-shadow hover:shadow-vkm",
+        approved ? "border-[#10b981]/25" : "border-destructive/20",
+      )}
+    >
+      {/* Header row — always visible */}
+      <div className="flex items-center gap-3 px-4 py-3">
+        <AvatarBadge name={item.name} size="md" />
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-1.5">
+            <Link
+              to="/coach/participant/$userId"
+              params={{ userId: item.user_id }}
+              className="truncate text-sm font-semibold text-foreground hover:underline"
+            >
+              {item.name}
+            </Link>
+            {item.batch_name && (
+              <span className="rounded-full bg-secondary px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
+                {item.batch_name}
+              </span>
+            )}
+            <span className="rounded-full bg-secondary/60 px-2 py-0.5 text-[11px] text-muted-foreground">
+              Week {item.week_no}{week ? ` · ${week.topic}` : ""}
+            </span>
+          </div>
+          <div className="mt-0.5 flex flex-wrap items-center gap-2">
+            {/* Status badge */}
+            <span
+              className={cn(
+                "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold",
+                approved
+                  ? "bg-[#10b981]/12 text-[#059669]"
+                  : "bg-destructive/10 text-destructive",
+              )}
+            >
+              {approved ? <Check className="h-3 w-3" /> : <X className="h-3 w-3" />}
+              {approved ? "Approved" : "Rejected"}
+            </span>
+            {item.reviewed_at && (
+              <span className="text-[11px] text-muted-foreground">
+                {formatDistanceToNowStrict(new Date(item.reviewed_at), { addSuffix: true })}
+              </span>
+            )}
+            {approved && item.points > 0 && (
+              <span className="text-[11px] font-medium text-[oklch(0.42_0.1_85)]">
+                +{item.points} pts
+              </span>
+            )}
+          </div>
+        </div>
+        {/* Expand toggle */}
+        {hasDetail && (
+          <button
+            type="button"
+            onClick={() => setExpanded((v) => !v)}
+            className="ml-auto shrink-0 rounded-lg p-1.5 text-muted-foreground hover:bg-secondary/60 hover:text-foreground"
+            aria-label={expanded ? "Collapse" : "Expand"}
+          >
+            {expanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+          </button>
+        )}
+      </div>
+
+      {/* Expandable detail */}
+      <AnimatePresence initial={false}>
+        {expanded && hasDetail && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="overflow-hidden"
+          >
+            <div className="space-y-2 border-t border-border px-4 pb-4 pt-3">
+              {item.proof_note && (
+                <div>
+                  <p className="mb-1 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+                    Participant note
+                  </p>
+                  <p className="rounded-xl bg-secondary/60 px-3 py-2 text-sm text-foreground">
+                    "{item.proof_note}"
+                  </p>
+                </div>
+              )}
+              {item.coach_note && (
+                <div>
+                  <p className="mb-1 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+                    Coach feedback
+                  </p>
+                  <p
+                    className={cn(
+                      "rounded-xl px-3 py-2 text-sm",
+                      approved
+                        ? "bg-[#10b981]/8 text-foreground"
+                        : "bg-destructive/8 text-foreground",
+                    )}
+                  >
+                    {item.coach_note}
+                  </p>
+                </div>
+              )}
+              {safeHref(item.proof_url) && (
+                <a
+                  href={safeHref(item.proof_url)}
+                  target="_blank"
+                  rel="noopener noreferrer nofollow"
+                  className="inline-flex items-center gap-1.5 text-sm font-medium text-[#3b6fb0] hover:underline"
+                >
+                  <ExternalLink className="h-4 w-4" /> Open proof link
+                </a>
+              )}
+              {item.proof_files.length > 0 && (
+                <ProofAttachments files={item.proof_files} />
+              )}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
