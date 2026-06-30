@@ -15,6 +15,15 @@
     "SUPABASE_PROJECT_ID": "ehsbzxrekrhmmpvbxlfv",
     "VITE_SUPABASE_URL": "https://ehsbzxrekrhmmpvbxlfv.supabase.co",
     "VITE_SUPABASE_PUBLISHABLE_KEY": "sb_publishable_IoF8xSRS0zdq9lJhM3evzQ_qvJr9_KH",
-    "VITE_SUPABASE_PROJECT_ID": "ehsbzxrekrhmmpvbxlfv"
+    "VITE_SUPABASE_PROJECT_ID": "ehsbzxrekrhmmpvbxlfv",
+    // AI Business Advisor provider. Lets the advisor work without the DB/service
+    // role. The admin panel (Admin → AI Configurations) still overrides this when
+    // the worker can read the DB. NOTE: AI_API_KEY here is committed — rotate it
+    // and prefer `wrangler secret put AI_API_KEY` for a real deployment.
+    "AI_PROVIDER": "anthropic",
+    "AI_BASE_URL": "https://opus.abhibots.com/v1",
+    "AI_MODEL": "claude-sonnet-4-6",
+    "AI_MAX_TOKENS": "512",
+    "AI_API_KEY": "ak-khIDHxCgsmMapxNTsr7uiT5GGCatF3V9"
   }
 }
