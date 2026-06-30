@@ -352,7 +352,10 @@ Deno.serve(async (req) => {
         return json({ ok: true }, 200, cors);
       }
     } catch (e) {
-      return json({ ok: false, error: String((e as Error).message) }, 500, cors);
+      // Return 200 so supabase.functions.invoke doesn't mask this behind a
+      // generic "non-2xx" error — the admin needs the real provider message
+      // (e.g. MailerSend domain/recipient validation) to fix their setup.
+      return json({ ok: false, error: String((e as Error).message) }, 200, cors);
     }
 
     return json({ ok: false, error: "Unknown action" }, 400, cors);

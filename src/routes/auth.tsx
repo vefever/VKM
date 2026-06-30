@@ -24,7 +24,7 @@ export const Route = createFileRoute("/auth")({
   component: AuthPage,
 });
 
-function AuthPage() {
+export function AuthPage() {
   const navigate = useNavigate();
   const { user, loading } = useAuth();
 
@@ -338,6 +338,9 @@ function SignInForm() {
   );
 }
 
+// Supabase `generateLink` email_otp is 8 digits — keep the UI in sync.
+const EMAIL_OTP_LENGTH = 8;
+
 // Passwordless sign-in: request a one-time code (emailed via the admin-configured
 // provider), then verify it with Supabase to create the session.
 function OtpSignIn({ initialEmail, onBack }: { initialEmail: string; onBack: () => void }) {
@@ -364,6 +367,10 @@ function OtpSignIn({ initialEmail, onBack }: { initialEmail: string; onBack: () 
 
   async function verify(e: React.FormEvent) {
     e.preventDefault();
+    if (code.trim().length !== EMAIL_OTP_LENGTH) {
+      toast.error(`Enter the full ${EMAIL_OTP_LENGTH}-digit code`);
+      return;
+    }
     setBusy(true);
     const { error } = await supabase.auth.verifyOtp({
       email: email.trim(),
@@ -396,15 +403,16 @@ function OtpSignIn({ initialEmail, onBack }: { initialEmail: string; onBack: () 
 
       {stage === "code" && (
         <div className="space-y-1.5">
-          <Label htmlFor="otp-code">6-digit code</Label>
+          <Label htmlFor="otp-code">8-digit code</Label>
           <Input
             id="otp-code"
             inputMode="numeric"
             autoComplete="one-time-code"
             required
             value={code}
-            onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
-            placeholder="••••••"
+            onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, EMAIL_OTP_LENGTH))}
+            maxLength={EMAIL_OTP_LENGTH}
+            placeholder="••••••••"
             disabled={busy}
             className="h-11 rounded-xl bg-card text-center text-lg tracking-[0.5em]"
           />

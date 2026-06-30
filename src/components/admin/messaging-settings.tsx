@@ -174,12 +174,26 @@ function ChannelTab({ channel }: { channel: Chan }) {
   async function onSave() {
     setSaving(true);
     try {
-      await save({ provider, enabled, config });
-      toast.success("Saved");
+      // Saving a configured provider turns it on — that's the intent of "Save".
+      // Use the toggle to disable it later.
+      await save({ provider, enabled: true, config });
+      setEnabled(true);
+      toast.success("Saved & enabled");
     } catch (e) {
       toast.error("Could not save", { description: (e as Error).message });
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function toggleEnabled() {
+    const next = !enabled;
+    setEnabled(next);
+    try {
+      await save({ provider, enabled: next, config });
+    } catch (e) {
+      setEnabled(!next);
+      toast.error("Could not update", { description: (e as Error).message });
     }
   }
 
@@ -201,8 +215,8 @@ function ChannelTab({ channel }: { channel: Chan }) {
   return (
     <SectionCard
       title={`${channel === "email" ? "Email" : channel === "sms" ? "SMS" : "WhatsApp"} provider`}
-      subtitle="Pick a provider, paste credentials, enable it, then send a test."
-      action={<EnabledToggle on={enabled} onClick={() => setEnabled((v) => !v)} />}
+      subtitle="Pick a provider, paste credentials, then Save — it turns on automatically. Use the toggle to switch it off."
+      action={<EnabledToggle on={enabled} onClick={toggleEnabled} />}
     >
       <div className="space-y-4">
         <Field label="Provider">
