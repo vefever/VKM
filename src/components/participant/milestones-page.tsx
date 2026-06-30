@@ -94,7 +94,7 @@ export function MilestonesPage() {
 }
 
 // ---------------------------------------------------------------------------
-// Milestones
+// Milestones — details only revealed once unlocked
 // ---------------------------------------------------------------------------
 function MilestonesTab({ weeksDone }: { weeksDone: number }) {
   const unlockedCount = VKM_MILESTONES.filter((m) => weeksDone >= m.unlockWeek).length;
@@ -106,12 +106,13 @@ function MilestonesTab({ weeksDone }: { weeksDone: number }) {
       <div className="space-y-2.5">
         {VKM_MILESTONES.map((m, i) => {
           const unlocked = weeksDone >= m.unlockWeek;
+          const weeksLeft = m.unlockWeek - weeksDone;
           return (
             <div
               key={m.code}
               className={cn(
                 "rounded-xl border p-3",
-                unlocked ? "border-gold/40 bg-gold/[0.06]" : "border-border bg-card",
+                unlocked ? "border-gold/40 bg-gold/[0.06]" : "border-border bg-card opacity-70",
               )}
             >
               <div className="flex items-center gap-3">
@@ -132,23 +133,30 @@ function MilestonesTab({ weeksDone }: { weeksDone: number }) {
                 <StatusPill unlocked={unlocked} unlockWeek={m.unlockWeek} />
               </div>
 
-              {/* headline reward */}
-              <div className="mt-2.5 rounded-lg bg-gold/10 px-3 py-2">
-                <p className="flex items-start gap-1.5 text-sm font-semibold text-foreground">
-                  <Gift className="mt-0.5 h-4 w-4 shrink-0 text-[oklch(0.6_0.13_85)]" />
-                  {m.reward}
+              {unlocked ? (
+                <>
+                  <div className="mt-2.5 rounded-lg bg-gold/10 px-3 py-2">
+                    <p className="flex items-start gap-1.5 text-sm font-semibold text-foreground">
+                      <Gift className="mt-0.5 h-4 w-4 shrink-0 text-[oklch(0.6_0.13_85)]" />
+                      {m.reward}
+                    </p>
+                    <p className="mt-1 text-xs text-muted-foreground">{m.description}</p>
+                  </div>
+                  <ul className="mt-2 space-y-1">
+                    {m.items.map((it) => (
+                      <li key={it} className="flex items-start gap-1.5 text-xs text-muted-foreground">
+                        <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[oklch(0.6_0.13_85)]" />
+                        {it}
+                      </li>
+                    ))}
+                  </ul>
+                </>
+              ) : (
+                <p className="mt-2.5 flex items-center gap-1.5 rounded-lg bg-secondary/60 px-3 py-2 text-xs text-muted-foreground">
+                  <Lock className="h-3.5 w-3.5 shrink-0" />
+                  Get {weeksLeft} more week{weeksLeft !== 1 ? "s" : ""} approved to unlock this milestone
                 </p>
-                <p className="mt-1 text-xs text-muted-foreground">{m.description}</p>
-              </div>
-
-              <ul className="mt-2 space-y-1">
-                {m.items.map((it) => (
-                  <li key={it} className="flex items-start gap-1.5 text-xs text-muted-foreground">
-                    <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[oklch(0.6_0.13_85)]" />
-                    {it}
-                  </li>
-                ))}
-              </ul>
+              )}
             </div>
           );
         })}
@@ -241,7 +249,7 @@ function AchievementsTab({ points, weeksDone }: { points: number; weeksDone: num
 }
 
 // ---------------------------------------------------------------------------
-// Rewards — the reward kits
+// Rewards — the reward kits, revealed only once unlocked
 // ---------------------------------------------------------------------------
 function RewardsTab({ weeksDone }: { weeksDone: number }) {
   return (
@@ -252,12 +260,13 @@ function RewardsTab({ weeksDone }: { weeksDone: number }) {
       <div className="space-y-2.5">
         {VKM_MILESTONES.map((m) => {
           const unlocked = weeksDone >= m.unlockWeek;
+          const weeksLeft = m.unlockWeek - weeksDone;
           return (
             <div
               key={m.code}
               className={cn(
                 "rounded-xl border p-3",
-                unlocked ? "border-gold/40 bg-gold/[0.06]" : "border-border bg-card",
+                unlocked ? "border-gold/40 bg-gold/[0.06]" : "border-border bg-card opacity-70",
               )}
             >
               <div className="flex items-center gap-3">
@@ -267,28 +276,39 @@ function RewardsTab({ weeksDone }: { weeksDone: number }) {
                     unlocked ? "bg-gradient-gold text-navy" : "bg-muted text-muted-foreground",
                   )}
                 >
-                  <Gift className="h-5 w-5" />
+                  {unlocked ? <Gift className="h-5 w-5" /> : <Lock className="h-4 w-4" />}
                 </span>
                 <div className="min-w-0 flex-1">
-                  <p className="text-sm font-semibold text-foreground">{m.reward}</p>
+                  <p className="text-sm font-semibold text-foreground">
+                    {unlocked ? m.reward : m.name}
+                  </p>
                   <p className="text-xs text-muted-foreground">
                     {m.name} · unlocks Week {m.unlockWeek}
                   </p>
                 </div>
                 <StatusPill unlocked={unlocked} unlockWeek={m.unlockWeek} />
               </div>
-              <p className="mt-2 text-xs text-muted-foreground">{m.description}</p>
-              <ul className="mt-2 flex flex-wrap gap-1.5">
-                {m.items.map((it) => (
-                  <li
-                    key={it}
-                    className="rounded-full bg-secondary px-2 py-0.5 text-[11px] text-muted-foreground"
-                  >
-                    {it}
-                  </li>
-                ))}
-              </ul>
-              <p className="mt-2 text-[11px] text-muted-foreground">{m.handover}</p>
+              {unlocked ? (
+                <>
+                  <p className="mt-2 text-xs text-muted-foreground">{m.description}</p>
+                  <ul className="mt-2 flex flex-wrap gap-1.5">
+                    {m.items.map((it) => (
+                      <li
+                        key={it}
+                        className="rounded-full bg-secondary px-2 py-0.5 text-[11px] text-muted-foreground"
+                      >
+                        {it}
+                      </li>
+                    ))}
+                  </ul>
+                  <p className="mt-2 text-[11px] text-muted-foreground">{m.handover}</p>
+                </>
+              ) : (
+                <p className="mt-2 flex items-center gap-1.5 rounded-lg bg-secondary/60 px-3 py-2 text-xs text-muted-foreground">
+                  <Lock className="h-3.5 w-3.5 shrink-0" />
+                  Unlocks after {weeksLeft} more approved week{weeksLeft !== 1 ? "s" : ""}
+                </p>
+              )}
             </div>
           );
         })}

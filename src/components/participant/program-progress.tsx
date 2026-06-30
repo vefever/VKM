@@ -24,6 +24,7 @@ import {
   CalendarClock,
   ArrowRight,
   Loader2,
+  Lock,
   type LucideIcon,
 } from "lucide-react";
 import { PageHeader } from "@/components/vkm/page-header";
@@ -132,9 +133,11 @@ const STATUS_DESC: Record<WeekStatus, string> = {
   upcoming: "Opens as you reach this week",
 };
 
-function exportCsv(weeks: ProgramWeek[]) {
+function exportCsv(weeks: ProgramWeek[], currentWeek: number) {
   const header = ["Wk", "Phase", "Topic", "Mode", "Task", "Proof"];
-  const rows = weeks.map((w) => [w.week, w.phase, w.topic, w.mode, w.task, w.proof]);
+  const rows = weeks
+    .filter((w) => w.week <= currentWeek)
+    .map((w) => [w.week, w.phase, w.topic, w.mode, w.task, w.proof]);
   const csv = [header, ...rows]
     .map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(","))
     .join("\n");
@@ -526,7 +529,7 @@ function ProgramProgressInner() {
         {tab === "journey" && (
           <Journey statusOf={statusOf} weeksDone={weeksDone} currentWeek={week} />
         )}
-        {tab === "curriculum" && <Curriculum />}
+        {tab === "curriculum" && <Curriculum currentWeek={week} />}
       </motion.div>
     </motion.div>
   );
@@ -1228,24 +1231,30 @@ function Journey({
 }
 
 // ---------------------------------------------------------------------------
-// 16-Week Curriculum
+// 16-Week Curriculum — progressive disclosure (only current week and earlier)
 // ---------------------------------------------------------------------------
-function Curriculum() {
+function Curriculum({ currentWeek }: { currentWeek: number }) {
   const plan = usePlan();
   const [q, setQ] = useState("");
-  const list = plan.weeks.filter(
-    (w) => !q.trim() || `${w.topic} ${w.task} ${w.why}`.toLowerCase().includes(q.toLowerCase()),
-  );
+  const list = plan.weeks.filter((w) => {
+    if (!q.trim()) return true;
+    const text =
+      w.week <= currentWeek ? `${w.topic} ${w.task} ${w.why}` : w.topic;
+    return text.toLowerCase().includes(q.toLowerCase());
+  });
+
+  const unlockedCount = plan.weeks.filter((w) => w.week <= currentWeek).length;
+
   return (
     <SectionCard
       title="Curriculum"
-      subtitle="The full VK Mentorship path — taught every Tuesday"
+      subtitle={`The full VK Mentorship path — ${unlockedCount} of ${plan.length} weeks unlocked`}
       action={
         <Button
           variant="outline"
           size="sm"
           className="rounded-xl"
-          onClick={() => exportCsv(plan.weeks)}
+          onClick={() => exportCsv(plan.weeks, currentWeek)}
         >
           <Download className="h-4 w-4" /> Export
         </Button>
@@ -1261,42 +1270,82 @@ function Curriculum() {
         />
       </div>
       <div className="space-y-2.5">
-        {list.map((w) => (
-          <div
-            key={w.week}
-            className="rounded-xl border border-border bg-card p-3 transition-shadow hover:shadow-vkm-float"
-          >
-            <div className="flex items-center gap-2">
-              <span className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-secondary text-xs font-bold text-foreground">
-                {w.week}
-              </span>
-              <p className="text-sm font-semibold text-foreground">{w.topic}</p>
-              <span
-                className="ml-auto inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium text-white"
-                style={{ background: PHASE_COLOR[w.phase] }}
-              >
-                {w.phase}
-              </span>
-              <span className="inline-flex items-center gap-1 rounded-full bg-secondary px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
-                {w.mode === "Offline" ? (
-                  <MapPin className="h-3 w-3" />
+        {list.map((w) => {
+          const unlocked = w.week <= currentWeek;
+          return (
+            <div
+              key={w.week}
+              className={cn(
+                "rounded-xl border p-3 transition-shadow",
+                unlocked
+                  ? "border-border bg-card hover:shadow-vkm-float"
+                  : "border-border bg-card opacity-55",
+              )}
+            >
+              <div className="flex items-center gap-2">
+                <span
+                  className={cn(
+                    "inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-xs font-bold",
+                    unlocked
+                      ? "bg-secondary text-foreground"
+                      : "bg-muted text-muted-foreground",
+                  )}
+                >
+                  {unlocked ? w.week : <Lock className="h-3.5 w-3.5" />}
+                </span>
+                <p
+                  className={cn(
+                    "text-sm font-semibold",
+                    unlocked ? "text-foreground" : "text-muted-foreground",
+                  )}
+                >
+                  {w.topic}
+                </p>
+                {unlocked ? (
+                  <>
+                    <span
+                      className="ml-auto inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium text-white"
+                      style={{ background: PHASE_COLOR[w.phase] }}
+                    >
+                      {w.phase}
+                    </span>
+                    <span className="inline-flex items-center gap-1 rounded-full bg-secondary px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
+                      {w.mode === "Offline" ? (
+                        <MapPin className="h-3 w-3" />
+                      ) : (
+                        <Video className="h-3 w-3" />
+                      )}
+                      {w.mode}
+                    </span>
+                  </>
                 ) : (
-                  <Video className="h-3 w-3" />
+                  <span className="ml-auto text-[10px] text-muted-foreground">
+                    Week {w.week}
+                  </span>
                 )}
-                {w.mode}
-              </span>
+              </div>
+
+              {unlocked ? (
+                <>
+                  <p className="mt-2 text-xs text-muted-foreground">
+                    <span className="font-medium text-foreground">Why:</span> {w.why}
+                  </p>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    <span className="font-medium text-foreground">Task:</span> {w.task}
+                  </p>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    <span className="font-medium text-foreground">Proof:</span> {w.proof}
+                  </p>
+                </>
+              ) : (
+                <p className="mt-1.5 flex items-center gap-1.5 text-xs text-muted-foreground">
+                  <Lock className="h-3 w-3 shrink-0" />
+                  Unlocks when you reach Week {w.week}
+                </p>
+              )}
             </div>
-            <p className="mt-2 text-xs text-muted-foreground">
-              <span className="font-medium text-foreground">Why:</span> {w.why}
-            </p>
-            <p className="mt-1 text-xs text-muted-foreground">
-              <span className="font-medium text-foreground">Task:</span> {w.task}
-            </p>
-            <p className="mt-1 text-xs text-muted-foreground">
-              <span className="font-medium text-foreground">Proof:</span> {w.proof}
-            </p>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </SectionCard>
   );
