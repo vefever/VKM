@@ -88,9 +88,19 @@ export function AiSettings() {
   }
 
   async function sendTest() {
+    if (!apiKey.trim() || !baseUrl.trim() || !model.trim()) {
+      toast.error("Fill in the API key, base URL and model first");
+      return;
+    }
     setTesting(true); setTestReply(null);
     try {
-      const r = await test({ data: { prompt: "Reply with one short sentence confirming the AI Advisor is connected." } });
+      // Test the values on screen so you can verify before saving.
+      const r = await test({
+        data: {
+          prompt: "Reply with one short sentence confirming the AI Advisor is connected.",
+          provider, baseUrl: baseUrl.trim(), apiKey: apiKey.trim(), model: model.trim(), maxTokens,
+        },
+      });
       if (!r.ok) { toast.error("Test failed", { description: r.error }); return; }
       setTestReply(r.reply ?? "");
       toast.success("AI provider is working", { description: `${r.provider} · ${r.model}` });

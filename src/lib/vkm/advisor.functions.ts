@@ -206,7 +206,16 @@ export const askAdvisor = createServerFn({ method: "POST" })
 // ---------------------------------------------------------------------------
 export const testAiProvider = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .validator((input: { prompt?: string }) => input ?? {})
+  .validator(
+    (input: {
+      prompt?: string;
+      provider?: string;
+      baseUrl?: string;
+      apiKey?: string;
+      model?: string;
+      maxTokens?: number;
+    }) => input ?? {},
+  )
   .handler(async ({ data, context }) => {
     const { data: isAdmin } = await context.supabase.rpc("has_role", {
       _user_id: context.userId,
@@ -214,8 +223,24 @@ export const testAiProvider = createServerFn({ method: "POST" })
     });
     if (!isAdmin) throw new Error("Forbidden: super admins only");
 
-    const cfg = await loadAiConfig();
-    if (!cfg.apiKey) return { ok: false, error: "No API key configured." };
+    // Test the values the admin entered on the form (so they can verify BEFORE
+    // saving). Fall back to the saved config if the form didn't send a key.
+    let cfg: AiConfig;
+    if (data.apiKey && data.apiKey.trim()) {
+      cfg = {
+        provider: data.provider === "anthropic" ? "anthropic" : "openai",
+        enabled: true,
+        apiKey: data.apiKey.trim(),
+        baseUrl: (data.baseUrl || "https://api.openai.com/v1").replace(/\/$/, ""),
+        model: (data.model || "gpt-4o-mini").trim(),
+        maxTokens: Number(data.maxTokens) || 512,
+      };
+    } else {
+      cfg = await loadAiConfig();
+    }
+    if (!cfg.apiKey) {
+      return { ok: false, error: "No API key — paste your key in the form (and Save) first." };
+    }
 
     const prompt = (data.prompt || "Reply with a single short sentence confirming you are online.").slice(0, 500);
     const r = await callAi(cfg, "You are a connectivity test. Reply briefly.", [{ role: "user", content: prompt }]);
