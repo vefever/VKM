@@ -138,7 +138,7 @@ export function UserDetailDialog({
     if (!email) return;
     setBusy("login"); setLoginLink(null);
     try {
-      const r = await impersonate({ data: { email, origin: window.location.origin } });
+      const r = await impersonate({ data: { email } });
       setLoginLink(r.actionLink);
     } catch (e) { toast.error("Could not create login link", { description: (e as Error).message }); }
     finally { setBusy(null); }

@@ -3,6 +3,8 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import type { Database } from "@/integrations/supabase/types";
 
+const SITE_URL = "https://vkmentorship.com";
+
 // All functions here are super-admin only. The gate is re-checked server-side on
 // every call (never trust the client), then privileged work runs via the
 // service-role admin client.
@@ -152,13 +154,13 @@ export const adminSetUserBatch = createServerFn({ method: "POST" })
 // ---------------------------------------------------------------------------
 export const impersonateUser = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .validator((input: { email: string; origin: string }) => input)
+  .validator((input: { email: string }) => input)
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
     await assertSuperAdmin(supabase, userId);
 
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const redirectTo = `${data.origin.replace(/\/$/, "")}/app`;
+    const redirectTo = `${SITE_URL}/app`;
     const { data: link, error } = await supabaseAdmin.auth.admin.generateLink({
       type: "magiclink",
       email: data.email,

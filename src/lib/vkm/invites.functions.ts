@@ -5,6 +5,8 @@ import type { Database } from "@/integrations/supabase/types";
 
 export type InviteRole = "participant" | "coach" | "mentor";
 
+const SITE_URL = "https://vkmentorship.com";
+
 function genToken(): string {
   // 32 bytes (256 bits) of CSPRNG entropy, base64url-encoded with no truncation
   // — every byte contributes to the token so guessing is computationally infeasible.
@@ -159,7 +161,7 @@ export const createInvite = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .validator((input: {
     email: string; name: string; role: InviteRole;
-    phone?: string; batch?: string; origin: string;
+    phone?: string; batch?: string;
   }) => input)
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
@@ -297,7 +299,7 @@ export const createInvite = createServerFn({ method: "POST" })
       );
     }
 
-    const inviteUrl = `${data.origin.replace(/\/$/, "")}/invite/${token}`;
+    const inviteUrl = `${SITE_URL}/invite/${token}`;
 
     const emailResult = await sendInviteEmail(supabase, {
       to: email, name: data.name, role: data.role,
@@ -340,7 +342,7 @@ export const revokeInvite = createServerFn({ method: "POST" })
 
 export const resendInvite = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .validator((input: { id: string; origin: string }) => input)
+  .validator((input: { id: string }) => input)
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
     const { data: isAdmin } = await supabase
@@ -352,7 +354,7 @@ export const resendInvite = createServerFn({ method: "POST" })
     if (error || !inv) throw new Error("Invite not found");
     if (inv.status !== "pending") throw new Error("Invite is not pending");
 
-    const inviteUrl = `${data.origin.replace(/\/$/, "")}/invite/${inv.token}`;
+    const inviteUrl = `${SITE_URL}/invite/${inv.token}`;
     const result = await sendInviteEmail(supabase, {
       to: inv.email, name: inv.name, role: inv.role as InviteRole,
       inviteUrl, tempPassword: inv.temp_password, expiresAt: inv.expires_at,

@@ -405,7 +405,7 @@ function SignUpForm() {
       password,
       options: {
         data: { full_name: name },
-        emailRedirectTo: window.location.origin + "/app",
+        emailRedirectTo: "https://vkmentorship.com/app",
       },
     });
     setBusy(false);

@@ -305,7 +305,7 @@ function UsersTable({ rows, coachMap, coaches, onChanged, onOpenDetail }: { rows
   async function handleResend(id: string) {
     setBusyId(id);
     try {
-      const r = await resend({ data: { id, origin: window.location.origin } });
+      const r = await resend({ data: { id } });
       toast.success(r.emailSent ? "Invite email sent" : "Invite link refreshed", {
         description: r.emailSent ? undefined : "Email infra not set up — share the link manually.",
       });
@@ -322,7 +322,7 @@ function UsersTable({ rows, coachMap, coaches, onChanged, onOpenDetail }: { rows
     finally { setBusyId(null); }
   }
   function copyLink(token: string) {
-    const url = `${window.location.origin}/invite/${token}`;
+    const url = `https://vkmentorship.com/invite/${token}`;
     navigator.clipboard.writeText(url);
     toast.success("Invite link copied");
   }
@@ -475,7 +475,6 @@ function InviteDialog({
         data: {
           name: name.trim(), email: email.trim(), phone: phone.trim() || undefined,
           role, batch: batch.trim() || undefined,
-          origin: window.location.origin,
         },
       });
       toast.success("Invite created", { description: res.emailSent ? `Email sent to ${email}` : `Share the link with ${email}` });
@@ -617,7 +616,7 @@ function ImportDialog({ open, onOpenChange, onDone }: { open: boolean; onOpenCha
     let added = 0, skipped = 0;
     for (const row of preview.rows) {
       try {
-        await invite({ data: { ...row, origin: window.location.origin } });
+        await invite({ data: { ...row } });
         added++;
       } catch { skipped++; }
     }
