@@ -121,10 +121,19 @@ Deno.serve(async (req) => {
     if (!user) return json({ ok: false, error: "Unauthorized" }, 401, cors);
     const roles = await rolesOf(user.id);
     const { enabled, c } = await zoomConfig();
-    if (!enabled) return json({ ok: false, error: "Zoom integration is not enabled" }, 400, cors);
+    if (!enabled)
+      return json(
+        { ok: false, error: "Zoom is not enabled. Add your Zoom credentials in Admin → Integrations and turn it on." },
+        200, cors,
+      );
 
     if (action === "create_meeting") {
-      if (!isStaff(roles)) return json({ ok: false, error: "Forbidden" }, 403, cors);
+      if (!isStaff(roles)) return json({ ok: false, error: "Forbidden: staff only" }, 200, cors);
+      if (!c.accountId || !c.clientId || !c.clientSecret)
+        return json(
+          { ok: false, error: "Zoom Server-to-Server OAuth credentials (Account ID, Client ID, Client Secret) are missing. The SDK Key/Secret alone can't create meetings." },
+          200, cors,
+        );
       const token = await zoomToken(c);
       const r = await fetch("https://api.zoom.us/v2/users/me/meetings", {
         method: "POST",
@@ -143,7 +152,8 @@ Deno.serve(async (req) => {
           },
         }),
       });
-      if (!r.ok) return json({ ok: false, error: `Zoom API: ${await r.text()}` }, 500);
+      // Surface the real Zoom error to staff (status 200 so invoke doesn't mask it).
+      if (!r.ok) return json({ ok: false, error: `Zoom API: ${await r.text()}` }, 200, cors);
       const m = await r.json();
       const { data: row, error } = await admin
         .from("meetings")
@@ -162,8 +172,8 @@ Deno.serve(async (req) => {
         })
         .select("id, topic, start_time, duration_min, participant_id, host_id, status")
         .single();
-      if (error) return json({ ok: false, error: error.message }, 500);
-      return json({ ok: true, meeting: row });
+      if (error) return json({ ok: false, error: error.message }, 200, cors);
+      return json({ ok: true, meeting: row }, 200, cors);
     }
 
     if (action === "signature") {
@@ -172,12 +182,12 @@ Deno.serve(async (req) => {
         .select("zoom_meeting_id, password, host_id, participant_id")
         .eq("id", p.meetingId)
         .maybeSingle();
-      if (!meeting) return json({ ok: false, error: "Meeting not found" }, 404);
+      if (!meeting) return json({ ok: false, error: "Meeting not found" }, 200, cors);
       const isHost = meeting.host_id === user.id;
       const allowed = isHost || meeting.participant_id === user.id || isStaff(roles);
-      if (!allowed) return json({ ok: false, error: "Forbidden" }, 403);
+      if (!allowed) return json({ ok: false, error: "Forbidden" }, 403, cors);
       if (!c.sdkKey || !c.sdkSecret)
-        return json({ ok: false, error: "Meeting SDK key/secret not configured" }, 400);
+        return json({ ok: false, error: "Meeting SDK key/secret not configured" }, 200, cors);
       const role = isHost ? 1 : 0;
       const signature = await sdkSignature(c.sdkKey, c.sdkSecret, meeting.zoom_meeting_id!, role);
       return json({
@@ -187,11 +197,14 @@ Deno.serve(async (req) => {
         meetingNumber: meeting.zoom_meeting_id,
         password: meeting.password ?? "",
         role,
-      });
+      }, 200, cors);
     }
 
-    return json({ ok: false, error: "Unknown action" }, 400);
+    return json({ ok: false, error: "Unknown action" }, 400, cors);
   } catch (e) {
-    return json({ ok: false, error: String((e as Error).message) }, 500);
+    // 200 + ok:false so the staff caller sees the real reason (e.g. Zoom OAuth
+    // failure) instead of a masked "non-2xx" error.
+    console.error("zoom error:", (e as Error).message);
+    return json({ ok: false, error: String((e as Error).message) }, 200, cors);
   }
 });

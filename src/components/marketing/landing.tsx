@@ -92,7 +92,7 @@ export function LandingPage() {
               <span className="h-2.5 w-2.5 rounded-full bg-destructive/70" />
               <span className="h-2.5 w-2.5 rounded-full bg-[oklch(0.82_0.14_80)]" />
               <span className="h-2.5 w-2.5 rounded-full bg-[oklch(0.71_0.14_160)]" />
-              <span className="ml-3 text-xs text-muted-foreground">vkmentorship.app · Dashboard</span>
+              <span className="ml-3 text-xs text-muted-foreground">vkmentorship.com · Dashboard</span>
             </div>
             <div className="grid gap-4 p-6 md:grid-cols-4">
               <div className="md:col-span-1 rounded-2xl bg-gradient-navy p-5 text-primary-foreground">

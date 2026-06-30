@@ -1,5 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import type { Database } from "@/integrations/supabase/types";
 
 export type InviteRole = "participant" | "coach" | "mentor";
 
@@ -27,37 +29,127 @@ function genTempPassword(): string {
   return "VKM-" + out.slice(0, 4) + "-" + out.slice(4, 8) + "-" + out.slice(8);
 }
 
-async function sendInviteEmailBestEffort(args: {
+const ROLE_COPY: Record<InviteRole, { label: string; line: string }> = {
+  participant: {
+    label: "Participant",
+    line: "You've been invited to join the VK Mentorship program — your 4-month business transformation starts here.",
+  },
+  coach: {
+    label: "Growth Coach",
+    line: "You've been invited to VK Mentorship as a Growth Coach — you'll guide participants to implement and grow.",
+  },
+  mentor: {
+    label: "Mentor",
+    line: "You've been invited to VK Mentorship as a Mentor — leading classes and overseeing the cohort.",
+  },
+};
+
+const esc = (s: string) =>
+  s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+
+// Branded, email-client-safe HTML (tables + inline styles) matching the app's
+// navy/gold identity. Returns subject + html + plain-text fallback.
+function buildInviteEmail(args: {
+  name: string;
+  role: InviteRole;
+  inviteUrl: string;
+  tempPassword: string;
+  expiresAt: string;
+}): { subject: string; html: string; text: string } {
+  const role = ROLE_COPY[args.role];
+  const firstName = esc((args.name || "there").trim().split(/\s+/)[0]);
+  const expires = new Date(args.expiresAt).toLocaleString("en-IN", {
+    dateStyle: "medium",
+    timeStyle: "short",
+  });
+  const subject = `You're invited to VK Mentorship — ${role.label}`;
+
+  const html = `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="light"></head>
+<body style="margin:0;padding:0;background:#f4f1ea;font-family:Segoe UI,Helvetica,Arial,sans-serif;color:#1a2230;">
+  <span style="display:none;max-height:0;overflow:hidden;opacity:0;">Your VK Mentorship invitation &amp; temporary password — set your new password on first sign-in.</span>
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f4f1ea;padding:28px 12px;">
+    <tr><td align="center">
+      <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 8px 30px rgba(11,37,69,.10);">
+        <!-- Header -->
+        <tr><td style="background:#0B2545;padding:26px 32px;">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr>
+            <td style="font-size:18px;font-weight:700;letter-spacing:3px;color:#ffffff;">VK <span style="color:#E7B53C;">MENTORSHIP</span></td>
+            <td align="right" style="font-size:11px;letter-spacing:2px;color:#9fb0c6;text-transform:uppercase;">Invitation</td>
+          </tr></table>
+          <div style="height:3px;width:54px;background:#E7B53C;border-radius:3px;margin-top:14px;"></div>
+        </td></tr>
+        <!-- Body -->
+        <tr><td style="padding:32px;">
+          <p style="margin:0 0 4px;font-size:12px;letter-spacing:1.5px;text-transform:uppercase;color:#C79A1E;font-weight:700;">Role · ${esc(role.label)}</p>
+          <h1 style="margin:4px 0 10px;font-size:24px;line-height:1.25;color:#0B2545;">Hi ${firstName}, welcome aboard.</h1>
+          <p style="margin:0 0 22px;font-size:15px;line-height:1.6;color:#41506a;">${esc(role.line)}</p>
+
+          <!-- CTA -->
+          <table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 0 24px;"><tr>
+            <td align="center" bgcolor="#0B2545" style="border-radius:12px;">
+              <a href="${esc(args.inviteUrl)}" target="_blank" style="display:inline-block;padding:14px 30px;font-size:15px;font-weight:700;color:#ffffff;text-decoration:none;border-radius:12px;background:#0B2545;">Accept your invitation →</a>
+            </td>
+          </tr></table>
+
+          <!-- Credentials -->
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f7f9fb;border:1px solid #e4e7ec;border-radius:12px;">
+            <tr><td style="padding:16px 18px;">
+              <p style="margin:0 0 10px;font-size:11px;letter-spacing:1px;text-transform:uppercase;color:#5b6675;font-weight:700;">Your sign-in details</p>
+              <p style="margin:0 0 6px;font-size:14px;color:#1a2230;"><strong style="color:#5b6675;font-weight:600;">Temporary password:</strong>
+                <span style="font-family:Consolas,monospace;font-size:15px;color:#0B2545;background:#fff;border:1px solid #e4e7ec;border-radius:6px;padding:2px 8px;">${esc(args.tempPassword)}</span></p>
+              <p style="margin:0;font-size:12.5px;color:#5b6675;">You'll be asked to set your own password the first time you sign in.</p>
+            </td></tr>
+          </table>
+
+          <p style="margin:20px 0 0;font-size:12.5px;color:#8a93a3;">This invitation link expires on <strong style="color:#41506a;">${esc(expires)}</strong>. If the button doesn't work, copy and paste this link:<br>
+            <a href="${esc(args.inviteUrl)}" style="color:#3b6fb0;word-break:break-all;">${esc(args.inviteUrl)}</a></p>
+        </td></tr>
+        <!-- Footer -->
+        <tr><td style="padding:18px 32px;border-top:1px solid #eef1f5;background:#fbfcfd;">
+          <p style="margin:0;font-size:11.5px;color:#9aa3b2;">VK Mentorship — the operating system for business transformation.<br>If you weren't expecting this invitation, you can safely ignore this email.</p>
+        </td></tr>
+      </table>
+      <p style="margin:14px 0 0;font-size:11px;color:#b3bccb;">© VK Mentorship</p>
+    </td></tr>
+  </table>
+</body></html>`;
+
+  const text = [
+    `Hi ${firstName},`,
+    "",
+    role.line,
+    "",
+    `Accept your invitation: ${args.inviteUrl}`,
+    `Temporary password: ${args.tempPassword}`,
+    "You'll set your own password on first sign-in.",
+    "",
+    `This link expires on ${expires}.`,
+    "",
+    "— VK Mentorship",
+  ].join("\n");
+
+  return { subject, html, text };
+}
+
+// Sends the invite email through the configured provider via the `messaging`
+// edge function (super_admin gated). Best-effort: the admin always also gets the
+// link + temp password in the UI, so a missing/disabled provider never blocks.
+async function sendInviteEmail(supabase: SupabaseClient<Database>, args: {
   to: string;
   name: string;
   role: InviteRole;
   inviteUrl: string;
   tempPassword: string;
   expiresAt: string;
-}) {
-  // Best-effort: POST to the transactional email route if it exists.
-  // Silently no-op if email infra hasn't been scaffolded yet — admin always
-  // gets the invite link + temp password in the UI as a fallback.
+}): Promise<{ sent: boolean; reason: string }> {
   try {
-    const origin = process.env.APP_ORIGIN || "";
-    if (!origin) return { sent: false, reason: "no-origin" };
-    const res = await fetch(`${origin}/api/email/transactional/send`, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({
-        templateName: "user-invite",
-        recipientEmail: args.to,
-        idempotencyKey: `invite-${args.to}-${args.inviteUrl.slice(-12)}`,
-        templateData: {
-          name: args.name,
-          role: args.role,
-          inviteUrl: args.inviteUrl,
-          tempPassword: args.tempPassword,
-          expiresAt: new Date(args.expiresAt).toLocaleString(),
-        },
-      }),
+    const { subject, html, text } = buildInviteEmail(args);
+    const { data, error } = await supabase.functions.invoke("messaging", {
+      body: { action: "send_email", to: args.to, subject, html, text },
     });
-    return { sent: res.ok, reason: res.ok ? "ok" : `http_${res.status}` };
+    if (error) return { sent: false, reason: (error as Error).message || "invoke-failed" };
+    const ok = !!(data as { ok?: boolean } | null)?.ok;
+    return { sent: ok, reason: ok ? "ok" : (data as { error?: string } | null)?.error || "not-sent" };
   } catch (err) {
     return { sent: false, reason: (err as Error).message };
   }
@@ -207,7 +299,7 @@ export const createInvite = createServerFn({ method: "POST" })
 
     const inviteUrl = `${data.origin.replace(/\/$/, "")}/invite/${token}`;
 
-    const emailResult = await sendInviteEmailBestEffort({
+    const emailResult = await sendInviteEmail(supabase, {
       to: email, name: data.name, role: data.role,
       inviteUrl, tempPassword, expiresAt,
     });
@@ -261,7 +353,7 @@ export const resendInvite = createServerFn({ method: "POST" })
     if (inv.status !== "pending") throw new Error("Invite is not pending");
 
     const inviteUrl = `${data.origin.replace(/\/$/, "")}/invite/${inv.token}`;
-    const result = await sendInviteEmailBestEffort({
+    const result = await sendInviteEmail(supabase, {
       to: inv.email, name: inv.name, role: inv.role as InviteRole,
       inviteUrl, tempPassword: inv.temp_password, expiresAt: inv.expires_at,
     });

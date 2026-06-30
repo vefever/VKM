@@ -44,12 +44,26 @@ export function IntegrationsSettings() {
   async function onSave() {
     setSaving(true);
     try {
-      await save({ provider: "zoom", enabled, config });
-      toast.success("Zoom settings saved");
+      // Saving Zoom credentials turns the integration on — that's the intent of
+      // "Save". Use the toggle to switch it off later.
+      await save({ provider: "zoom", enabled: true, config });
+      setEnabled(true);
+      toast.success("Zoom saved & enabled");
     } catch (e) {
       toast.error("Could not save", { description: (e as Error).message });
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function toggleEnabled() {
+    const next = !enabled;
+    setEnabled(next);
+    try {
+      await save({ provider: "zoom", enabled: next, config });
+    } catch (e) {
+      setEnabled(!next);
+      toast.error("Could not update", { description: (e as Error).message });
     }
   }
 
@@ -117,7 +131,7 @@ export function IntegrationsSettings() {
         action={
           <button
             type="button"
-            onClick={() => setEnabled((v) => !v)}
+            onClick={toggleEnabled}
             className={cn(
               "inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold",
               enabled
@@ -173,7 +187,7 @@ export function IntegrationsSettings() {
                 ) : (
                   <Save className="h-4 w-4" />
                 )}{" "}
-                Save Zoom settings
+                Save &amp; enable Zoom
               </Button>
             </div>
 

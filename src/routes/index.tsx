@@ -1,14 +1,24 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { AuthPage } from "@/routes/auth";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { useEffect } from "react";
 
-// The platform opens straight to sign-in — the marketing landing is hidden.
-// We render the auth page directly at "/" (rather than redirecting) so the
-// prerendered SPA shell matches the client render — a beforeLoad redirect here
-// fires during hydration and causes a React #418 hydration mismatch on static
-// hosts (cPanel / Cloudflare Pages). AuthPage forwards already-authenticated
-// users to /app on mount. To restore the marketing landing, point `component`
-// at LandingPage from src/components/marketing/landing.tsx.
+// The platform opens straight to sign-in. We do this as a CLIENT-side redirect
+// (render null, then navigate on mount) rather than:
+//   • a beforeLoad redirect — that fires during hydration and throws a React
+//     #418 hydration mismatch on static hosts, or
+//   • rendering the AuthPage here — that bakes auth-page DOM into the prerendered
+//     SPA shell, which then mismatches every AUTHENTICATED route on refresh
+//     ("This page didn't load").
+// Rendering null keeps the shell neutral so any route hydrates cleanly; the
+// effect forwards to /auth (which itself bounces signed-in users to /app).
+function IndexRedirect() {
+  const navigate = useNavigate();
+  useEffect(() => {
+    navigate({ to: "/auth", replace: true });
+  }, [navigate]);
+  return null;
+}
+
 export const Route = createFileRoute("/")({
-  head: () => ({ meta: [{ title: "Sign in · VK Mentorship" }] }),
-  component: AuthPage,
+  head: () => ({ meta: [{ title: "VK Mentorship" }] }),
+  component: IndexRedirect,
 });

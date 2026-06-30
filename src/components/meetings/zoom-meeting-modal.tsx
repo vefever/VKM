@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import { X, Loader2, AlertTriangle, Video, ExternalLink } from "lucide-react";
 import { getZoomSignature } from "@/components/meetings/meetings-data";
+import { installZoomReactShim } from "@/components/meetings/zoom-react-shim";
 
 type Status = "connecting" | "joined" | "error";
 
@@ -40,6 +41,8 @@ export function ZoomMeetingModal({
       try {
         const info = await getZoomSignature(meetingId);
         if (cancelled || !rootRef.current) return;
+        // Patch React-18 internals the SDK expects before loading it (React 19 compat).
+        installZoomReactShim();
         const { default: ZoomMtgEmbedded } = await import("@zoom/meetingsdk/embedded");
         const client = ZoomMtgEmbedded.createClient();
         clientRef.current = client as unknown as { leave: () => void };

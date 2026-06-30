@@ -1,8 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { WireframePage } from "@/components/vkm/wireframe-page";
-import { getPageConfig } from "@/components/vkm/page-registry";
+import { AiSettings } from "@/components/admin/ai-settings";
 
 export const Route = createFileRoute("/_authenticated/admin/ai")({
-  head: () => ({ meta: [{ title: "Ai · VKM" }] }),
-  component: () => <WireframePage config={getPageConfig("/admin/ai")} />,
+  head: () => ({ meta: [{ title: "AI Configurations · VKM" }] }),
+  component: () => <AiSettings />,
 });

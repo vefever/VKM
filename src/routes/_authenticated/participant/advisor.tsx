@@ -178,8 +178,8 @@ function AdvisorPage() {
           <div className="text-sm">
             <p className="font-semibold text-foreground">Advisor not activated yet</p>
             <p className="text-muted-foreground">
-              An admin needs to add an AI API key in{" "}
-              <span className="font-medium">Admin → API Keys</span>. You can still explore the chat
+              An admin needs to configure an AI provider in{" "}
+              <span className="font-medium">Admin → AI Configurations</span>. You can still explore the chat
               — replies will be limited until it's switched on.
             </p>
           </div>

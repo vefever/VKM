@@ -81,10 +81,11 @@ export function useMeetings() {
   return { meetings, loading, error, reload: load };
 }
 
-/** Participants a coach/mentor can schedule with — drawn from their batches.
- *  Super admins with no batch fall back to all participant-role users. */
+/** Participants the current staff member can schedule with.
+ *  Assignment-scoped: a coach sees their assigned participants; mentor/super_admin
+ *  see everyone — exactly what my_participants() returns. */
 export function useSchedulableParticipants() {
-  const { user, hasRole } = useAuth();
+  const { user } = useAuth();
   const [people, setPeople] = useState<SchedulablePerson[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -92,28 +93,8 @@ export function useSchedulableParticipants() {
     let alive = true;
     (async () => {
       if (!user) return;
-      const { data: mine } = await supabase
-        .from("batch_members")
-        .select("batch_id")
-        .eq("user_id", user.id)
-        .in("role", ["coach", "mentor"]);
-      const batchIds = (mine ?? []).map((b) => b.batch_id);
-
-      let ids: string[] = [];
-      if (batchIds.length) {
-        const { data } = await supabase
-          .from("batch_members")
-          .select("user_id")
-          .eq("role", "participant")
-          .in("batch_id", batchIds);
-        ids = (data ?? []).map((d) => d.user_id);
-      } else if (hasRole("super_admin")) {
-        const { data } = await supabase
-          .from("user_roles")
-          .select("user_id")
-          .eq("role", "participant");
-        ids = (data ?? []).map((d) => d.user_id);
-      }
+      const { data: mine } = await supabase.rpc("my_participants");
+      const ids = (mine ?? []).map((r) => r.user_id);
 
       const names = await namesFor(ids);
       const list = [...new Set(ids)].map((id) => ({
@@ -132,7 +113,7 @@ export function useSchedulableParticipants() {
     return () => {
       alive = false;
     };
-  }, [user, hasRole]);
+  }, [user]);
 
   return { people, loading };
 }

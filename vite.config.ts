@@ -41,6 +41,10 @@ export default defineConfig(({ mode }) => {
         "react-dom/client",
         "react/jsx-runtime",
         "react/jsx-dev-runtime",
+        // Pre-bundle the Zoom Meeting SDK so its dynamic import is stable — without
+        // this Vite re-optimizes it mid-session and the lazy import 404s with
+        // "Failed to fetch dynamically imported module".
+        "@zoom/meetingsdk/embedded",
       ],
       ignoreOutdatedRequests: true,
     },
