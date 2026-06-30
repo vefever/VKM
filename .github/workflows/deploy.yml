@@ -1,0 +1,34 @@
+name: Deploy to Cloudflare
+
+# Auto-deploy production on every push to main, so "pushed to GitHub" actually
+# means "live in production". Requires two repo secrets:
+#   CLOUDFLARE_API_TOKEN   — a token with "Edit Workers" permission
+#   CLOUDFLARE_ACCOUNT_ID  — your Cloudflare account id
+# (Settings → Secrets and variables → Actions → New repository secret)
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch: {}
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      # .npmrc sets legacy-peer-deps so the Zoom SDK's React-18 peer resolves.
+      - run: npm ci
+
+      - run: npm run build
+
+      - name: Deploy with Wrangler
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: deploy
