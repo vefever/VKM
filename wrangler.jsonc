@@ -8,5 +8,13 @@
   "main": "@tanstack/react-start/server-entry",
   "compatibility_flags": [
     "nodejs_compat"
-  ]
+  ],
+  "vars": {
+    "SUPABASE_URL": "https://ehsbzxrekrhmmpvbxlfv.supabase.co",
+    "SUPABASE_PUBLISHABLE_KEY": "sb_publishable_IoF8xSRS0zdq9lJhM3evzQ_qvJr9_KH",
+    "SUPABASE_PROJECT_ID": "ehsbzxrekrhmmpvbxlfv",
+    "VITE_SUPABASE_URL": "https://ehsbzxrekrhmmpvbxlfv.supabase.co",
+    "VITE_SUPABASE_PUBLISHABLE_KEY": "sb_publishable_IoF8xSRS0zdq9lJhM3evzQ_qvJr9_KH",
+    "VITE_SUPABASE_PROJECT_ID": "ehsbzxrekrhmmpvbxlfv"
+  }
 }
