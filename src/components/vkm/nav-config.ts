@@ -108,7 +108,6 @@ export const PARTICIPANT_NAV: NavGroup[] = [
     label: "Today",
     items: [
       { label: "Dashboard", to: "/participant", icon: LayoutDashboard },
-      { label: "Today's Focus", to: "/participant/focus", icon: Target },
       { label: "Calendar", to: "/participant/calendar", icon: Calendar },
     ],
   },

@@ -255,15 +255,6 @@ function ParticipantDashboard() {
               {focusPct}%
             </span>
           </div>
-          <Button
-            variant="ghost"
-            asChild
-            className="mt-2 w-full justify-between rounded-xl text-sm text-muted-foreground hover:text-foreground"
-          >
-            <Link to="/participant/focus">
-              Open Today's Focus <ArrowRight className="h-4 w-4" />
-            </Link>
-          </Button>
         </SectionCard>
 
         <div className="lg:col-span-2 grid gap-4 sm:grid-cols-2">
