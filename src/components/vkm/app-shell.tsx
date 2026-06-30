@@ -319,10 +319,12 @@ export function AppShell({ role, children }: { role: AppRole; children: ReactNod
         <VKMSidebar role={role} />
         <div className="flex min-h-screen-mobile min-w-0 flex-1 flex-col">
           <TopBar onOpenCommand={() => setCmdOpen(true)} role={role} />
-          <main className="flex-1 px-4 py-6 sm:px-8 sm:py-8 pb-[calc(6rem+env(safe-area-inset-bottom))] md:pb-8">
-            <PullToRefresh onRefresh={refresh}>
-              <RouteTransition>{children}</RouteTransition>
-            </PullToRefresh>
+          <main className="flex-1 overflow-x-hidden px-4 py-6 sm:px-8 sm:py-8 pb-[calc(6rem+env(safe-area-inset-bottom))] md:pb-8">
+            <div className="min-w-0 w-full">
+              <PullToRefresh onRefresh={refresh}>
+                <RouteTransition>{children}</RouteTransition>
+              </PullToRefresh>
+            </div>
           </main>
         </div>
         <MobileTabBar role={role} />

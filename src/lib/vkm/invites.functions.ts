@@ -133,42 +133,81 @@ function buildInviteEmail(args: {
   return { subject, html, text };
 }
 
+// supabase-js throws a FunctionsHttpError on any non-2xx, whose .message is the
+// useless "Edge Function returned a non-2xx status code". The ACTUAL reason
+// (provider message, "Forbidden", 404 body) lives unread in error.context — a
+// Response. Decode it into something the admin can act on, and translate the two
+// statuses that mean "your setup, not your input": 404 (function not deployed)
+// and 401/403 (the function rejected the caller).
+async function decodeInvokeError(error: unknown): Promise<string> {
+  const ctx = (error as { context?: unknown })?.context;
+  if (ctx instanceof Response) {
+    let body = "";
+    try {
+      body = await ctx.clone().text();
+    } catch {
+      /* body may already be consumed */
+    }
+    let msg = body;
+    try {
+      const j = JSON.parse(body);
+      msg = j.error || j.message || body;
+    } catch {
+      /* not JSON */
+    }
+    if (ctx.status === 404)
+      return "The 'messaging' edge function isn't deployed on this Supabase project. Deploy it: supabase functions deploy messaging";
+    if (ctx.status === 401 || ctx.status === 403)
+      return msg || "The email function rejected the request (not authorized).";
+    return `Email function error (HTTP ${ctx.status}): ${msg || "unknown error"}`;
+  }
+  return (error as Error)?.message || "invoke-failed";
+}
+
 // Sends the invite email through the configured provider via the `messaging`
 // edge function (super_admin gated). Best-effort: the admin always also gets the
 // link + temp password in the UI, so a missing/disabled provider never blocks.
-async function sendInviteEmail(supabase: SupabaseClient<Database>, args: {
-  to: string;
-  name: string;
-  role: InviteRole;
-  inviteUrl: string;
-  tempPassword: string;
-  expiresAt: string;
-}): Promise<{ sent: boolean; reason: string }> {
+async function sendInviteEmail(
+  supabase: SupabaseClient<Database>,
+  args: {
+    to: string;
+    name: string;
+    role: InviteRole;
+    inviteUrl: string;
+    tempPassword: string;
+    expiresAt: string;
+  },
+): Promise<{ sent: boolean; reason: string }> {
   try {
     const { subject, html, text } = buildInviteEmail(args);
     const { data, error } = await supabase.functions.invoke("messaging", {
       body: { action: "send_email", to: args.to, subject, html, text },
     });
-    if (error) return { sent: false, reason: (error as Error).message || "invoke-failed" };
+    if (error) return { sent: false, reason: await decodeInvokeError(error) };
     const ok = !!(data as { ok?: boolean } | null)?.ok;
-    return { sent: ok, reason: ok ? "ok" : (data as { error?: string } | null)?.error || "not-sent" };
+    return {
+      sent: ok,
+      reason: ok ? "ok" : (data as { error?: string } | null)?.error || "not-sent",
+    };
   } catch (err) {
-    return { sent: false, reason: (err as Error).message };
+    return { sent: false, reason: await decodeInvokeError(err) };
   }
 }
 
 export const createInvite = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .validator((input: {
-    email: string; name: string; role: InviteRole;
-    phone?: string; batch?: string;
-  }) => input)
+  .validator(
+    (input: { email: string; name: string; role: InviteRole; phone?: string; batch?: string }) =>
+      input,
+  )
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
 
     // Must be super_admin
-    const { data: isAdmin, error: roleErr } = await supabase
-      .rpc("has_role", { _user_id: userId, _role: "super_admin" });
+    const { data: isAdmin, error: roleErr } = await supabase.rpc("has_role", {
+      _user_id: userId,
+      _role: "super_admin",
+    });
     if (roleErr) throw new Error(roleErr.message);
     if (!isAdmin) throw new Error("Forbidden: only super admins can invite users");
 
@@ -228,7 +267,8 @@ export const createInvite = createServerFn({ method: "POST" })
       phone: data.phone || null,
       must_reset_password: true,
     });
-    await supabaseAdmin.from("user_roles")
+    await supabaseAdmin
+      .from("user_roles")
       .upsert({ user_id: authUserId, role: data.role }, { onConflict: "user_id,role" });
 
     // Insert invite record
@@ -302,23 +342,37 @@ export const createInvite = createServerFn({ method: "POST" })
     const inviteUrl = `${SITE_URL}/invite/${token}`;
 
     const emailResult = await sendInviteEmail(supabase, {
-      to: email, name: data.name, role: data.role,
-      inviteUrl, tempPassword, expiresAt,
+      to: email,
+      name: data.name,
+      role: data.role,
+      inviteUrl,
+      tempPassword,
+      expiresAt,
     });
 
-    return { invite, inviteUrl, tempPassword, emailSent: emailResult.sent };
+    return {
+      invite,
+      inviteUrl,
+      tempPassword,
+      emailSent: emailResult.sent,
+      emailReason: emailResult.reason,
+    };
   });
 
 export const listInvites = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
     const { supabase, userId } = context;
-    const { data: isAdmin } = await supabase
-      .rpc("has_role", { _user_id: userId, _role: "super_admin" });
+    const { data: isAdmin } = await supabase.rpc("has_role", {
+      _user_id: userId,
+      _role: "super_admin",
+    });
     if (!isAdmin) throw new Error("Forbidden");
     const { data, error } = await supabase
       .from("user_invites")
-      .select("id, email, name, role, phone, batch, token, status, expires_at, accepted_at, revoked_at, created_at")
+      .select(
+        "id, email, name, role, phone, batch, token, status, expires_at, accepted_at, revoked_at, created_at",
+      )
       .order("created_at", { ascending: false });
     if (error) throw new Error(error.message);
     return data ?? [];
@@ -329,8 +383,10 @@ export const revokeInvite = createServerFn({ method: "POST" })
   .validator((input: { id: string }) => input)
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
-    const { data: isAdmin } = await supabase
-      .rpc("has_role", { _user_id: userId, _role: "super_admin" });
+    const { data: isAdmin } = await supabase.rpc("has_role", {
+      _user_id: userId,
+      _role: "super_admin",
+    });
     if (!isAdmin) throw new Error("Forbidden");
     const { error } = await supabase
       .from("user_invites")
@@ -345,34 +401,66 @@ export const resendInvite = createServerFn({ method: "POST" })
   .validator((input: { id: string }) => input)
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
-    const { data: isAdmin } = await supabase
-      .rpc("has_role", { _user_id: userId, _role: "super_admin" });
+    const { data: isAdmin } = await supabase.rpc("has_role", {
+      _user_id: userId,
+      _role: "super_admin",
+    });
     if (!isAdmin) throw new Error("Forbidden");
 
     const { data: inv, error } = await supabase
-      .from("user_invites").select("*").eq("id", data.id).single();
+      .from("user_invites")
+      .select("*")
+      .eq("id", data.id)
+      .single();
     if (error || !inv) throw new Error("Invite not found");
     if (inv.status !== "pending") throw new Error("Invite is not pending");
 
     const inviteUrl = `${SITE_URL}/invite/${inv.token}`;
     const result = await sendInviteEmail(supabase, {
-      to: inv.email, name: inv.name, role: inv.role as InviteRole,
-      inviteUrl, tempPassword: inv.temp_password, expiresAt: inv.expires_at,
+      to: inv.email,
+      name: inv.name,
+      role: inv.role as InviteRole,
+      inviteUrl,
+      tempPassword: inv.temp_password,
+      expiresAt: inv.expires_at,
     });
-    return { ok: true, emailSent: result.sent, inviteUrl };
+    return { ok: true, emailSent: result.sent, emailReason: result.reason, inviteUrl };
   });
+
+type InvitePublicRow = {
+  email: string;
+  name: string;
+  role: InviteRole;
+  batch: string | null;
+  expires_at: string;
+  status: string;
+  is_revoked: boolean;
+  is_expired: boolean;
+  is_usable: boolean;
+};
 
 export const getInviteByToken = createServerFn({ method: "GET" })
   .validator((input: { token: string }) => input)
   .handler(async ({ data }) => {
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { data: inv } = await supabaseAdmin
-      .from("user_invites")
-      .select("email, name, role, batch, expires_at, status, revoked_at")
-      .eq("token", data.token)
-      .maybeSingle();
+    // Public invite page: the visitor isn't signed in yet, so RLS would hide the
+    // row. We read via the get_invite_public SECURITY DEFINER RPC (granted to
+    // anon, returns only safe fields) using the PUBLISHABLE key — so the invite
+    // page works without the service-role secret being present in the worker.
+    const { supabase } = await import("@/integrations/supabase/client");
+    // The RPC isn't in the generated Database types until they're regenerated;
+    // cast the call so the name/args/return are typed locally without `any`.
+    const rpc = supabase.rpc as unknown as (
+      fn: "get_invite_public",
+      args: { _token: string },
+    ) => Promise<{ data: InvitePublicRow[] | null; error: { message: string } | null }>;
+
+    const { data: rows, error } = await rpc("get_invite_public", { _token: data.token });
+    if (error) {
+      console.error("getInviteByToken: lookup failed:", error.message);
+      return null;
+    }
+    const inv = rows?.[0];
     if (!inv) return null;
-    const expired = new Date(inv.expires_at).getTime() < Date.now();
     return {
       email: inv.email,
       name: inv.name,
@@ -380,9 +468,9 @@ export const getInviteByToken = createServerFn({ method: "GET" })
       batch: inv.batch,
       expiresAt: inv.expires_at,
       status: inv.status,
-      isExpired: expired,
-      isRevoked: !!inv.revoked_at,
-      isUsable: inv.status === "pending" && !inv.revoked_at && !expired,
+      isExpired: inv.is_expired,
+      isRevoked: inv.is_revoked,
+      isUsable: inv.is_usable,
     };
   });
 
@@ -399,8 +487,9 @@ export const acceptInvite = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .validator((input: { token: string }) => input)
   .handler(async ({ data, context }) => {
-    const { data: invite, error } = await context.supabase
-      .rpc("accept_invite_by_token", { _token: data.token });
+    const { data: invite, error } = await context.supabase.rpc("accept_invite_by_token", {
+      _token: data.token,
+    });
     if (error) throw new Error(error.message);
     return invite as InviteAcceptResult;
   });

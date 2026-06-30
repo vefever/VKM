@@ -41,6 +41,10 @@ const json = (body: unknown, status = 200, cors: Record<string, string> = {}) =>
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+// These are auto-injected by Supabase into every deployed function. If a custom
+// secret override blanked one out, every admin call silently fails with an
+// opaque 500 — surface that precise cause instead.
+const ADMIN_ENV_OK = !!SUPABASE_URL && !!SERVICE_KEY;
 const admin = createClient(SUPABASE_URL, SERVICE_KEY, { auth: { persistSession: false } });
 
 type Setting = { provider: string | null; enabled: boolean; config: Record<string, string> };
@@ -54,17 +58,31 @@ async function loadSetting(id: string): Promise<Setting> {
   return { provider: data?.provider ?? null, enabled: !!data?.enabled, config: data?.config ?? {} };
 }
 
-async function requireAdmin(req: Request): Promise<boolean> {
-  const token = req.headers.get("Authorization")?.replace("Bearer ", "");
-  if (!token) return false;
-  const { data } = await admin.auth.getUser(token);
-  if (!data.user) return false;
-  const { data: roles } = await admin
-    .from("user_roles")
-    .select("role")
-    .eq("user_id", data.user.id)
-    .eq("role", "super_admin");
-  return (roles?.length ?? 0) > 0;
+type AdminCheck = { ok: boolean; reason: "ok" | "no-auth" | "invalid-token" | "not-admin" | "error" };
+
+// Returns WHY admin auth failed so the caller can give the user an actionable
+// message. The single biggest cause of the client-side "Edge Function returned a
+// non-2xx status code" is a stale/expired browser session: the app still looks
+// logged-in but the access token no longer validates here, so getUser() returns
+// no user. We surface that as a clear "sign back in" instead of an opaque error.
+async function checkAdmin(req: Request): Promise<AdminCheck> {
+  try {
+    const token = req.headers.get("Authorization")?.replace("Bearer ", "");
+    if (!token) return { ok: false, reason: "no-auth" };
+    const { data, error } = await admin.auth.getUser(token);
+    if (error || !data.user) return { ok: false, reason: "invalid-token" };
+    const { data: roles } = await admin
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", data.user.id)
+      .eq("role", "super_admin");
+    return (roles?.length ?? 0) > 0
+      ? { ok: true, reason: "ok" }
+      : { ok: false, reason: "not-admin" };
+  } catch (e) {
+    console.error("checkAdmin failed:", (e as Error).message);
+    return { ok: false, reason: "error" };
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -89,9 +107,14 @@ async function sendEmail(to: string, subject: string, html: string, text?: strin
   }
 
   if (s.provider === "mailersend") {
+    if (!c.apiKey) throw new Error("MailerSend API token is not configured");
     const r = await fetch("https://api.mailersend.com/v1/email", {
       method: "POST",
-      headers: { Authorization: `Bearer ${c.apiKey}`, "Content-Type": "application/json" },
+      headers: {
+        Authorization: `Bearer ${c.apiKey.trim()}`,
+        "Content-Type": "application/json",
+        "X-Requested-With": "XMLHttpRequest",
+      },
       body: JSON.stringify({
         from: { email: fromEmail, name: fromName },
         to: [{ email: to }],
@@ -100,8 +123,9 @@ async function sendEmail(to: string, subject: string, html: string, text?: strin
         text: text || stripHtml(html),
       }),
     });
-    if (!r.ok && r.status !== 202) throw new Error(`MailerSend: ${await r.text()}`);
-    return;
+    // 202 Accepted (queued) is the success case; 200/201 are fine too.
+    if (r.status === 202 || r.ok) return;
+    throw new Error(mailerSendError(r.status, await r.text().catch(() => "")));
   }
 
   if (s.provider === "ses") {
@@ -137,6 +161,33 @@ const stripHtml = (h: string) =>
     .replace(/<[^>]+>/g, " ")
     .replace(/\s+/g, " ")
     .trim();
+
+// Turn MailerSend's HTTP error into an actionable, human message. Their failures
+// are JSON: { message, errors: { "from.email": ["..."] } }. We flatten the field
+// errors and add the fix for the two setups that trip people up the most —
+// an unverified sender domain, and a bad/over-scoped API token.
+function mailerSendError(status: number, raw: string): string {
+  let detail = (raw || "").trim();
+  try {
+    const j = JSON.parse(raw);
+    if (j?.errors && typeof j.errors === "object") {
+      detail = Object.values(j.errors as Record<string, string[]>)
+        .flat()
+        .join(" ");
+    } else if (j?.message) {
+      detail = j.message;
+    }
+  } catch {
+    /* not JSON — keep the raw text */
+  }
+  if (status === 401 || status === 403) {
+    return `MailerSend rejected the API token (HTTP ${status}). In MailerSend → Integrations / API tokens, create a token with Email "Full access", then paste it in the From-token field. ${detail}`.trim();
+  }
+  if (status === 422 && /verif|domain|trial|approve/i.test(detail)) {
+    return `MailerSend won't send from this sender yet: ${detail} Fix: in MailerSend add and verify your sending domain (Domains → DNS records), then set "From email" to an address on that domain. Trial accounts can only send from the test domain (…@*.mlsender.net) and only to your own account email.`;
+  }
+  return `MailerSend error (HTTP ${status}): ${detail || "unknown error"}`;
+}
 
 // --- Amazon SES v2 via SigV4 (no SDK) -------------------------------------
 async function sendSes(
@@ -319,7 +370,32 @@ Deno.serve(async (req) => {
     }
 
     // All other actions are admin-only.
-    if (!(await requireAdmin(req))) return json({ ok: false, error: "Forbidden" }, 403, cors);
+    if (!ADMIN_ENV_OK) {
+      // Misconfigured function env — not the caller's fault. Return 200 so the
+      // client surfaces this exact message instead of a generic non-2xx error.
+      return json(
+        {
+          ok: false,
+          error:
+            "Email function is misconfigured: SUPABASE_SERVICE_ROLE_KEY / SUPABASE_URL is missing. Redeploy the function (these are normally auto-injected by Supabase).",
+        },
+        200,
+        cors,
+      );
+    }
+    const adm = await checkAdmin(req);
+    if (!adm.ok) {
+      // Return 200 with a precise, actionable message so the client surfaces it
+      // verbatim instead of the opaque "Edge Function returned a non-2xx status
+      // code". (The pre-auth OTP path above stays generic for security.)
+      const msg =
+        adm.reason === "not-admin"
+          ? "This account isn't a super admin, so it can't send messages. Sign in with an admin account."
+          : adm.reason === "no-auth"
+            ? "You're not signed in. Sign in as an admin and try again."
+            : "Your admin session has expired or is invalid. Sign out and sign back in, then retry.";
+      return json({ ok: false, error: msg }, 200, cors);
+    }
 
     // Caller is a verified super_admin past this point — provider/config error
     // details are safe (and useful) to surface for debugging their setup.

@@ -99,7 +99,7 @@ function ParticipantDashboard() {
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4 }}
-      className="mx-auto w-full max-w-[1280px]"
+      className="mx-auto w-full min-w-0 max-w-[1280px]"
     >
       <PageHeader
         eyebrow={`${VKM_PROGRAM.title} · Batch 16`}
@@ -119,8 +119,8 @@ function ParticipantDashboard() {
       {/* Progress hero */}
       <section className="grid gap-4 lg:grid-cols-3">
         <div className="lg:col-span-2 overflow-hidden rounded-3xl bg-gradient-navy p-7 text-primary-foreground shadow-vkm-float">
-          <div className="flex items-center justify-between">
-            <div>
+          <div className="flex items-center justify-between gap-4">
+            <div className="min-w-0 flex-1">
               <p className="text-xs font-medium uppercase tracking-[0.18em] text-primary-foreground/70">
                 Program progress
               </p>
@@ -132,7 +132,7 @@ function ParticipantDashboard() {
                 {w.phase} phase · {w.topic} ({w.mode})
               </p>
             </div>
-            <div className="relative">
+            <div className="relative shrink-0">
               <svg viewBox="0 0 120 120" className="h-28 w-28 -rotate-90">
                 <circle
                   cx="60"

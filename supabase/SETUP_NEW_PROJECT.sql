@@ -706,6 +706,44 @@ $$;
 
 GRANT EXECUTE ON FUNCTION public.accept_invite_by_token(text) TO authenticated;
 
+-- 3b. Public invite lookup — used by the /invite/:token landing page BEFORE the
+-- visitor signs in. SECURITY DEFINER so it works under the anon role without the
+-- service-role key; returns only safe fields (never temp_password or token).
+CREATE OR REPLACE FUNCTION public.get_invite_public(_token text)
+RETURNS TABLE (
+  email text,
+  name text,
+  role public.app_role,
+  batch text,
+  expires_at timestamptz,
+  status text,
+  is_revoked boolean,
+  is_expired boolean,
+  is_usable boolean
+)
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $$
+  SELECT
+    i.email,
+    i.name,
+    i.role,
+    i.batch,
+    i.expires_at,
+    i.status,
+    (i.revoked_at IS NOT NULL)                                                AS is_revoked,
+    (i.expires_at <= now())                                                   AS is_expired,
+    (i.status = 'pending' AND i.revoked_at IS NULL AND i.expires_at > now())  AS is_usable
+  FROM public.user_invites i
+  WHERE i.token = _token
+  LIMIT 1;
+$$;
+
+REVOKE EXECUTE ON FUNCTION public.get_invite_public(text) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.get_invite_public(text) TO anon, authenticated;
+
 
 -- >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 -- migration: 20260620031556_64ed1319-8825-49b3-95c9-8700f08a05f3.sql

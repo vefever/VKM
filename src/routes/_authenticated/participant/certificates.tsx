@@ -1,8 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { WireframePage } from "@/components/vkm/wireframe-page";
-import { getPageConfig } from "@/components/vkm/page-registry";
+import { CertificatesPage } from "@/components/participant/certificates-page";
 
 export const Route = createFileRoute("/_authenticated/participant/certificates")({
-  head: () => ({ meta: [{ title: "Certificates · VKM" }] }),
-  component: () => <WireframePage config={getPageConfig("/participant/certificates")} />,
+  head: () => ({ meta: [{ title: "Certificate · VKM" }] }),
+  component: CertificatesPage,
 });

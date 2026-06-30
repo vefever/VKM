@@ -33,7 +33,7 @@ export function SectionCard({
       )}
       {(title || action) && (
         <header className="flex items-start justify-between gap-3 px-5 pt-5">
-          <div>
+          <div className="min-w-0">
             {title && (
               <h3 className="text-lg font-semibold tracking-tight text-foreground">{title}</h3>
             )}

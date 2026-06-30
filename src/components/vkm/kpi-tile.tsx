@@ -114,7 +114,7 @@ export function KpiTile({
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
             <p className="flex items-start gap-1.5 text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
-              <span className="leading-tight">{label}</span>
+              <span className="truncate leading-tight">{label}</span>
               {hint && (
                 <Info className="mt-0.5 h-3 w-3 shrink-0 opacity-60 transition-opacity group-hover/magic:opacity-100" />
               )}
@@ -173,7 +173,7 @@ export function KpiTile({
         delay: index * 0.07,
         ease: [0.22, 1, 0.36, 1],
       }}
-      className="relative"
+      className="relative min-w-0"
     >
       {interactive ? (
         <button

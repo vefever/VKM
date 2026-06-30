@@ -25,7 +25,12 @@ import { PageHeader } from "@/components/vkm/page-header";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
-import { askAdvisor, advisorStatus, type ChatMsg } from "@/lib/vkm/advisor.functions";
+import {
+  askAdvisor,
+  askAdvisorStream,
+  advisorStatus,
+  type ChatMsg,
+} from "@/lib/vkm/advisor.functions";
 
 export const Route = createFileRoute("/_authenticated/participant/advisor")({
   head: () => ({ meta: [{ title: "AI Advisor · VKM" }] }),
@@ -58,6 +63,7 @@ const SUGGESTIONS: { icon: LucideIcon; label: string; prompt: string }[] = [
 function AdvisorPage() {
   const { user, profile } = useAuth();
   const ask = useServerFn(askAdvisor);
+  const askStream = useServerFn(askAdvisorStream);
   const getStatus = useServerFn(advisorStatus);
 
   const storageKey = `vkm.advisor.thread.${user?.id ?? "anon"}`;
@@ -108,6 +114,15 @@ function AdvisorPage() {
     el.style.height = `${Math.min(el.scrollHeight, 160)}px`;
   }
 
+  // Replace the last assistant message's content (used while streaming tokens in).
+  function setLastAssistant(content: string) {
+    setMessages((m) => {
+      const copy = m.slice();
+      copy[copy.length - 1] = { role: "assistant", content };
+      return copy;
+    });
+  }
+
   async function send(text?: string) {
     const content = (text ?? input).trim();
     if (!content || loading) return;
@@ -116,15 +131,67 @@ function AdvisorPage() {
     setInput("");
     setLoading(true);
     if (taRef.current) taRef.current.style.height = "auto";
+
     try {
-      const res = await ask({ data: { messages: next } });
-      setActivated(res.activated);
-      setMessages((m) => [...m, { role: "assistant", content: res.content }]);
-    } catch (err) {
+      const res = await askStream({ data: { messages: next } });
+
+      // Streaming path: append tokens to a growing assistant bubble as they land.
+      if (res instanceof Response && res.body) {
+        const reader = res.body.getReader();
+        const decoder = new TextDecoder();
+        let acc = "";
+        let started = false;
+        for (;;) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          const chunk = decoder.decode(value, { stream: true });
+          if (!chunk) continue;
+          acc += chunk;
+          if (!started) {
+            // First token arrived — swap the typing indicator for the bubble.
+            started = true;
+            setLoading(false);
+            setMessages((m) => [...m, { role: "assistant", content: acc }]);
+          } else {
+            setLastAssistant(acc);
+          }
+        }
+        if (!started) {
+          // Stream closed without any text — show a gentle fallback.
+          setMessages((m) => [
+            ...m,
+            {
+              role: "assistant",
+              content: "I couldn't generate a reply just now — please try again.",
+            },
+          ]);
+        }
+        return;
+      }
+
+      // Fallback: non-streaming Response (gateway buffered) or unexpected shape.
+      const fallbackText =
+        res instanceof Response ? await res.text() : ((res as { content?: string })?.content ?? "");
       setMessages((m) => [
         ...m,
-        { role: "assistant", content: `Something went wrong: ${(err as Error).message}` },
+        {
+          role: "assistant",
+          content: fallbackText || "I couldn't generate a reply just now — please try again.",
+        },
       ]);
+    } catch (err) {
+      // Last-resort fallback to the blocking endpoint so a stream hiccup never
+      // leaves the user with nothing.
+      try {
+        const res = await ask({ data: { messages: next } });
+        setActivated(res.activated);
+        setMessages((m) => [...m, { role: "assistant", content: res.content }]);
+      } catch {
+        setMessages((m) => [
+          ...m,
+          { role: "assistant", content: `Something went wrong: ${(err as Error).message}` },
+        ]);
+      }
     } finally {
       setLoading(false);
     }
@@ -179,8 +246,8 @@ function AdvisorPage() {
             <p className="font-semibold text-foreground">Advisor not activated yet</p>
             <p className="text-muted-foreground">
               An admin needs to configure an AI provider in{" "}
-              <span className="font-medium">Admin → AI Configurations</span>. You can still explore the chat
-              — replies will be limited until it's switched on.
+              <span className="font-medium">Admin → AI Configurations</span>. You can still explore
+              the chat — replies will be limited until it's switched on.
             </p>
           </div>
         </div>
@@ -354,9 +421,12 @@ function CopyButton({ text }: { text: string }) {
   const [copied, setCopied] = useState(false);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   // Clear any pending reset timer if the button unmounts mid-countdown.
-  useEffect(() => () => {
-    if (timerRef.current) clearTimeout(timerRef.current);
-  }, []);
+  useEffect(
+    () => () => {
+      if (timerRef.current) clearTimeout(timerRef.current);
+    },
+    [],
+  );
   return (
     <button
       type="button"

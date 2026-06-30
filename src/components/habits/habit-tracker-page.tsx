@@ -90,7 +90,7 @@ export function HabitTrackerPage() {
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4 }}
-      className="space-y-5"
+      className="min-w-0 space-y-5"
     >
       <Header config={t.config} syncing={t.loading} />
       <InfoBanner config={t.config} />
@@ -152,7 +152,7 @@ function Header({ config, syncing }: { config: TrackerConfig; syncing: boolean }
   const { currentWeek } = useEnrollment();
   return (
     <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-      <div>
+      <div className="min-w-0">
         <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-gold">
           Week {Math.max(1, currentWeek)}
           {syncing && (
@@ -180,7 +180,7 @@ function Header({ config, syncing }: { config: TrackerConfig; syncing: boolean }
 
 function InfoBanner({ config }: { config: TrackerConfig }) {
   return (
-    <div className="flex items-center gap-2.5 rounded-xl border border-gold/30 bg-gold/[0.08] px-4 py-2.5 text-sm text-foreground">
+    <div className="flex min-w-0 items-center gap-2.5 rounded-xl border border-gold/30 bg-gold/[0.08] px-4 py-2.5 text-sm text-foreground">
       <CalendarDays className="h-4 w-4 shrink-0 text-[oklch(0.5_0.11_80)]" />
       <span>
         Daily habits — tap a tile, attach proof, mark done.{" "}
@@ -225,7 +225,7 @@ function StepsCard({
         </div>
 
         <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-[#10b981] text-white">
               <Footprints className="h-4 w-4" />
             </span>
@@ -248,7 +248,7 @@ function StepsCard({
               : `${pct}% of your ${goal.toLocaleString()} goal · auto-completes Walking 20 Min.`}
           </p>
 
-          <div className="mt-3 flex items-center gap-2">
+          <div className="mt-3 flex flex-wrap items-center gap-2">
             {ped.status === "tracking" || ped.status === "calibrating" ? (
               <Button variant="outline" className="min-h-11 rounded-xl" onClick={ped.stop}>
                 <Square className="h-4 w-4" /> Stop tracking
@@ -457,7 +457,7 @@ function SummaryHeader({ t }: { t: Tracker }) {
         </span>
       }
     >
-      <div className="grid grid-cols-3 gap-2 sm:gap-4">
+      <div className="grid min-w-0 grid-cols-3 gap-2 sm:gap-4">
         <RingStat label="Done today">
           <Ring
             value={t.todayDone}

@@ -114,7 +114,7 @@ function FocusPage() {
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4 }}
-      className="space-y-6"
+      className="min-w-0 space-y-6"
     >
       <PageHeader
         eyebrow="Participant"
@@ -138,7 +138,7 @@ function FocusPage() {
       />
 
       {/* KPIs */}
-      <div className="grid grid-cols-3 gap-3 sm:gap-4">
+      <div className="grid min-w-0 grid-cols-3 gap-3 sm:gap-4">
         <KpiTile
           label="Today's actions"
           value={`${doneCount} / ${tasks.length}`}
@@ -212,7 +212,7 @@ function ThisWeekHero({ pct }: { pct: number }) {
           <p className="mt-1 max-w-xl text-sm text-primary-foreground/75">
             <span className="font-medium text-primary-foreground">Proof:</span> {WEEK.proof}
           </p>
-          <div className="mt-4 flex flex-wrap gap-2">
+          <div className="mt-4 flex flex-wrap items-center gap-2">
             <Button className="rounded-xl bg-gradient-gold text-navy hover:opacity-90" asChild>
               <Link to="/participant/proof">
                 Submit proof (+40 pts) <ArrowRight className="h-4 w-4" />
@@ -283,7 +283,7 @@ function TodaysWork({
   return (
     <SectionCard title="Today's Work" subtitle="Start a focus sprint, then close your priorities">
       <div className="grid gap-6 lg:grid-cols-[224px_minmax(0,1fr)]">
-        <div className="lg:border-r lg:border-border lg:pr-6">
+        <div className="flex justify-center border-b border-border pb-6 lg:block lg:border-b-0 lg:border-r lg:pb-0 lg:pr-6">
           <FocusTimer sessions={sessions} addSession={addSession} />
         </div>
         <div className="min-w-0">
@@ -362,7 +362,7 @@ function TodayChecklist({
             key={t.id}
             value={t}
             whileDrag={{ scale: 1.03, boxShadow: "0 10px 28px oklch(0 0 0 / 0.14)" }}
-            className="group flex items-center gap-2 rounded-xl border border-border bg-card px-3 py-2.5 transition-colors hover:bg-muted/40"
+            className="group flex flex-wrap items-center gap-x-2 gap-y-1 rounded-xl border border-border bg-card px-3 py-2.5 transition-colors hover:bg-muted/40 sm:flex-nowrap"
           >
             <GripVertical className="h-4 w-4 shrink-0 cursor-grab text-muted-foreground/40 active:cursor-grabbing" />
             <button type="button" onClick={() => toggle(t.id)} className="shrink-0">
@@ -374,7 +374,7 @@ function TodayChecklist({
             </button>
             <span
               className={cn(
-                "min-w-0 flex-1 text-sm",
+                "min-w-0 flex-1 basis-full text-sm sm:basis-auto",
                 t.done ? "text-muted-foreground line-through" : "text-foreground",
               )}
             >
@@ -437,11 +437,11 @@ function TodayChecklist({
             onChange={(e) => setDraft(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && add()}
             placeholder="Custom action…"
-            className="h-10 rounded-xl"
+            className="h-10 min-w-0 flex-1 rounded-xl"
           />
           <Button
             onClick={add}
-            className="h-10 rounded-xl bg-gradient-navy text-primary-foreground hover:opacity-90"
+            className="h-10 shrink-0 rounded-xl bg-gradient-navy text-primary-foreground hover:opacity-90"
           >
             <Plus className="h-4 w-4" /> Add
           </Button>
@@ -490,7 +490,7 @@ function DailyHabitsCard({ t }: { t: ReturnType<typeof useHabitTracker> }) {
                   {done}/{items.length}
                 </span>
               </div>
-              <div className="grid grid-cols-4 gap-2 sm:grid-cols-6">
+              <div className="grid grid-cols-4 gap-2 sm:grid-cols-6 [&_button]:w-full">
                 {items.map((h) => {
                   const Icon = h.icon;
                   const isDone = t.isDone(t.programDay, h.id);

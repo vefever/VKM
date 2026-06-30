@@ -1,8 +1,8 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { WireframePage } from "@/components/vkm/wireframe-page";
-import { getPageConfig } from "@/components/vkm/page-registry";
+import { createFileRoute, redirect } from "@tanstack/react-router";
 
+// Settings live on the profile page — keep this redirect for old links/bookmarks.
 export const Route = createFileRoute("/_authenticated/participant/settings")({
-  head: () => ({ meta: [{ title: "Settings · VKM" }] }),
-  component: () => <WireframePage config={getPageConfig("/participant/settings")} />,
+  beforeLoad: () => {
+    throw redirect({ to: "/participant/profile" });
+  },
 });

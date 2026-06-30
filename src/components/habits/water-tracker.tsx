@@ -120,10 +120,10 @@ export function WaterTracker({
         ) : undefined
       }
     >
-      <div className="flex items-center gap-5">
+      <div className="flex min-w-0 items-center gap-5">
         <BigGlass pct={pct} label={`${(ml / 1000).toFixed(1)}L`} />
 
-        <div className="min-w-0 flex-1">
+        <div className="min-w-0 flex-1 self-stretch">
           {/* Mobile: a compact segmented progress bar (the icon grid overflows < 400px) */}
           <div className="sm:hidden">
             <div className="flex gap-1">

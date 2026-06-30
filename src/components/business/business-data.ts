@@ -155,6 +155,7 @@ export function useBusinessData() {
     reviewerName,
     loading,
     saveSnapshot,
+    reload: load,
   };
 }
 

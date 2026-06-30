@@ -28,6 +28,9 @@ dist.zip
 # Supabase CLI scratch (may cache project refs / db URLs)
 supabase/.temp/
 
+# Local terminal session logs (auto-recorded scratch, not app source)
+terminals/
+
 # Wrangler / Cloudflare
 .wrangler/
 .dev.vars

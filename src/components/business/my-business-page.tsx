@@ -19,11 +19,14 @@ import {
   Trophy,
   MessageCircle,
 } from "lucide-react";
+import { toast } from "sonner";
 import { PageHeader } from "@/components/vkm/page-header";
 import { SectionCard } from "@/components/vkm/section-card";
 import { KpiTile } from "@/components/vkm/kpi-tile";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/use-auth";
 import {
   useBusinessData,
   momDelta,
@@ -32,6 +35,8 @@ import {
   type BusinessSnapshot,
   type MetricKey,
 } from "@/components/business/business-data";
+import { ImportDocumentDialog } from "@/components/business/import-document-dialog";
+import { extractedToColumns, type ExtractedBusiness } from "@/lib/vkm/business-fields";
 import { UpdateSnapshotDrawer } from "@/components/business/update-snapshot-drawer";
 import { METRIC_COPY, readingFor, type Signal } from "@/components/business/metric-copy";
 import { currentWeekNo } from "@/components/coach/coach-data";
@@ -244,7 +249,7 @@ export function MyBusinessPage() {
         tiles={
           <>
             <KpiTile
-                spotlight={false}
+              spotlight={false}
               label="Revenue (mo)"
               value={inr(latest?.revenue_inr)}
               delta={delta("revenue_inr")}
@@ -254,7 +259,7 @@ export function MyBusinessPage() {
               hint={METRIC_COPY.revenue_inr.help}
             />
             <KpiTile
-                spotlight={false}
+              spotlight={false}
               label="MRR"
               value={inr(latest?.mrr_inr)}
               delta={delta("mrr_inr")}
@@ -279,7 +284,7 @@ export function MyBusinessPage() {
         reading={reading("leads", num(latest?.leads))}
         tiles={
           <KpiTile
-                spotlight={false}
+            spotlight={false}
             label="New leads"
             value={num(latest?.leads)}
             delta={delta("leads")}
@@ -304,7 +309,7 @@ export function MyBusinessPage() {
         tiles={
           <>
             <KpiTile
-                spotlight={false}
+              spotlight={false}
               label="Deals closed"
               value={num(latest?.deals)}
               delta={delta("deals")}
@@ -314,7 +319,7 @@ export function MyBusinessPage() {
               hint={METRIC_COPY.deals.help}
             />
             <KpiTile
-                spotlight={false}
+              spotlight={false}
               label="Pipeline"
               value={inr(latest?.pipeline_inr)}
               delta={delta("pipeline_inr")}
@@ -324,7 +329,7 @@ export function MyBusinessPage() {
               hint={METRIC_COPY.pipeline_inr.help}
             />
             <KpiTile
-                spotlight={false}
+              spotlight={false}
               label="Avg deal"
               value={inr(latest?.avg_deal_inr)}
               delta={delta("avg_deal_inr")}
@@ -350,7 +355,7 @@ export function MyBusinessPage() {
         tiles={
           <>
             <KpiTile
-                spotlight={false}
+              spotlight={false}
               label="Closing rate"
               value={pct(latest?.closing_rate_pct)}
               delta={delta("closing_rate_pct")}
@@ -360,7 +365,7 @@ export function MyBusinessPage() {
               hint={METRIC_COPY.closing_rate_pct.help}
             />
             <KpiTile
-                spotlight={false}
+              spotlight={false}
               label="Follow-up rate"
               value={pct(latest?.followup_pct)}
               delta={delta("followup_pct")}
@@ -370,7 +375,7 @@ export function MyBusinessPage() {
               hint={METRIC_COPY.followup_pct.help}
             />
             <KpiTile
-                spotlight={false}
+              spotlight={false}
               label="Customer happiness"
               value={num(latest?.nps)}
               delta={delta("nps")}
@@ -449,7 +454,6 @@ function useScrollSpy(ids: string[]) {
     onScroll();
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ids]);
 
   // Clicking a tab sets it active authoritatively (works for bottom sections).
@@ -863,19 +867,51 @@ function HowItWorks() {
 
 function ProfileSection({ data }: { data: Data }) {
   const b = data.profile;
+  const { user } = useAuth();
+  const [importOpen, setImportOpen] = useState(false);
+
+  // Save AI-extracted fields straight to the owner's business_brains (RLS:
+  // INSERT/UPDATE owner only), then refresh the page data.
+  async function saveExtracted(fields: ExtractedBusiness) {
+    if (!user) throw new Error("Not signed in");
+    const cols = extractedToColumns(fields);
+    if (!Object.keys(cols).length) return;
+    const { error } = await supabase
+      .from("business_brains")
+      .upsert({ user_id: user.id, ...cols }, { onConflict: "user_id" });
+    if (error) throw new Error(error.message);
+    await data.reload();
+    toast.success("Business profile updated from your document");
+  }
+
   return (
     <section id="profile" className="scroll-mt-32">
       <SectionCard
         title="Profile"
         subtitle="Your venture at a glance — keep it current"
         action={
-          <Button size="sm" variant="outline" className="rounded-full" asChild>
-            <Link to="/participant/profile">
-              <Pencil className="h-3.5 w-3.5" /> Edit profile
-            </Link>
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              size="sm"
+              variant="outline"
+              className="rounded-full"
+              onClick={() => setImportOpen(true)}
+            >
+              <Sparkles className="h-3.5 w-3.5" /> Auto-fill from PDF
+            </Button>
+            <Button size="sm" variant="outline" className="rounded-full" asChild>
+              <Link to="/participant/profile">
+                <Pencil className="h-3.5 w-3.5" /> Edit profile
+              </Link>
+            </Button>
+          </div>
         }
       >
+        <ImportDocumentDialog
+          open={importOpen}
+          onOpenChange={setImportOpen}
+          onApply={saveExtracted}
+        />
         {b ? (
           <dl className="grid grid-cols-2 gap-4 sm:grid-cols-3">
             <Field label="Business" value={b.business_name ?? "—"} />

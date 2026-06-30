@@ -11,6 +11,7 @@ import {
   Mail,
   KeyRound,
   Vibrate,
+  Sparkles,
   type LucideIcon,
 } from "lucide-react";
 import { PageHeader } from "@/components/vkm/page-header";
@@ -23,6 +24,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { haptic, hapticsEnabled, setHapticsEnabled } from "@/lib/haptics";
 import { AvatarUploader } from "@/components/vkm/avatar-uploader";
+import { ImportDocumentDialog } from "@/components/business/import-document-dialog";
+import type { ExtractedBusiness, BusinessFieldKey } from "@/lib/vkm/business-fields";
 
 type TabId = "personal" | "business" | "account";
 const TABS: { id: TabId; label: string; icon: LucideIcon }[] = [
@@ -100,7 +103,18 @@ export function ProfileSettings({
 } = {}) {
   const { user } = useAuth();
   const [tab, setTab] = useState<TabId>("personal");
+  const [autoImport, setAutoImport] = useState(false);
   const [loading, setLoading] = useState(true);
+
+  // Deep-link from the My Business page: /participant/profile?import=1#business
+  // jumps straight to the Business tab and opens the document importer.
+  useEffect(() => {
+    if (typeof window === "undefined" || !showBusinessTab) return;
+    const wantsBusiness = window.location.hash === "#business";
+    const wantsImport = new URLSearchParams(window.location.search).get("import") === "1";
+    if (wantsBusiness || wantsImport) setTab("business");
+    if (wantsImport) setAutoImport(true);
+  }, [showBusinessTab]);
   const [personal, setPersonal] = useState<Personal>({
     full_name: "",
     phone: "",
@@ -170,8 +184,8 @@ export function ProfileSettings({
     >
       <PageHeader
         eyebrow={roleLabel}
-        title="Profile Settings"
-        description="Manage your photo, personal details, and account security."
+        title="Profile & settings"
+        description="Manage your photo, personal details, account security, and app preferences."
         icon={UserRound}
       />
 
@@ -235,7 +249,12 @@ export function ProfileSettings({
           userId={user?.id}
         />
       ) : tab === "business" ? (
-        <BusinessTab business={business} setBusiness={setBusiness} userId={user?.id} />
+        <BusinessTab
+          business={business}
+          setBusiness={setBusiness}
+          userId={user?.id}
+          autoImport={autoImport}
+        />
       ) : (
         <AccountTab email={user?.email ?? ""} />
       )}
@@ -308,13 +327,35 @@ function BusinessTab({
   business,
   setBusiness,
   userId,
+  autoImport = false,
 }: {
   business: Business;
   setBusiness: React.Dispatch<React.SetStateAction<Business>>;
   userId?: string;
+  autoImport?: boolean;
 }) {
   const [busy, setBusy] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
   const set = (k: keyof Business, v: string) => setBusiness((b) => ({ ...b, [k]: v }));
+
+  // Open the importer automatically when deep-linked from the My Business page.
+  useEffect(() => {
+    if (autoImport) setImportOpen(true);
+  }, [autoImport]);
+
+  // Merge AI-extracted fields into the live form for review before saving. Every
+  // business_brains text column is a string in this form, so the keys map 1:1.
+  function applyExtracted(fields: ExtractedBusiness) {
+    setBusiness((b) => {
+      const next = { ...b };
+      (Object.keys(fields) as BusinessFieldKey[]).forEach((k) => {
+        const v = fields[k];
+        if (v != null && k in next) (next as Record<string, string>)[k] = v;
+      });
+      return next;
+    });
+    toast.success("Details filled in — review, then Save changes");
+  }
 
   async function save() {
     if (!userId) return;
@@ -356,6 +397,33 @@ function BusinessTab({
 
   return (
     <div className="space-y-4">
+      <div className="flex flex-col gap-3 rounded-2xl border border-primary/20 bg-primary/5 p-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-start gap-3">
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+            <Sparkles className="h-5 w-5" />
+          </span>
+          <div>
+            <p className="text-sm font-semibold text-foreground">Auto-fill from a document</p>
+            <p className="text-xs text-muted-foreground">
+              Upload a business plan or report (PDF) and we'll fill these fields for you to review.
+            </p>
+          </div>
+        </div>
+        <Button
+          type="button"
+          onClick={() => setImportOpen(true)}
+          className="shrink-0 rounded-xl bg-gradient-navy shadow-vkm"
+        >
+          <Sparkles className="h-4 w-4" /> Upload PDF
+        </Button>
+      </div>
+
+      <ImportDocumentDialog
+        open={importOpen}
+        onOpenChange={setImportOpen}
+        onApply={applyExtracted}
+      />
+
       <SectionCard title="Business profile" subtitle="Powers your AI Advisor & coach insights">
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <Field label="Business name">

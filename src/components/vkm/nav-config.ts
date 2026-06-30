@@ -145,9 +145,8 @@ export const PARTICIPANT_NAV: NavGroup[] = [
   {
     label: "Account",
     items: [
-      { label: "Profile", to: "/participant/profile", icon: UserCircle },
+      { label: "Profile & settings", to: "/participant/profile", icon: UserCircle },
       { label: "Support", to: "/participant/support", icon: LifeBuoy },
-      { label: "Settings", to: "/participant/settings", icon: Settings },
     ],
   },
 ];
