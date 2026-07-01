@@ -1,4 +1,4 @@
-import { useRef, useState, type DragEvent } from "react";
+import { useEffect, useRef, useState, type DragEvent } from "react";
 import {
   FileText,
   Download,
@@ -6,63 +6,241 @@ import {
   Camera,
   Paperclip,
   Image as ImageIcon,
+  X,
+  ChevronLeft,
+  ChevronRight,
+  Play,
+  Eye,
   type LucideIcon,
 } from "lucide-react";
 import type { Attachment } from "@/components/chat/chat-data";
 import { useAppShell } from "@/hooks/use-app-shell";
 import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
 
-// Renders uploaded proof files with inline preview (image/video) + download.
+const isPdf = (a: Attachment) => /\.pdf(\?|$)/i.test(a.name || "") || /\.pdf(\?|$)/i.test(a.url);
+
+// Force a real download even for cross-origin files (R2 / Supabase public URLs):
+// fetch the blob (CORS GET is allowed for the app origins) and save with the
+// original filename. Falls back to opening the URL if the fetch is blocked.
+async function downloadAttachment(a: Attachment) {
+  try {
+    const res = await fetch(a.url);
+    if (!res.ok) throw new Error(String(res.status));
+    const blob = await res.blob();
+    const href = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = href;
+    link.download = a.name || "download";
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    setTimeout(() => URL.revokeObjectURL(href), 1000);
+  } catch {
+    window.open(a.url, "_blank", "noopener");
+  }
+}
+
+// Renders uploaded proof files as tiles. Clicking a tile opens an in-page
+// lightbox popup (image / video / PDF preview) with a Download button on top —
+// no more jumping to a new browser tab. Used across coach / mentor / admin /
+// participant views.
 export function ProofAttachments({ files }: { files: Attachment[] }) {
+  const [openIdx, setOpenIdx] = useState<number | null>(null);
   if (!files || files.length === 0) return null;
   return (
-    <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-      {files.map((a, i) => (
-        <Tile key={i} a={a} />
-      ))}
-    </div>
+    <>
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+        {files.map((a, i) => (
+          <Tile key={i} a={a} onOpen={() => setOpenIdx(i)} />
+        ))}
+      </div>
+      {openIdx !== null && (
+        <Lightbox files={files} index={openIdx} onIndex={setOpenIdx} onClose={() => setOpenIdx(null)} />
+      )}
+    </>
   );
 }
 
-function Tile({ a }: { a: Attachment }) {
+function Tile({ a, onOpen }: { a: Attachment; onOpen: () => void }) {
   if (a.kind === "image") {
     return (
-      <a
-        href={a.url}
-        target="_blank"
-        rel="noreferrer"
-        className="group relative block overflow-hidden rounded-xl border border-border"
+      <button
+        type="button"
+        onClick={onOpen}
+        className="group relative block w-full overflow-hidden rounded-xl border border-border"
         title={a.name}
       >
         <img src={a.url} alt={a.name} className="h-28 w-full object-cover" />
-        <span className="absolute bottom-1 right-1 inline-flex h-6 w-6 items-center justify-center rounded-md bg-black/50 text-white opacity-0 transition-opacity group-hover:opacity-100">
-          <Download className="h-3.5 w-3.5" />
+        <span className="absolute inset-0 flex items-center justify-center bg-black/0 transition-colors group-hover:bg-black/25">
+          <Eye className="h-6 w-6 text-white opacity-0 transition-opacity group-hover:opacity-100" />
         </span>
-      </a>
+      </button>
     );
   }
   if (a.kind === "video") {
     return (
-      <div className="overflow-hidden rounded-xl border border-border">
-        <video src={a.url} controls className="h-28 w-full bg-black object-contain" />
-      </div>
+      <button
+        type="button"
+        onClick={onOpen}
+        className="group relative block w-full overflow-hidden rounded-xl border border-border"
+        title={a.name}
+      >
+        <video src={a.url} preload="metadata" muted className="h-28 w-full bg-black object-contain" />
+        <span className="absolute inset-0 flex items-center justify-center">
+          <span className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-black/55 text-white transition-transform group-hover:scale-110">
+            <Play className="h-4 w-4 fill-current" />
+          </span>
+        </span>
+      </button>
     );
   }
   return (
-    <a
-      href={a.url}
-      target="_blank"
-      rel="noreferrer"
-      download
-      className="flex h-28 flex-col items-center justify-center gap-1.5 rounded-xl border border-border bg-secondary/40 p-2 text-center transition-colors hover:bg-secondary/70"
+    <button
+      type="button"
+      onClick={onOpen}
+      className="flex h-28 w-full flex-col items-center justify-center gap-1.5 rounded-xl border border-border bg-secondary/40 p-2 text-center transition-colors hover:bg-secondary/70"
       title={a.name}
     >
       <FileText className="h-7 w-7 text-muted-foreground" />
       <span className="line-clamp-2 text-[11px] text-foreground">{a.name}</span>
       <span className="inline-flex items-center gap-1 text-[10px] text-muted-foreground">
-        <Download className="h-3 w-3" /> Download
+        <Eye className="h-3 w-3" /> View
       </span>
-    </a>
+    </button>
+  );
+}
+
+// Full-screen popup preview with a Download button on top + prev/next.
+function Lightbox({
+  files,
+  index,
+  onIndex,
+  onClose,
+}: {
+  files: Attachment[];
+  index: number;
+  onIndex: (i: number) => void;
+  onClose: () => void;
+}) {
+  const a = files[index];
+  const many = files.length > 1;
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+      else if (e.key === "ArrowLeft" && files.length > 1)
+        onIndex((index - 1 + files.length) % files.length);
+      else if (e.key === "ArrowRight" && files.length > 1) onIndex((index + 1) % files.length);
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [index, files.length, onClose, onIndex]);
+
+  return (
+    <div
+      className="fixed inset-0 z-[95] flex flex-col bg-black/85 backdrop-blur-sm"
+      onClick={onClose}
+      role="dialog"
+      aria-modal="true"
+    >
+      {/* Top bar — filename + Download + close */}
+      <div
+        className="flex items-center gap-2 border-b border-white/10 px-3 py-2.5 sm:px-4"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <p className="min-w-0 flex-1 truncate text-sm font-medium text-white">{a.name}</p>
+        {many && (
+          <span className="shrink-0 text-xs tabular-nums text-white/60">
+            {index + 1} / {files.length}
+          </span>
+        )}
+        <Button
+          size="sm"
+          onClick={() => downloadAttachment(a)}
+          className="rounded-lg bg-white text-black hover:bg-white/90"
+        >
+          <Download className="h-4 w-4" /> Download
+        </Button>
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label="Close"
+          className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-white/80 transition-colors hover:bg-white/10 hover:text-white"
+        >
+          <X className="h-5 w-5" />
+        </button>
+      </div>
+
+      {/* Body — preview */}
+      <div
+        className="relative flex flex-1 items-center justify-center overflow-auto p-3 sm:p-6"
+        onClick={onClose}
+      >
+        {many && (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onIndex((index - 1 + files.length) % files.length);
+            }}
+            aria-label="Previous"
+            className="absolute left-2 top-1/2 z-10 inline-flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-black/50 text-white hover:bg-black/70"
+          >
+            <ChevronLeft className="h-5 w-5" />
+          </button>
+        )}
+
+        <div className="max-h-full max-w-full" onClick={(e) => e.stopPropagation()}>
+          {a.kind === "image" ? (
+            <img
+              src={a.url}
+              alt={a.name}
+              className="max-h-[82vh] max-w-full rounded-lg object-contain"
+            />
+          ) : a.kind === "video" ? (
+            <video
+              src={a.url}
+              controls
+              autoPlay
+              className="max-h-[82vh] max-w-[92vw] rounded-lg bg-black"
+            />
+          ) : isPdf(a) ? (
+            <iframe
+              src={a.url}
+              title={a.name}
+              className="h-[82vh] w-[92vw] rounded-lg border-0 bg-white sm:w-[72vw]"
+            />
+          ) : (
+            <div className="flex flex-col items-center gap-3 rounded-2xl bg-white/5 p-8 text-center">
+              <FileText className="h-12 w-12 text-white/70" />
+              <p className="max-w-xs break-words text-sm text-white">{a.name}</p>
+              <p className="text-xs text-white/60">Preview isn't available for this file type.</p>
+              <Button
+                onClick={() => downloadAttachment(a)}
+                className="rounded-lg bg-white text-black hover:bg-white/90"
+              >
+                <Download className="h-4 w-4" /> Download to view
+              </Button>
+            </div>
+          )}
+        </div>
+
+        {many && (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onIndex((index + 1) % files.length);
+            }}
+            aria-label="Next"
+            className="absolute right-2 top-1/2 z-10 inline-flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-black/50 text-white hover:bg-black/70"
+          >
+            <ChevronRight className="h-5 w-5" />
+          </button>
+        )}
+      </div>
+    </div>
   );
 }
 
