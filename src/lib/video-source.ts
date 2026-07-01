@@ -44,3 +44,8 @@ export function posterFor(url: string): string | null {
   const yt = (url ?? "").match(YT);
   return yt ? `https://img.youtube.com/vi/${yt[1]}/hqdefault.jpg` : null;
 }
+
+/** True for HLS streams (.m3u8) — need hls.js on browsers without native HLS. */
+export function isHlsUrl(url: string): boolean {
+  return /\.m3u8(\?|#|$)/i.test((url ?? "").trim());
+}
