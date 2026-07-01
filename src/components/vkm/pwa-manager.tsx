@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Download, X, Share, Plus, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { VKMLogo } from "@/components/vkm/logo";
+import { supabase } from "@/integrations/supabase/client";
 
 type BeforeInstallPromptEvent = Event & {
   prompt: () => Promise<void>;
@@ -30,6 +31,39 @@ export function PwaManager() {
   const [showBanner, setShowBanner] = useState(false);
   const [iosHint, setIosHint] = useState(false);
   const [updateReady, setUpdateReady] = useState<ServiceWorker | null>(null);
+
+  // ---- Keep the installed PWA signed in across app suspensions ----
+  // iOS/Android freeze background JS timers, so Supabase's token auto-refresh
+  // ticker stalls while the app is backgrounded. If the access token lapses in
+  // the meantime, the user reopens to a logged-out state. Every time the
+  // installed app returns to the foreground, restart the refresh loop and
+  // recover the session (getSession refreshes it if it has expired). Scoped to
+  // standalone so browser tabs — which Supabase already handles — are untouched.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (!isStandalone()) return;
+
+    const resume = () => {
+      if (document.visibilityState === "visible") {
+        supabase.auth.startAutoRefresh();
+        // Refreshes a stale token; safe no-op when the session is still valid.
+        void supabase.auth.getSession();
+      } else {
+        // Pause the ticker while hidden — it can't run reliably anyway.
+        supabase.auth.stopAutoRefresh();
+      }
+    };
+
+    resume(); // run once for the current foreground state
+    document.addEventListener("visibilitychange", resume);
+    window.addEventListener("focus", resume);
+    window.addEventListener("pageshow", resume); // bfcache / iOS resume
+    return () => {
+      document.removeEventListener("visibilitychange", resume);
+      window.removeEventListener("focus", resume);
+      window.removeEventListener("pageshow", resume);
+    };
+  }, []);
 
   // ---- Service worker registration + update detection ----
   useEffect(() => {
