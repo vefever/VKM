@@ -18,11 +18,15 @@ export const Route = createFileRoute("/auth")({
   head: () => ({
     meta: [
       { title: "Sign in · VK Mentorship" },
-      { name: "description", content: "Sign in or create your VK Mentorship account." },
+      { name: "description", content: "Sign in to your VK Mentorship account." },
     ],
   }),
   component: AuthPage,
 });
+
+// Self-serve "Create account" is hidden for now (accounts are provisioned via
+// invite). Flip to `true` to re-enable the sign-up tab — the form is kept below.
+const SIGNUP_ENABLED = false;
 
 export function AuthPage() {
   const navigate = useNavigate();
@@ -152,22 +156,36 @@ export function AuthPage() {
             </div>
           ) : (
             <div className="mx-auto w-full max-w-md">
-              <Tabs defaultValue="signin">
-                <TabsList className="grid w-full grid-cols-2 rounded-full mb-1">
-                  <TabsTrigger value="signin" className="rounded-full">
-                    Sign in
-                  </TabsTrigger>
-                  <TabsTrigger value="signup" className="rounded-full">
-                    Create account
-                  </TabsTrigger>
-                </TabsList>
-                <TabsContent value="signin" className="mt-5">
+              {SIGNUP_ENABLED ? (
+                <Tabs defaultValue="signin">
+                  <TabsList className="grid w-full grid-cols-2 rounded-full mb-1">
+                    <TabsTrigger value="signin" className="rounded-full">
+                      Sign in
+                    </TabsTrigger>
+                    <TabsTrigger value="signup" className="rounded-full">
+                      Create account
+                    </TabsTrigger>
+                  </TabsList>
+                  <TabsContent value="signin" className="mt-5">
+                    <SignInForm />
+                  </TabsContent>
+                  <TabsContent value="signup" className="mt-5">
+                    <SignUpForm />
+                  </TabsContent>
+                </Tabs>
+              ) : (
+                <>
+                  <div className="mb-6 text-center lg:text-left">
+                    <h1 className="text-2xl font-semibold tracking-tight text-foreground">
+                      Sign in
+                    </h1>
+                    <p className="mt-1 text-sm text-muted-foreground">
+                      Welcome back — enter your details to continue.
+                    </p>
+                  </div>
                   <SignInForm />
-                </TabsContent>
-                <TabsContent value="signup" className="mt-5">
-                  <SignUpForm />
-                </TabsContent>
-              </Tabs>
+                </>
+              )}
             </div>
           )}
 
