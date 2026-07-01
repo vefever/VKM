@@ -275,8 +275,8 @@ function SignInForm() {
   );
 }
 
-// Supabase `generateLink` email_otp is 8 digits — keep the UI in sync.
-const EMAIL_OTP_LENGTH = 8;
+// Supabase `generateLink` email_otp is 6 digits (the emailed code) — keep the UI in sync.
+const EMAIL_OTP_LENGTH = 6;
 
 // Passwordless sign-in: request a one-time code (emailed via the admin-configured
 // provider), then verify it with Supabase to create the session.
@@ -340,7 +340,7 @@ function OtpSignIn({ initialEmail, onBack }: { initialEmail: string; onBack: () 
 
       {stage === "code" && (
         <div className="space-y-1.5">
-          <Label htmlFor="otp-code">8-digit code</Label>
+          <Label htmlFor="otp-code">{EMAIL_OTP_LENGTH}-digit code</Label>
           <Input
             id="otp-code"
             inputMode="numeric"
@@ -349,7 +349,7 @@ function OtpSignIn({ initialEmail, onBack }: { initialEmail: string; onBack: () 
             value={code}
             onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, EMAIL_OTP_LENGTH))}
             maxLength={EMAIL_OTP_LENGTH}
-            placeholder="••••••••"
+            placeholder={"•".repeat(EMAIL_OTP_LENGTH)}
             disabled={busy}
             className="h-11 rounded-xl bg-card text-center text-lg tracking-[0.5em]"
           />
