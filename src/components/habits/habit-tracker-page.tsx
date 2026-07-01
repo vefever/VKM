@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { format } from "date-fns";
+import { Link } from "@tanstack/react-router";
+import { addDays, format, startOfToday } from "date-fns";
 import { toast } from "sonner";
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, XAxis, Tooltip } from "recharts";
 import {
@@ -18,19 +19,19 @@ import {
   Apple,
   Activity,
   X,
+  Rocket,
+  ArrowRight,
 } from "lucide-react";
 import { SectionCard } from "@/components/vkm/section-card";
 import { AnimatedCounter } from "@/components/vkm/animated-counter";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/use-auth";
-import { useEnrollment } from "@/components/participant/enrollment-data";
 import {
   HABITS,
   HABIT_CATEGORIES,
   START_DATE,
   endDate,
-  dateForDay,
   useHabitTracker,
   useDailySteps,
   useDailyWater,
@@ -85,6 +86,20 @@ export function HabitTrackerPage() {
     }
   }, [water.ml, water.goalMl, t]);
 
+  // Hold until we know the enrollment, then gate: the daily tracker only begins
+  // once the participant has started their program (Day 1). Before that they're
+  // on "Day 0" and we point them to Program Progress to start.
+  if (t.enrLoading) {
+    return (
+      <div className="flex min-h-[40vh] items-center justify-center">
+        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+  if (!t.started) {
+    return <NotStartedGate config={t.config} />;
+  }
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 8 }}
@@ -92,7 +107,12 @@ export function HabitTrackerPage() {
       transition={{ duration: 0.4 }}
       className="min-w-0 space-y-5"
     >
-      <Header config={t.config} syncing={t.loading} />
+      <Header
+        config={t.config}
+        syncing={t.loading}
+        startedAt={t.startedAt}
+        currentWeek={t.currentWeek}
+      />
       <InfoBanner config={t.config} />
 
       {/* One summary — today's score, streak, and 16-week program progress. */}
@@ -148,8 +168,55 @@ type Tracker = ReturnType<typeof useHabitTracker>;
 type Ped = ReturnType<typeof usePedometer>;
 
 // ---------------------------------------------------------------------------
-function Header({ config, syncing }: { config: TrackerConfig; syncing: boolean }) {
-  const { currentWeek } = useEnrollment();
+// Shown before the participant has started their program — their daily clock
+// (and Day 1) only begins from Program Progress, so we send them there.
+function NotStartedGate({ config }: { config: TrackerConfig }) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.4 }}
+      className="min-w-0 space-y-5"
+    >
+      <Header config={config} syncing={false} startedAt={null} currentWeek={0} />
+      <div className="relative overflow-hidden rounded-3xl bg-gradient-navy p-6 text-primary-foreground shadow-vkm-float sm:p-8">
+        <span
+          aria-hidden
+          className="pointer-events-none absolute -right-12 -top-12 h-48 w-48 rounded-full bg-gradient-gold opacity-20 blur-3xl"
+        />
+        <span className="relative inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-white/10">
+          <Rocket className="h-6 w-6 text-gold" />
+        </span>
+        <h2 className="relative mt-4 text-2xl font-bold sm:text-3xl">You're on Day 0</h2>
+        <p className="relative mt-2 max-w-xl text-sm text-white/80 sm:text-base">
+          Your daily habits, streak and program clock start on <span className="font-semibold">Day 1</span> —
+          the day you begin your program. Start it from Program Progress and this page unlocks right away.
+        </p>
+        <Button
+          asChild
+          className="relative mt-6 w-full rounded-xl bg-gradient-gold py-6 text-base font-bold text-navy hover:opacity-90 sm:w-auto sm:px-8"
+        >
+          <Link to="/participant/progress">
+            <Rocket className="h-5 w-5" /> Start my program <ArrowRight className="h-5 w-5" />
+          </Link>
+        </Button>
+      </div>
+    </motion.div>
+  );
+}
+
+function Header({
+  config,
+  syncing,
+  startedAt,
+  currentWeek,
+}: {
+  config: TrackerConfig;
+  syncing: boolean;
+  startedAt: Date | null;
+  currentWeek: number;
+}) {
+  const anchor = startedAt ?? START_DATE;
   return (
     <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
       <div className="min-w-0">
@@ -167,9 +234,11 @@ function Header({ config, syncing }: { config: TrackerConfig; syncing: boolean }
         <p className="mt-1 text-sm text-muted-foreground">
           Daily discipline, habits, clarity ({config.weeks} weeks)
         </p>
-        <p className="mt-1 text-xs text-muted-foreground">
-          {format(START_DATE, "MMM d")} — {format(endDate(config.totalDays), "MMM d")}
-        </p>
+        {startedAt && (
+          <p className="mt-1 text-xs text-muted-foreground">
+            {format(anchor, "MMM d")} — {format(endDate(config.totalDays, anchor), "MMM d")}
+          </p>
+        )}
       </div>
       <span className="inline-flex w-fit items-center gap-1.5 rounded-full border border-[#8b5cf6]/30 bg-[#8b5cf6]/10 px-3 py-1 text-xs font-semibold text-[#7c3aed]">
         Foundation · Online
@@ -452,9 +521,7 @@ function SummaryHeader({ t }: { t: Tracker }) {
     <SectionCard
       title="Today"
       action={
-        <span className="text-xs text-muted-foreground">
-          {format(dateForDay(t.programDay), "EEE, MMM d")}
-        </span>
+        <span className="text-xs text-muted-foreground">{format(new Date(), "EEE, MMM d")}</span>
       }
     >
       <div className="grid min-w-0 grid-cols-3 gap-2 sm:gap-4">
@@ -648,7 +715,9 @@ function HabitTiles({ t, onOpen }: { t: Tracker; onOpen: (h: HabitDef) => void }
 function WeekChart({ t }: { t: Tracker }) {
   const [showGrid, setShowGrid] = useState(true);
   const data = t.last7.map((d) => ({
-    label: d.day >= 1 ? format(dateForDay(d.day), "EEE") : "",
+    // Each of the last 7 program days mapped back to its real calendar weekday
+    // (day === programDay is today), so labels are correct for any start date.
+    label: d.day >= 1 ? format(addDays(startOfToday(), d.day - t.programDay), "EEE") : "",
     value: d.value,
   }));
   return (
@@ -747,6 +816,7 @@ function AnalyticsZone({ t }: { t: Tracker }) {
               title="Habit Tracker"
               isDone={t.isDone}
               proofsFor={t.proofsFor}
+              anchor={t.startedAt ?? undefined}
             />
           </motion.div>
         )}

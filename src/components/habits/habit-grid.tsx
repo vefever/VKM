@@ -36,6 +36,7 @@ export function HabitGrid({
   subtitle,
   isDone,
   proofsFor,
+  anchor,
 }: {
   config: TrackerConfig;
   dayState: (day: number) => DayState;
@@ -43,6 +44,8 @@ export function HabitGrid({
   subtitle?: string;
   isDone?: (day: number, habitId: string) => boolean;
   proofsFor?: (day: number, habitId: string) => Attachment[];
+  // The participant's own start date, so day → calendar date is correct for them.
+  anchor?: Date;
 }) {
   const [show, setShow] = useState(false); // hidden by default — reveal on demand
   const [selectedDay, setSelectedDay] = useState<number | null>(null);
@@ -50,7 +53,9 @@ export function HabitGrid({
   const interactive = !!isDone;
 
   // Column labels from the weekday of the first week's days.
-  const cols = Array.from({ length: daysPerWeek }, (_, i) => format(dateForDay(i + 1), "EEEEE"));
+  const cols = Array.from({ length: daysPerWeek }, (_, i) =>
+    format(dateForDay(i + 1, anchor), "EEEEE"),
+  );
 
   return (
     <SectionCard
@@ -182,6 +187,7 @@ export function HabitGrid({
             dayState={dayState}
             isDone={isDone!}
             proofsFor={proofsFor}
+            anchor={anchor}
             onClose={() => setSelectedDay(null)}
           />
         )}
@@ -207,15 +213,17 @@ function DayDetailModal({
   dayState,
   isDone,
   proofsFor,
+  anchor,
   onClose,
 }: {
   day: number;
   dayState: (day: number) => DayState;
   isDone: (day: number, habitId: string) => boolean;
   proofsFor?: (day: number, habitId: string) => Attachment[];
+  anchor?: Date;
   onClose: () => void;
 }) {
-  const date = dateForDay(day);
+  const date = dateForDay(day, anchor);
   const state = dayState(day);
   const meta = STATE_LABEL[state];
   const doneHabits = HABITS.filter((h) => isDone(day, h.id));

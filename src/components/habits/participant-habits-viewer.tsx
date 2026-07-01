@@ -174,7 +174,12 @@ function ParticipantDetail({ userId, name }: { userId: string; name: string }) {
         </div>
       ) : (
         <>
-          <HabitGrid config={t.config} dayState={t.dayState} title={`${name} · Habit Tracker`} />
+          <HabitGrid
+            config={t.config}
+            dayState={t.dayState}
+            title={`${name} · Habit Tracker`}
+            anchor={t.startedAt ?? undefined}
+          />
           {t.waterEvents.length > 0 && (
             <SectionCard
               title="Water log · today"

@@ -1,15 +1,26 @@
 import { useMemo, useState } from "react";
 import { motion } from "framer-motion";
-import { Upload, CheckCircle2, Clock, AlertTriangle, Loader2, Send } from "lucide-react";
+import {
+  Upload,
+  CheckCircle2,
+  Clock,
+  AlertTriangle,
+  Loader2,
+  Send,
+  Rocket,
+  ArrowRight,
+} from "lucide-react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/vkm/page-header";
 import { SectionCard } from "@/components/vkm/section-card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
+import { Link } from "@tanstack/react-router";
 import { weekByNumber } from "@/lib/vkm/program";
 import { useAuth } from "@/hooks/use-auth";
-import { useMyProofs, currentWeekNo } from "@/components/coach/coach-data";
+import { useMyProofs } from "@/components/coach/coach-data";
+import { useEnrollment, weekFromStart } from "@/components/participant/enrollment-data";
 import { uploadAttachment, type Attachment } from "@/components/chat/chat-data";
 import { LocalPreviewTile, FilePickerZone } from "@/components/participant/proof-attachments";
 import { haptic } from "@/lib/haptics";
@@ -34,8 +45,12 @@ const STATUS_META: Record<string, { label: string; cls: string; Icon: typeof Clo
 export function ProofSubmit() {
   const { user } = useAuth();
   const { weeks, loading, submit } = useMyProofs();
-  const maxWeek = currentWeekNo();
-  const [week, setWeek] = useState(maxWeek);
+  // Weeks unlock one at a time from THIS participant's own start — not the
+  // cohort calendar. Week 1 opens on their Day 1, a new week every 7 days.
+  const { started, startedAt, totalWeeks, loading: enrLoading } = useEnrollment();
+  const maxWeek = started ? weekFromStart(startedAt, totalWeeks) : 0;
+  const [weekPick, setWeekPick] = useState<number | null>(null);
+  const week = weekPick ?? maxWeek; // default to the current (latest unlocked) week
   const [url, setUrl] = useState("");
   const [note, setNote] = useState("");
   const [staged, setStaged] = useState<Staged[]>([]);
@@ -97,6 +112,51 @@ export function ProofSubmit() {
     }
   }
 
+  // Before the participant starts their program there are no unlocked weeks to
+  // submit against — point them to Program Progress to begin.
+  if (enrLoading) {
+    return (
+      <div className="flex min-h-[40vh] items-center justify-center">
+        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+  if (!started || maxWeek < 1) {
+    return (
+      <motion.div
+        initial={{ opacity: 0, y: 8 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4 }}
+        className="space-y-5"
+      >
+        <PageHeader
+          eyebrow="Participant"
+          title="Submit Weekly Proof"
+          description="Your weekly tasks unlock one at a time once you start your program."
+          icon={Upload}
+        />
+        <div className="relative overflow-hidden rounded-3xl bg-gradient-navy p-6 text-primary-foreground shadow-vkm-float sm:p-8">
+          <span className="relative inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-white/10">
+            <Rocket className="h-6 w-6 text-gold" />
+          </span>
+          <h2 className="relative mt-4 text-2xl font-bold">Start your program first</h2>
+          <p className="relative mt-2 max-w-xl text-sm text-white/80">
+            Week 1 opens on your Day 1, then a new week unlocks every 7 days. Begin from Program
+            Progress and you can submit this week's proof right away.
+          </p>
+          <Button
+            asChild
+            className="relative mt-6 w-full rounded-xl bg-gradient-gold py-6 text-base font-bold text-navy hover:opacity-90 sm:w-auto sm:px-8"
+          >
+            <Link to="/participant/progress">
+              <Rocket className="h-5 w-5" /> Start my program <ArrowRight className="h-5 w-5" />
+            </Link>
+          </Button>
+        </div>
+      </motion.div>
+    );
+  }
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 8 }}
@@ -129,7 +189,7 @@ export function ProofSubmit() {
                     <button
                       key={n}
                       type="button"
-                      onClick={() => setWeek(n)}
+                      onClick={() => setWeekPick(n)}
                       disabled={st === "approved"}
                       className={cn(
                         "h-9 w-9 rounded-lg text-sm font-medium transition-colors",

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { addDays, differenceInCalendarDays, format, startOfToday } from "date-fns";
+import { addDays, differenceInCalendarDays, format, startOfDay, startOfToday } from "date-fns";
 import {
   Footprints,
   Brain,
@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
+import { useEnrollment } from "@/components/participant/enrollment-data";
 import { type Attachment } from "@/components/chat/chat-data";
 
 // Habits whose completion is proven by their own tracker (steps / hydration /
@@ -116,15 +117,21 @@ export const DEFAULT_CONFIG: TrackerConfig = {
   stepGoal: 4000,
 };
 
-export function endDate(totalDays: number): Date {
-  return addDays(START_DATE, totalDays - 1);
+// Date helpers accept an anchor (the participant's own start) and fall back to
+// the cohort START_DATE for staff/demo contexts that don't have an enrollment.
+export function endDate(totalDays: number, anchor: Date = START_DATE): Date {
+  return addDays(anchor, totalDays - 1);
 }
-export function currentProgramDay(totalDays: number): number {
-  const diff = differenceInCalendarDays(startOfToday(), START_DATE) + 1;
+export function dateForDay(day: number, anchor: Date = START_DATE): Date {
+  return addDays(anchor, day - 1);
+}
+// The participant's current program day, relative to THEIR own start date.
+// Returns 0 until they've started; Day 1 on their start date, then one per
+// calendar day, clamped to the program length.
+export function currentProgramDay(totalDays: number, startedAt: Date | null): number {
+  if (!startedAt) return 0;
+  const diff = differenceInCalendarDays(startOfToday(), startOfDay(startedAt)) + 1;
   return Math.min(Math.max(diff, 1), totalDays);
-}
-export function dateForDay(day: number): Date {
-  return addDays(START_DATE, day - 1);
 }
 
 export type DoneMap = Record<string, true>;
@@ -240,7 +247,8 @@ function computeDerived(done: DoneMap, totalDays: number, programDay: number) {
 export function useHabitTracker() {
   const { user } = useAuth();
   const { config } = useProgramSettings();
-  const programDay = currentProgramDay(config.totalDays);
+  const enrollment = useEnrollment();
+  const programDay = currentProgramDay(config.totalDays, enrollment.startedAt);
   const [done, setDone] = useState<DoneMap>({});
   const [proofs, setProofs] = useState<Record<string, Attachment[]>>({});
   const [loading, setLoading] = useState(true);
@@ -304,7 +312,7 @@ export function useHabitTracker() {
 
   const toggleToday = useCallback(
     async (habitId: string, files: Attachment[] = []) => {
-      if (!user) return;
+      if (!user || programDay < 1) return; // no logging before the program has started
       const day = programDay;
       const k = dkey(day, habitId);
       const was = !!doneRef.current[k];
@@ -357,6 +365,12 @@ export function useHabitTracker() {
     config,
     programDay,
     loading,
+    enrLoading: enrollment.loading,
+    started: enrollment.started,
+    starting: enrollment.starting,
+    startedAt: enrollment.startedAt,
+    currentWeek: enrollment.currentWeek,
+    startProgram: enrollment.startProgram,
     toggleToday,
     proofsFor,
     points: d.totalTicks * config.pointsPerTick,
@@ -369,7 +383,8 @@ export function useHabitTracker() {
 // ---------------------------------------------------------------------------
 export function useParticipantHabits(userId: string | null) {
   const { config } = useProgramSettings();
-  const programDay = currentProgramDay(config.totalDays);
+  const [startedAt, setStartedAt] = useState<Date | null>(null);
+  const programDay = currentProgramDay(config.totalDays, startedAt);
   const [done, setDone] = useState<DoneMap>({});
   const [proofs, setProofs] = useState<Record<string, Attachment[]>>({});
   const [steps, setSteps] = useState(0);
@@ -387,6 +402,7 @@ export function useParticipantHabits(userId: string | null) {
       setWaterMl(0);
       setWaterEvents([]);
       setWorkoutMinutes(0);
+      setStartedAt(null);
       setLoading(false);
       return;
     }
@@ -401,6 +417,7 @@ export function useParticipantHabits(userId: string | null) {
         { data: waterRow },
         { data: workouts },
         { data: events },
+        { data: enr },
       ] = await Promise.all([
         supabase.from("habit_logs").select("habit_id, day_no, proof_files").eq("user_id", userId),
         supabase
@@ -422,6 +439,11 @@ export function useParticipantHabits(userId: string | null) {
           .eq("user_id", userId)
           .eq("log_date", today)
           .order("created_at", { ascending: false }),
+        supabase
+          .from("program_enrollments")
+          .select("started_at")
+          .eq("user_id", userId)
+          .maybeSingle(),
       ]);
       if (!active) return;
       const m: DoneMap = {};
@@ -438,6 +460,7 @@ export function useParticipantHabits(userId: string | null) {
       setWaterGoal(waterRow?.goal_ml ?? 4000);
       setWaterEvents((events ?? []) as WaterEvent[]);
       setWorkoutMinutes((workouts ?? []).reduce((n, w) => n + (w.minutes ?? 0), 0));
+      setStartedAt(enr?.started_at ? new Date(enr.started_at) : null);
       setLoading(false);
     };
     load();
@@ -481,6 +504,7 @@ export function useParticipantHabits(userId: string | null) {
   return {
     config,
     programDay,
+    startedAt,
     loading,
     steps,
     waterMl,
