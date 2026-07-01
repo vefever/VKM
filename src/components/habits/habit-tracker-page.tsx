@@ -843,6 +843,7 @@ function HabitProofModal({
   const Icon = habit.icon;
   const doneToday = t.isDone(t.programDay, habit.id);
   const existing = t.proofsFor(t.programDay, habit.id);
+  const proofOptional = !!habit.optionalProof;
   const [staged, setStaged] = useState<StagedFile[]>([]);
   const [busy, setBusy] = useState(false);
 
@@ -864,20 +865,28 @@ function HabitProofModal({
   }
 
   async function markDone() {
-    if (staged.length === 0) {
+    if (!proofOptional && staged.length === 0) {
       toast.error("Attach at least one proof file to mark this habit done.");
       return;
     }
     if (!user) return;
     setBusy(true);
     try {
-      const attachments = await Promise.all(staged.map((s) => uploadAttachment(user.id, s.file)));
+      // Proof-optional habits (e.g. Affirmation) can be marked done with no
+      // file; if the participant did attach one, we still upload and save it.
+      const attachments =
+        staged.length > 0
+          ? await Promise.all(staged.map((s) => uploadAttachment(user.id, s.file)))
+          : [];
       await t.toggleToday(habit.id, attachments);
       staged.forEach((s) => URL.revokeObjectURL(s.url));
       haptic("success");
       flyPoints(t.config.pointsPerTick);
       toast.success(`${habit.name} marked done`, {
-        description: `+${t.config.pointsPerTick} pts · proof saved for your coach.`,
+        description:
+          attachments.length > 0
+            ? `+${t.config.pointsPerTick} pts · proof saved for your coach.`
+            : `+${t.config.pointsPerTick} pts · marked done for your coach.`,
       });
       onClose();
     } catch (e) {
@@ -921,7 +930,9 @@ function HabitProofModal({
           </span>
           <div className="min-w-0 flex-1">
             <p className="truncate text-sm font-semibold text-foreground">{habit.name}</p>
-            <p className="text-[11px] text-muted-foreground">Day {t.programDay} · proof required</p>
+            <p className="text-[11px] text-muted-foreground">
+              Day {t.programDay} · {proofOptional ? "proof optional" : "proof required"}
+            </p>
           </div>
           <button
             type="button"
@@ -942,7 +953,9 @@ function HabitProofModal({
                 <ProofAttachments files={existing} />
               ) : (
                 <p className="text-sm text-muted-foreground">
-                  Auto-completed from your tracker — no file attached.
+                  {proofOptional
+                    ? "Marked done — no file needed for this habit."
+                    : "Auto-completed from your tracker — no file attached."}
                 </p>
               )}
               <Button
@@ -959,7 +972,9 @@ function HabitProofModal({
             <>
               <FilePickerZone onFiles={onFiles} />
               <p className="text-[11px] text-muted-foreground">
-                A photo, video or document is required.
+                {proofOptional
+                  ? "Proof is optional here — attach one if you'd like, or just mark it done."
+                  : "A photo, video or document is required."}
               </p>
               {staged.length > 0 && (
                 <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
@@ -975,7 +990,7 @@ function HabitProofModal({
                 </div>
               )}
               <Button
-                disabled={busy || staged.length === 0}
+                disabled={busy || (!proofOptional && staged.length === 0)}
                 onClick={markDone}
                 className="w-full rounded-xl bg-[#10b981] text-white hover:opacity-90"
               >
@@ -984,7 +999,7 @@ function HabitProofModal({
                 ) : (
                   <Check className="h-4 w-4" />
                 )}{" "}
-                Mark done (+{t.config.pointsPerTick})
+                {proofOptional ? "Mark as done" : "Mark done"} (+{t.config.pointsPerTick})
               </Button>
             </>
           )}

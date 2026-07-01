@@ -30,6 +30,11 @@ export type HabitDef = {
   from: string;
   to: string;
   why?: string;
+  // When true, a proof file is optional — the participant can just "Mark as
+  // done" and it counts as completed for the date (e.g. Affirmation, an
+  // internal practice with nothing to photograph). Completion still records to
+  // habit_logs so coach/mentor/admin see it as done.
+  optionalProof?: boolean;
 };
 
 // Research-backed daily system for busy business owners — Body / Mind / Business.
@@ -75,6 +80,7 @@ export const HABITS: HabitDef[] = [
     from: "#f59e0b",
     to: "#fbbf24",
     why: "Prime a winning mindset",
+    optionalProof: true,
   },
   {
     id: "gratitude",
