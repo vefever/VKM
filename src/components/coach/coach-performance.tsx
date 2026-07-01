@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, Fragment } from "react";
 import { motion } from "framer-motion";
 import { useAuth } from "@/hooks/use-auth";
 import { format, parseISO } from "date-fns";
@@ -161,7 +161,11 @@ export function CoachPerformance({
         ? tatCoaches.reduce((n, c) => n + c.avgTurnaroundH!, 0) / tatCoaches.length
         : null;
     const totalNotes = coaches.reduce((n, c) => n + c.notesCount, 0);
-    const atRisk = interactions.filter((i) => i.atRisk).length;
+    // A participant with several coaches appears once per coach — dedupe so
+    // "at risk" counts distinct people, not (participant × coach) rows.
+    const atRisk = new Set(
+      interactions.filter((i) => i.atRisk).map((i) => i.participantId),
+    ).size;
     return { totalReviews, avgApproval, avgTat, totalNotes, atRisk };
   }, [coaches, interactions]);
 
@@ -423,9 +427,8 @@ function ScoreboardTab({
               const isOpen = expanded === c.id;
               const coachParticipants = interactions.filter((p) => p.coachId === c.id);
               return (
-                <>
+                <Fragment key={c.id}>
                   <tr
-                    key={c.id}
                     className={cn(
                       "border-b border-border last:border-0 transition-colors hover:bg-muted/30",
                       isOpen && "bg-muted/40",
@@ -528,7 +531,7 @@ function ScoreboardTab({
                       </td>
                     </tr>
                   )}
-                </>
+                </Fragment>
               );
             })}
           </tbody>
@@ -979,7 +982,7 @@ function ParticipantMapTab({
               <tbody>
                 {filtered.map((p) => (
                   <tr
-                    key={p.participantId}
+                    key={`${p.participantId}-${p.coachId ?? "none"}`}
                     className={cn(
                       "border-b border-border last:border-0 transition-colors hover:bg-muted/30",
                       p.atRisk && "bg-amber-500/[0.04]",
