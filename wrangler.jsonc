@@ -23,6 +23,6 @@
     "AI_PROVIDER": "anthropic",
     "AI_BASE_URL": "https://opus.abhibots.com/v1",
     "AI_MODEL": "claude-sonnet-4-6",
-    "AI_MAX_TOKENS": "512"
+    "AI_MAX_TOKENS": "1024"
   }
 }

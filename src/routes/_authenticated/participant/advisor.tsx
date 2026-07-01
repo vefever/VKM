@@ -58,6 +58,11 @@ const SUGGESTIONS: { icon: LucideIcon; label: string; prompt: string }[] = [
     label: "Team accountability",
     prompt: "Give me a simple weekly review rhythm to keep my team accountable.",
   },
+  {
+    icon: Sparkles,
+    label: "Telugu / Tenglish",
+    prompt: "Naa business revenue ela penchali? Simple ga cheppu.",
+  },
 ];
 
 function AdvisorPage() {
@@ -288,7 +293,7 @@ function AdvisorPage() {
                   }
                 }}
                 rows={1}
-                placeholder="Ask your advisor anything about your business…"
+                placeholder="Ask anything about your business — English, తెలుగు or Tenglish…"
                 className="max-h-40 flex-1 resize-none bg-transparent px-2 py-1.5 text-sm text-foreground outline-none placeholder:text-muted-foreground"
               />
               <Button
@@ -325,8 +330,8 @@ function EmptyState({ firstName, onPick }: { firstName: string; onPick: (p: stri
         Hi {firstName}, how can I help your business today?
       </h2>
       <p className="mt-2 max-w-md text-sm text-muted-foreground">
-        I'm trained on your Business Brain and VK's 16-week method. Ask me to plan your day, fix a
-        system, or sharpen your sales.
+        I'm trained on your business profile, revenue and VK's 16-week method. Ask me to plan your
+        day, fix a system, or sharpen your sales — in English, Telugu (తెలుగు) or Tenglish.
       </p>
       <div className="mt-6 grid w-full max-w-2xl grid-cols-1 gap-2.5 sm:grid-cols-2">
         {SUGGESTIONS.map((s) => {

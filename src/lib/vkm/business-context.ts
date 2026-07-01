@@ -29,13 +29,45 @@ function line(label: string, value: string): string | null {
   return value ? `- ${label}: ${value}` : null;
 }
 
+// Extra, non-business-brain facts the advisor should also know about the owner
+// (who they are, where they are in the program) so replies are personal and
+// stage-aware, not just number-aware.
+export type OwnerContext = {
+  ownerName?: string | null;
+  programWeek?: number | null; // 1-based; 0/undefined = not started
+  programDay?: number | null;
+  totalWeeks?: number | null;
+  programStatus?: string | null; // not_started | active | completed
+  phase?: string | null; // Foundation | Systems | Sell | Review
+};
+
 /**
  * Build the "BUSINESS CONTEXT" block. Returns "" when there is genuinely
  * nothing to share (so the caller can decide whether to append anything).
  */
-export function buildBrainContext(brain: BrainRow, snapshots: SnapshotRow[] = []): string {
+export function buildBrainContext(
+  brain: BrainRow,
+  snapshots: SnapshotRow[] = [],
+  owner: OwnerContext = {},
+): string {
   const b = brain ?? {};
   const sections: string[] = [];
+
+  // --- Owner & program stage ----------------------------------------------
+  const who = [
+    line("Owner", txt(owner.ownerName)),
+    owner.programStatus === "not_started"
+      ? line("Program", "not started yet")
+      : owner.programWeek
+        ? line(
+            "Program stage",
+            `Week ${owner.programWeek}${owner.totalWeeks ? ` of ${owner.totalWeeks}` : ""}` +
+              (owner.programDay ? `, Day ${owner.programDay}` : "") +
+              (owner.phase ? ` · ${owner.phase} phase` : ""),
+          )
+        : null,
+  ].filter(Boolean);
+  if (who.length) sections.push(`OWNER\n${who.join("\n")}`);
 
   // --- Profile -------------------------------------------------------------
   const profile = [
@@ -90,11 +122,22 @@ export function buildBrainContext(brain: BrainRow, snapshots: SnapshotRow[] = []
         inr(s.mrr_inr) && `MRR ${inr(s.mrr_inr)}`,
         txt(s.leads) && `${txt(s.leads)} leads`,
         txt(s.deals) && `${txt(s.deals)} deals`,
+        inr(s.avg_deal_inr) && `avg deal ${inr(s.avg_deal_inr)}`,
         txt(s.closing_rate_pct) && `${txt(s.closing_rate_pct)}% close`,
+        txt(s.followup_pct) && `${txt(s.followup_pct)}% follow-up`,
         inr(s.pipeline_inr) && `pipeline ${inr(s.pipeline_inr)}`,
         txt(s.nps) && `NPS ${txt(s.nps)}`,
       ].filter(Boolean);
-      return `- ${txt(s.month)}: ${parts.join(", ") || "no metrics"}`;
+      // Qualitative reflections + coach feedback — the "why" behind the numbers,
+      // which is exactly what makes advice specific instead of generic.
+      const qual = [
+        txt(s.reflection_win) && `win: ${txt(s.reflection_win)}`,
+        txt(s.reflection_blocker) && `blocker: ${txt(s.reflection_blocker)}`,
+        txt(s.note) && `note: ${txt(s.note)}`,
+        txt(s.coach_note) && `coach said: ${txt(s.coach_note)}`,
+      ].filter(Boolean);
+      const head = `- ${txt(s.month)}: ${parts.join(", ") || "no metrics"}`;
+      return qual.length ? `${head}\n    (${qual.join("; ")})` : head;
     });
     sections.push(`MONTHLY SNAPSHOTS (most recent first)\n${lines.join("\n")}`);
   }

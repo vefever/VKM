@@ -4,6 +4,7 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import type { Database } from "@/integrations/supabase/types";
 import { loadAiConfig, callAi, streamAi, type AiConfig, type ChatMsg } from "@/lib/vkm/ai-provider";
 import { buildBrainContext } from "@/lib/vkm/business-context";
+import { weekByNumber } from "@/lib/vkm/program";
 
 export type { ChatMsg };
 
@@ -16,31 +17,76 @@ Always tie advice to revenue, leads, closing, systems, or team.
 Ask 3–5 clarifying questions before giving any role-clarity, culture, GAM, marketing, or sales output.
 Never invent numbers.`;
 
+// Language directive — the advisor must mirror the owner's language, including
+// Telugu and "Tenglish" (Telugu spoken in Roman letters, code-mixed with
+// English), which is how many VKM owners actually type.
+const LANGUAGE_DIRECTIVE = `LANGUAGE — mirror the owner, always reply in the language they used:
+- Telugu script (తెలుగు) → reply in natural, simple Telugu.
+- "Tenglish"/Telugu in Roman letters (e.g. "revenue ela penchali?", "meeru cheppina plan try chesa") → reply in the SAME Tenglish style: Telugu in Roman letters, mixing common English business words the way Telugu business owners naturally speak.
+- English → reply in English.
+Keep numbers, ₹ currency and core business terms (revenue, leads, closing, pipeline) as-is. Detect the language fresh each message and never switch unless the owner switches first.`;
+
+// Program day/week from the owner's own start date (server-side, calendar-day
+// based) so advice is stage-aware. Returns zeros before they've started.
+function programProgress(startedAt: string | null | undefined, totalWeeks: number) {
+  if (!startedAt) return { week: 0, day: 0 };
+  const start = new Date(`${startedAt.slice(0, 10)}T00:00:00`);
+  const today = new Date();
+  const days = Math.floor(
+    (Date.UTC(today.getFullYear(), today.getMonth(), today.getDate()) -
+      Date.UTC(start.getFullYear(), start.getMonth(), start.getDate())) /
+      86_400_000,
+  );
+  if (Number.isNaN(days) || days < 0) return { week: 1, day: 1 };
+  const day = days + 1;
+  const week = Math.min(totalWeeks || 16, Math.floor(days / 7) + 1);
+  return { week, day };
+}
+
 /**
- * Build the full system prompt = persona + the participant's live BUSINESS
- * CONTEXT (profile + recent monthly snapshots, RLS-scoped to the owner) so the
- * advisor answers with real numbers, not generic advice. Shared by the blocking
- * and streaming endpoints.
+ * Build the full system prompt = persona + language directive + the
+ * participant's live CONTEXT: who they are, where they are in the program, their
+ * full business profile, and recent monthly snapshots (numbers + reflections +
+ * coach notes) — all RLS-scoped to the owner — so the advisor answers with real,
+ * personal context instead of generic advice. Shared by both endpoints.
  */
 async function buildAdvisorSystem(
   supabase: SupabaseClient<Database>,
   userId: string,
 ): Promise<string> {
-  const [{ data: brain }, { data: snaps }] = await Promise.all([
+  const [{ data: brain }, { data: snaps }, { data: prof }, { data: enr }] = await Promise.all([
     supabase.from("business_brains").select("*").eq("user_id", userId).maybeSingle(),
     supabase
       .from("business_snapshots")
       .select(
-        "month, revenue_inr, mrr_inr, leads, deals, pipeline_inr, avg_deal_inr, closing_rate_pct, followup_pct, nps",
+        "month, revenue_inr, mrr_inr, leads, deals, pipeline_inr, avg_deal_inr, closing_rate_pct, followup_pct, nps, note, reflection_win, reflection_blocker, coach_note",
       )
       .eq("user_id", userId)
       .order("month", { ascending: false })
       .limit(6),
+    supabase.from("profiles").select("full_name").eq("id", userId).maybeSingle(),
+    supabase
+      .from("program_enrollments")
+      .select("started_at, total_weeks, status")
+      .eq("user_id", userId)
+      .maybeSingle(),
   ]);
 
+  const totalWeeks = (enr?.total_weeks as number | undefined) ?? 16;
+  const { week, day } = programProgress(enr?.started_at as string | null, totalWeeks);
+  const phase = week ? (weekByNumber(week)?.phase ?? null) : null;
+
   const persona = (brain?.ai_prompt as string | undefined)?.trim() || DEFAULT_SYSTEM;
-  const businessContext = buildBrainContext(brain, snaps ?? []);
-  return businessContext ? `${persona}\n\n${businessContext}` : persona;
+  const businessContext = buildBrainContext(brain, snaps ?? [], {
+    ownerName: (prof?.full_name as string | null) ?? null,
+    programWeek: week,
+    programDay: day,
+    totalWeeks,
+    programStatus: (enr?.status as string | null) ?? "not_started",
+    phase,
+  });
+
+  return [persona, LANGUAGE_DIRECTIVE, businessContext].filter(Boolean).join("\n\n");
 }
 
 // Lightweight status check the chat page calls on load.
