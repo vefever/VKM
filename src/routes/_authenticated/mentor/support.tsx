@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { SupportInbox } from "@/components/support/support-inbox";
 
-export const Route = createFileRoute("/_authenticated/admin/support")({
+export const Route = createFileRoute("/_authenticated/mentor/support")({
   head: () => ({ meta: [{ title: "Support · VKM" }] }),
-  component: () => <SupportInbox eyebrow="Admin · VK" />,
+  component: () => <SupportInbox eyebrow="Mentor · VK" />,
 });

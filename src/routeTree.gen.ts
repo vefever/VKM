@@ -61,6 +61,7 @@ import { Route as AuthenticatedParticipantAssignmentsRouteImport } from './route
 import { Route as AuthenticatedParticipantAnnouncementsRouteImport } from './routes/_authenticated/participant/announcements'
 import { Route as AuthenticatedParticipantAdvisorRouteImport } from './routes/_authenticated/participant/advisor'
 import { Route as AuthenticatedParticipantAchievementsRouteImport } from './routes/_authenticated/participant/achievements'
+import { Route as AuthenticatedMentorSupportRouteImport } from './routes/_authenticated/mentor/support'
 import { Route as AuthenticatedMentorStoriesRouteImport } from './routes/_authenticated/mentor/stories'
 import { Route as AuthenticatedMentorSettingsRouteImport } from './routes/_authenticated/mentor/settings'
 import { Route as AuthenticatedMentorReportsRouteImport } from './routes/_authenticated/mentor/reports'
@@ -469,6 +470,12 @@ const AuthenticatedParticipantAchievementsRoute =
     id: '/achievements',
     path: '/achievements',
     getParentRoute: () => AuthenticatedParticipantRouteRoute,
+  } as any)
+const AuthenticatedMentorSupportRoute =
+  AuthenticatedMentorSupportRouteImport.update({
+    id: '/support',
+    path: '/support',
+    getParentRoute: () => AuthenticatedMentorRouteRoute,
   } as any)
 const AuthenticatedMentorStoriesRoute =
   AuthenticatedMentorStoriesRouteImport.update({
@@ -1192,6 +1199,7 @@ export interface FileRoutesByFullPath {
   '/mentor/reports': typeof AuthenticatedMentorReportsRoute
   '/mentor/settings': typeof AuthenticatedMentorSettingsRoute
   '/mentor/stories': typeof AuthenticatedMentorStoriesRoute
+  '/mentor/support': typeof AuthenticatedMentorSupportRoute
   '/participant/achievements': typeof AuthenticatedParticipantAchievementsRoute
   '/participant/advisor': typeof AuthenticatedParticipantAdvisorRoute
   '/participant/announcements': typeof AuthenticatedParticipantAnnouncementsRoute
@@ -1348,6 +1356,7 @@ export interface FileRoutesByTo {
   '/mentor/reports': typeof AuthenticatedMentorReportsRoute
   '/mentor/settings': typeof AuthenticatedMentorSettingsRoute
   '/mentor/stories': typeof AuthenticatedMentorStoriesRoute
+  '/mentor/support': typeof AuthenticatedMentorSupportRoute
   '/participant/achievements': typeof AuthenticatedParticipantAchievementsRoute
   '/participant/advisor': typeof AuthenticatedParticipantAdvisorRoute
   '/participant/announcements': typeof AuthenticatedParticipantAnnouncementsRoute
@@ -1510,6 +1519,7 @@ export interface FileRoutesById {
   '/_authenticated/mentor/reports': typeof AuthenticatedMentorReportsRoute
   '/_authenticated/mentor/settings': typeof AuthenticatedMentorSettingsRoute
   '/_authenticated/mentor/stories': typeof AuthenticatedMentorStoriesRoute
+  '/_authenticated/mentor/support': typeof AuthenticatedMentorSupportRoute
   '/_authenticated/participant/achievements': typeof AuthenticatedParticipantAchievementsRoute
   '/_authenticated/participant/advisor': typeof AuthenticatedParticipantAdvisorRoute
   '/_authenticated/participant/announcements': typeof AuthenticatedParticipantAnnouncementsRoute
@@ -1672,6 +1682,7 @@ export interface FileRouteTypes {
     | '/mentor/reports'
     | '/mentor/settings'
     | '/mentor/stories'
+    | '/mentor/support'
     | '/participant/achievements'
     | '/participant/advisor'
     | '/participant/announcements'
@@ -1828,6 +1839,7 @@ export interface FileRouteTypes {
     | '/mentor/reports'
     | '/mentor/settings'
     | '/mentor/stories'
+    | '/mentor/support'
     | '/participant/achievements'
     | '/participant/advisor'
     | '/participant/announcements'
@@ -1989,6 +2001,7 @@ export interface FileRouteTypes {
     | '/_authenticated/mentor/reports'
     | '/_authenticated/mentor/settings'
     | '/_authenticated/mentor/stories'
+    | '/_authenticated/mentor/support'
     | '/_authenticated/participant/achievements'
     | '/_authenticated/participant/advisor'
     | '/_authenticated/participant/announcements'
@@ -2428,6 +2441,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/participant/achievements'
       preLoaderRoute: typeof AuthenticatedParticipantAchievementsRouteImport
       parentRoute: typeof AuthenticatedParticipantRouteRoute
+    }
+    '/_authenticated/mentor/support': {
+      id: '/_authenticated/mentor/support'
+      path: '/support'
+      fullPath: '/mentor/support'
+      preLoaderRoute: typeof AuthenticatedMentorSupportRouteImport
+      parentRoute: typeof AuthenticatedMentorRouteRoute
     }
     '/_authenticated/mentor/stories': {
       id: '/_authenticated/mentor/stories'
@@ -3420,6 +3440,7 @@ interface AuthenticatedMentorRouteRouteChildren {
   AuthenticatedMentorReportsRoute: typeof AuthenticatedMentorReportsRoute
   AuthenticatedMentorSettingsRoute: typeof AuthenticatedMentorSettingsRoute
   AuthenticatedMentorStoriesRoute: typeof AuthenticatedMentorStoriesRoute
+  AuthenticatedMentorSupportRoute: typeof AuthenticatedMentorSupportRoute
   AuthenticatedMentorIndexRoute: typeof AuthenticatedMentorIndexRoute
   AuthenticatedMentorParticipantUserIdRoute: typeof AuthenticatedMentorParticipantUserIdRoute
 }
@@ -3456,6 +3477,7 @@ const AuthenticatedMentorRouteRouteChildren: AuthenticatedMentorRouteRouteChildr
     AuthenticatedMentorReportsRoute: AuthenticatedMentorReportsRoute,
     AuthenticatedMentorSettingsRoute: AuthenticatedMentorSettingsRoute,
     AuthenticatedMentorStoriesRoute: AuthenticatedMentorStoriesRoute,
+    AuthenticatedMentorSupportRoute: AuthenticatedMentorSupportRoute,
     AuthenticatedMentorIndexRoute: AuthenticatedMentorIndexRoute,
     AuthenticatedMentorParticipantUserIdRoute:
       AuthenticatedMentorParticipantUserIdRoute,

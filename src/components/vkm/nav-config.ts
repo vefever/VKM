@@ -236,6 +236,7 @@ export const MENTOR_NAV: NavGroup[] = [
   {
     label: "Account",
     items: [
+      { label: "Support", to: "/mentor/support", icon: LifeBuoy },
       { label: "Profile", to: "/mentor/profile", icon: UserCircle },
       { label: "Settings", to: "/mentor/settings", icon: Settings },
     ],

@@ -10,6 +10,7 @@ import {
   Coins,
   Bell,
   AlertTriangle,
+  LifeBuoy,
   type LucideIcon,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
@@ -149,6 +150,7 @@ const META: Record<string, { Icon: LucideIcon; color: string }> = {
   workbook: { Icon: FileDown, color: "#0ea5e9" },
   download: { Icon: FileDown, color: "#0ea5e9" },
   announcement: { Icon: Megaphone, color: "#f59e0b" },
+  support: { Icon: LifeBuoy, color: "#0ea5e9" },
 };
 
 export function notificationMeta(type: string) {
