@@ -9,6 +9,7 @@ import {
   FileDown,
   Coins,
   Bell,
+  AlertTriangle,
   type LucideIcon,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
@@ -138,6 +139,7 @@ export function groupNotifications(items: AppNotification[]): NotifGroup[] {
 // ---- per-type icon + accent ----
 const META: Record<string, { Icon: LucideIcon; color: string }> = {
   proof: { Icon: CheckCircle2, color: "#10b981" },
+  alert: { Icon: AlertTriangle, color: "#ef4444" },
   points: { Icon: Coins, color: "#C8A84B" },
   milestone: { Icon: Trophy, color: "#C8A84B" },
   assignment: { Icon: ClipboardList, color: "#3b82f6" },

@@ -606,6 +606,9 @@ export function useDailyWater(programDay: number) {
   const todayDate = format(startOfToday(), "yyyy-MM-dd");
   const mlRef = useRef(0);
   mlRef.current = ml;
+  // Timestamp of the last "add" — used to auto-flag a glass logged within the
+  // 30-min window as `rapid` (no hard lock; staff get alerted instead).
+  const lastAddRef = useRef<number | null>(null);
 
   useEffect(() => {
     if (!user) return;
@@ -630,7 +633,11 @@ export function useDailyWater(programDay: number) {
       ]);
       if (!active) return;
       if (row) setMl(row.ml);
-      if (lastEvent) setLastAddAt(new Date(lastEvent.created_at).getTime());
+      if (lastEvent) {
+        const t = new Date(lastEvent.created_at).getTime();
+        setLastAddAt(t);
+        lastAddRef.current = t;
+      }
     })();
     return () => {
       active = false;
@@ -659,16 +666,17 @@ export function useDailyWater(programDay: number) {
     [user, todayDate, programDay, goalMl],
   );
 
-  const addGlass = useCallback(
-    (reason?: string) => {
-      const total = mlRef.current + GLASS_ML;
-      mlRef.current = total;
-      setMl(total);
-      setLastAddAt(Date.now());
-      writeEvent(GLASS_ML, total, reason?.trim() || null, !!reason);
-    },
-    [writeEvent],
-  );
+  const addGlass = useCallback(() => {
+    const now = Date.now();
+    // Logged again within 30 min of the previous glass → flag it (alerts staff).
+    const rapid = lastAddRef.current != null && now - lastAddRef.current < WATER_COOLDOWN_MS;
+    lastAddRef.current = now;
+    const total = mlRef.current + GLASS_ML;
+    mlRef.current = total;
+    setMl(total);
+    setLastAddAt(now);
+    writeEvent(GLASS_ML, total, null, rapid);
+  }, [writeEvent]);
 
   const removeGlass = useCallback(() => {
     const total = Math.max(0, mlRef.current - GLASS_ML);

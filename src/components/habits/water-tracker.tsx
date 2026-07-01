@@ -1,8 +1,7 @@
 import { useEffect, useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
-import { GlassWater, Plus, Minus, Droplets, Clock, AlertTriangle } from "lucide-react";
+import { motion } from "framer-motion";
+import { GlassWater, Plus, Minus, Droplets, AlertTriangle } from "lucide-react";
 import { SectionCard } from "@/components/vkm/section-card";
-import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { haptic } from "@/lib/haptics";
 import { GLASS_ML } from "@/components/habits/habit-tracker";
@@ -59,47 +58,31 @@ export function WaterTracker({
   goalMl: number;
   lastAddAt: number | null;
   cooldownMs: number;
-  addGlass: (reason?: string) => void;
+  addGlass: () => void;
   removeGlass: () => void;
 }) {
   const glasses = Math.round(goalMl / GLASS_ML);
   const filled = Math.floor(ml / GLASS_ML);
   const pct = Math.min((ml / goalMl) * 100, 100);
 
-  // Live clock so the cooldown counts down.
+  // Live clock so the "logged recently" hint clears itself after the window.
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
     const id = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(id);
   }, []);
+  const withinWindow = lastAddAt ? now - lastAddAt < cooldownMs : false;
 
-  const remainingMs = lastAddAt ? Math.max(0, lastAddAt + cooldownMs - now) : 0;
-  const withinCooldown = remainingMs > 0;
-  const remMin = Math.floor(remainingMs / 60000);
-  const remSec = Math.floor((remainingMs % 60000) / 1000);
-
-  const [askReason, setAskReason] = useState(false);
-  const [reason, setReason] = useState("");
-
-  function attemptAdd() {
+  // No hard lock — a glass can be added anytime; adding again inside the window
+  // is flagged `rapid` (server-side) and alerts the coach.
+  function add() {
     if (ml >= goalMl) return;
-    if (withinCooldown) {
-      setAskReason(true);
-      return;
-    }
     haptic(ml + GLASS_ML >= goalMl ? "success" : "tick");
     addGlass();
   }
-  function confirmRapid() {
-    if (!reason.trim()) return;
-    haptic("tick");
-    addGlass(reason);
-    setReason("");
-    setAskReason(false);
-  }
 
   function tapGlass(i: number) {
-    if (i === filled) attemptAdd();
+    if (i === filled) add();
     else if (i === filled - 1) removeGlass();
     // tapping ahead / middle is ignored — one glass at a time.
   }
@@ -112,10 +95,6 @@ export function WaterTracker({
         ml >= goalMl ? (
           <span className="inline-flex items-center gap-1 rounded-full bg-[#0ea5e9]/15 px-2 py-0.5 text-[11px] font-semibold text-[#0369a1]">
             <Droplets className="h-3 w-3" /> Goal hit 🎉
-          </span>
-        ) : withinCooldown ? (
-          <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-[11px] font-semibold text-muted-foreground">
-            <Clock className="h-3 w-3" /> next in {remMin}:{String(remSec).padStart(2, "0")}
           </span>
         ) : undefined
       }
@@ -171,7 +150,7 @@ export function WaterTracker({
             })}
           </div>
 
-          {/* Controls */}
+          {/* Controls — add/remove freely, no cooldown lock */}
           <div className="mt-3 flex items-center gap-2">
             <button
               type="button"
@@ -184,77 +163,27 @@ export function WaterTracker({
             </button>
             <button
               type="button"
-              onClick={attemptAdd}
+              onClick={add}
               disabled={ml >= goalMl}
-              className={cn(
-                "inline-flex h-11 flex-1 items-center justify-center gap-1.5 rounded-xl text-sm font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-50",
-                withinCooldown ? "bg-amber-500" : "bg-[#0ea5e9]",
-              )}
+              className="inline-flex h-11 flex-1 items-center justify-center gap-1.5 rounded-xl bg-[#0ea5e9] text-sm font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-50"
             >
-              <Plus className="h-4 w-4" />
-              {withinCooldown ? "Log anyway (needs a reason)" : `Add a glass (${GLASS_ML}ml)`}
+              <Plus className="h-4 w-4" /> Add a glass ({GLASS_ML}ml)
             </button>
           </div>
 
-          <p className="mt-2 text-[11px] text-muted-foreground">
-            {filled} / {glasses} glasses · completes “Drink Water” at {(goalMl / 1000).toFixed(0)}L
-            · ~30 min between glasses.
-          </p>
+          {withinWindow ? (
+            <p className="mt-2 flex items-start gap-1 text-[11px] text-amber-600">
+              <AlertTriangle className="mt-0.5 h-3 w-3 shrink-0" />
+              You logged a glass recently — logging again within 30 min is flagged and your coach is
+              notified.
+            </p>
+          ) : (
+            <p className="mt-2 text-[11px] text-muted-foreground">
+              {filled} / {glasses} glasses · completes “Drink Water” at {(goalMl / 1000).toFixed(0)}L.
+            </p>
+          )}
         </div>
       </div>
-
-      {/* Reason prompt for back-to-back logging */}
-      <AnimatePresence>
-        {askReason && (
-          <motion.div
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: "auto" }}
-            exit={{ opacity: 0, height: 0 }}
-            className="mt-3 overflow-hidden"
-          >
-            <div className="rounded-xl border border-amber-300 bg-amber-50 p-3">
-              <div className="flex items-start gap-2">
-                <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm font-medium text-foreground">
-                    You logged a glass {remMin}:{String(remSec).padStart(2, "0")} ago.
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    Add a quick reason for logging again so soon — your coach can see this.
-                  </p>
-                  <textarea
-                    value={reason}
-                    onChange={(e) => setReason(e.target.value)}
-                    placeholder="e.g. just finished a workout, hot day…"
-                    className="mt-2 min-h-[56px] w-full rounded-lg border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                  />
-                  <div className="mt-2 flex justify-end gap-2">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="rounded-lg"
-                      onClick={() => {
-                        setAskReason(false);
-                        setReason("");
-                      }}
-                    >
-                      Cancel
-                    </Button>
-                    <Button
-                      size="sm"
-                      className="rounded-lg bg-amber-500 text-white hover:opacity-90"
-                      onClick={confirmRapid}
-                      disabled={!reason.trim()}
-                    >
-                      Log glass
-                    </Button>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
     </SectionCard>
   );
 }
