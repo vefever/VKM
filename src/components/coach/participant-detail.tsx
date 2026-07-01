@@ -450,7 +450,7 @@ export function ParticipantDetail({
                 icon={CheckCircle2}
                 color="#10b981"
                 label="Habits today"
-                value={`${habits.todayDone}/12`}
+                value={`${habits.todayDone}/${HABITS.length}`}
               />
               <MiniStat icon={Flame} color="#f59e0b" label="Streak" value={`${habits.streak}d`} />
               <MiniStat
