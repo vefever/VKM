@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type DragEvent } from "react";
+import { createPortal } from "react-dom";
 import {
   FileText,
   Download,
@@ -134,12 +135,22 @@ function Lightbox({
       else if (e.key === "ArrowRight" && files.length > 1) onIndex((index + 1) % files.length);
     };
     document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
+    // Lock body scroll while the popup is open.
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      document.body.style.overflow = prevOverflow;
+    };
   }, [index, files.length, onClose, onIndex]);
 
-  return (
+  if (typeof document === "undefined") return null;
+
+  // Render at the document root (a portal) so ancestor transforms — framer-motion
+  // cards, dialogs — can't trap `position: fixed` and shrink/offset the popup.
+  return createPortal(
     <div
-      className="fixed inset-0 z-[95] flex flex-col bg-black/85 backdrop-blur-sm"
+      className="fixed inset-0 z-[100] flex flex-col bg-black/90 backdrop-blur-sm"
       onClick={onClose}
       role="dialog"
       aria-modal="true"
@@ -240,7 +251,8 @@ function Lightbox({
           </button>
         )}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 
