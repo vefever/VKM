@@ -39,8 +39,8 @@ import { ImportDocumentDialog } from "@/components/business/import-document-dial
 import { extractedToColumns, type ExtractedBusiness } from "@/lib/vkm/business-fields";
 import { UpdateSnapshotDrawer } from "@/components/business/update-snapshot-drawer";
 import { METRIC_COPY, readingFor, type Signal } from "@/components/business/metric-copy";
-import { currentWeekNo } from "@/components/coach/coach-data";
 import { weekByNumber } from "@/lib/vkm/program";
+import { useEnrollment } from "@/components/participant/enrollment-data";
 import { AnalyticsSection } from "@/components/business/analytics-section";
 import { TeamSection } from "@/components/business/team-section";
 
@@ -110,8 +110,10 @@ export function MyBusinessPage() {
       display,
     );
 
-  // Phase-aware focus — adapt the page to where the mentee actually is.
-  const currentWeek = weekByNumber(currentWeekNo());
+  // Phase-aware focus — anchored to THIS participant's own program week
+  // (relative to their start date), not the global cohort clock.
+  const { currentWeek: programWeek, totalWeeks: programTotalWeeks } = useEnrollment();
+  const currentWeek = weekByNumber(Math.max(1, programWeek));
   const focusIds = (currentWeek && PHASE_FOCUS[currentWeek.phase]) || [];
 
   return (
@@ -136,7 +138,7 @@ export function MyBusinessPage() {
         }
       />
 
-      <ProgramBand data={data} />
+      <ProgramBand data={data} week={programWeek} totalWeeks={programTotalWeeks} />
 
       <SectionNav />
 
@@ -493,10 +495,18 @@ function SectionNav() {
 
 // Anchors the page to the 16-week coached journey: where you are, the goal you
 // set, and the week's focus — so the numbers serve the program, not vice-versa.
-function ProgramBand({ data }: { data: Data }) {
-  const week = currentWeekNo();
-  const wk = weekByNumber(week);
-  const throughPct = Math.round((week / 16) * 100);
+function ProgramBand({
+  data,
+  week,
+  totalWeeks,
+}: {
+  data: Data;
+  week: number;
+  totalWeeks: number;
+}) {
+  const displayWeek = Math.max(1, week);
+  const wk = weekByNumber(displayWeek);
+  const throughPct = Math.round((displayWeek / totalWeeks) * 100);
   const target = data.profile?.target_mrr_inr ?? null;
   const mrr = data.latest?.mrr_inr ?? null;
   const goalPct = target && mrr != null ? Math.min(100, Math.round((mrr / target) * 100)) : null;
@@ -506,10 +516,10 @@ function ProgramBand({ data }: { data: Data }) {
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
           <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-primary-foreground/70">
-            Your 16-week journey
+            Your {totalWeeks}-week journey
           </p>
           <p className="mt-1 text-lg font-semibold leading-tight sm:text-2xl">
-            Week {week} of 16 — {wk?.topic}
+            Week {displayWeek} of {totalWeeks} — {wk?.topic}
           </p>
           <p className="mt-1 text-xs text-primary-foreground/70 sm:text-sm">
             {wk?.phase} phase · is the program moving your numbers?
@@ -529,7 +539,7 @@ function ProgramBand({ data }: { data: Data }) {
       {target != null && (
         <div className="mt-4 rounded-2xl bg-white/5 p-3">
           <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-0.5 text-xs sm:text-sm">
-            <span className="text-primary-foreground/80">Goal: {inr(target)} MRR by Week 16</span>
+            <span className="text-primary-foreground/80">Goal: {inr(target)} MRR by Week {totalWeeks}</span>
             <span className="font-semibold">
               {mrr != null ? inr(mrr) : "—"}
               {goalPct != null ? ` · ${goalPct}%` : ""}
@@ -558,7 +568,7 @@ function ProgramBand({ data }: { data: Data }) {
             asChild
             className="rounded-full bg-gradient-gold text-navy hover:opacity-90"
           >
-            <Link to="/participant/proof">Submit Week {week} proof</Link>
+            <Link to="/participant/proof">Submit Week {displayWeek} proof</Link>
           </Button>
         </div>
       )}
