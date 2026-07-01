@@ -3,6 +3,7 @@ import { useServerFn } from "@tanstack/react-start";
 import {
   Loader2, Trophy, CheckCircle2, Flame, Timer, Target, IndianRupee, Award,
   KeyRound, LogIn, Copy, Users, Clock, ShieldAlert, ArrowRightLeft, Save, UserCog,
+  Ban, ShieldCheck, Trash2,
 } from "lucide-react";
 import { format, formatDistanceToNowStrict } from "date-fns";
 import { toast } from "sonner";
@@ -14,11 +15,15 @@ import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { cn } from "@/lib/utils";
 import { useParticipantTeam } from "@/components/coach/coach-data";
 import {
   getUserDetail, adminResetPassword, adminSetUserBatch, impersonateUser,
-  adminListCoaches, adminSetUserCoach,
+  adminListCoaches, adminSetUserCoach, adminSetUserBlocked, adminDeleteUser,
   type AdminUserDetail,
 } from "@/lib/vkm/admin-users.functions";
 
@@ -66,17 +71,22 @@ export function UserDetailDialog({
   const impersonate = useServerFn(impersonateUser);
   const listCoaches = useServerFn(adminListCoaches);
   const setCoach = useServerFn(adminSetUserCoach);
+  const setBlocked = useServerFn(adminSetUserBlocked);
+  const deleteUser = useServerFn(adminDeleteUser);
 
   const [detail, setDetail] = useState<AdminUserDetail | null>(null);
   const [loading, setLoading] = useState(false);
   const [batchInput, setBatchInput] = useState("");
   const [coaches, setCoaches] = useState<CoachOpt[]>([]);
   const [coachSel, setCoachSel] = useState<string>(UNASSIGNED);
-  const [busy, setBusy] = useState<null | "batch" | "reset" | "login" | "coach">(null);
+  const [busy, setBusy] = useState<null | "batch" | "reset" | "login" | "coach" | "block" | "delete">(null);
   const [tempPw, setTempPw] = useState<string | null>(null);
   const [loginLink, setLoginLink] = useState<string | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState(false);
 
   const isParticipant = !!detail?.roles.includes("participant");
+  const isSuperAdmin = !!detail?.roles.includes("super_admin");
+  const isBlocked = !!detail?.auth.is_banned;
   const { members: team } = useParticipantTeam(detail?.user_id ?? null);
 
   useEffect(() => {
@@ -144,6 +154,41 @@ export function UserDetailDialog({
     finally { setBusy(null); }
   }
 
+  async function handleToggleBlock() {
+    if (!email || !detail) return;
+    const next = !detail.auth.is_banned;
+    setBusy("block");
+    try {
+      await setBlocked({ data: { email, blocked: next } });
+      toast.success(next ? "User blocked" : "User unblocked", {
+        description: next ? "They can't sign in until unblocked." : email,
+      });
+      const d = await fetchDetail({ data: { email } });
+      setDetail(d);
+      onChanged();
+    } catch (e) {
+      toast.error("Could not update block status", { description: (e as Error).message });
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function handleDelete() {
+    if (!email) return;
+    setBusy("delete");
+    try {
+      await deleteUser({ data: { email } });
+      toast.success("User deleted", { description: email });
+      setConfirmDelete(false);
+      onChanged();
+      onOpenChange(false);
+    } catch (e) {
+      toast.error("Could not delete user", { description: (e as Error).message });
+    } finally {
+      setBusy(null);
+    }
+  }
+
   function copy(text: string, label: string) {
     navigator.clipboard.writeText(text);
     toast.success(`${label} copied`);
@@ -178,6 +223,11 @@ export function UserDetailDialog({
               ))}
               {detail.profile?.must_reset_password && (
                 <Badge variant="outline" className="rounded-full border-amber-400/50 text-amber-600">Pending reset</Badge>
+              )}
+              {isBlocked && (
+                <Badge variant="outline" className="rounded-full border-destructive/50 text-destructive">
+                  <Ban className="mr-1 h-3 w-3" /> Blocked
+                </Badge>
               )}
               <span className="ml-auto inline-flex items-center gap-1.5 text-xs text-muted-foreground">
                 <Clock className="h-3.5 w-3.5" /> Active {ago(detail.last_active_at)}
@@ -372,10 +422,101 @@ export function UserDetailDialog({
                     </div>
                   )}
                 </div>
+
+                {/* Danger zone: block sign-in / delete permanently */}
+                <div className="space-y-3 rounded-xl border border-destructive/40 bg-destructive/[0.03] p-4">
+                  <Label className="flex items-center gap-1.5 text-sm font-semibold text-destructive">
+                    <ShieldAlert className="h-4 w-4" /> Danger zone
+                  </Label>
+
+                  {isSuperAdmin ? (
+                    <p className="text-xs text-muted-foreground">
+                      This account is a super admin and is protected from blocking and deletion.
+                    </p>
+                  ) : (
+                    <>
+                      {/* Block / unblock */}
+                      <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border bg-card p-3">
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium">{isBlocked ? "Account blocked" : "Block sign-in"}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {isBlocked
+                              ? "This user can't sign in. Unblock to restore access."
+                              : "Prevent this user from signing in — keeps all their data."}
+                          </p>
+                        </div>
+                        <Button
+                          variant="outline"
+                          onClick={handleToggleBlock}
+                          disabled={busy === "block"}
+                          className={cn(
+                            "rounded-xl",
+                            isBlocked ? "border-emerald-500/50 text-emerald-600" : "border-amber-500/50 text-amber-600",
+                          )}
+                        >
+                          {busy === "block" ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : isBlocked ? (
+                            <ShieldCheck className="h-4 w-4" />
+                          ) : (
+                            <Ban className="h-4 w-4" />
+                          )}
+                          {isBlocked ? "Unblock" : "Block"}
+                        </Button>
+                      </div>
+
+                      {/* Delete permanently */}
+                      <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-destructive/30 bg-card p-3">
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium">Delete permanently</p>
+                          <p className="text-xs text-muted-foreground">
+                            Removes the account and all their data. This can't be undone.
+                          </p>
+                        </div>
+                        <Button
+                          variant="outline"
+                          onClick={() => setConfirmDelete(true)}
+                          disabled={busy === "delete"}
+                          className="rounded-xl border-destructive/50 text-destructive hover:bg-destructive hover:text-destructive-foreground"
+                        >
+                          {busy === "delete" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+                          Delete
+                        </Button>
+                      </div>
+                    </>
+                  )}
+                </div>
               </TabsContent>
             </Tabs>
           </div>
         )}
+
+        <AlertDialog open={confirmDelete} onOpenChange={(o) => busy !== "delete" && setConfirmDelete(o)}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Delete {name}?</AlertDialogTitle>
+              <AlertDialogDescription>
+                This permanently deletes <span className="font-medium text-foreground">{email}</span> and
+                all of their data (progress, points, proofs, memberships, invites). This action cannot be
+                undone. To only stop their access, use Block instead.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={busy === "delete"}>Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={(e) => {
+                  e.preventDefault();
+                  handleDelete();
+                }}
+                disabled={busy === "delete"}
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              >
+                {busy === "delete" ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Trash2 className="mr-2 h-4 w-4" />}
+                Delete permanently
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </DialogContent>
     </Dialog>
   );

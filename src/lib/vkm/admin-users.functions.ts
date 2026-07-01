@@ -254,6 +254,94 @@ export const adminSetUserCoach = createServerFn({ method: "POST" })
     return { ok: true, assigned: true };
   });
 
+// ---------------------------------------------------------------------------
+// Block / unblock (ban) a member. A blocked user keeps all their data but can't
+// sign in until unblocked. Super admins can't be blocked, and you can't block
+// yourself.
+// ---------------------------------------------------------------------------
+export const adminSetUserBlocked = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .validator((input: { email: string; blocked: boolean }) => input)
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    await assertSuperAdmin(supabase, userId);
+
+    const { data: uid, error: rErr } = await supabase.rpc("admin_resolve_user_id", {
+      _email: data.email,
+    });
+    if (rErr) throw new Error(rErr.message);
+    if (!uid) throw new Error("Account not found for that email");
+    const targetId = uid as string;
+
+    if (targetId === userId) throw new Error("You can't block your own account");
+    const { data: targetIsAdmin } = await supabase.rpc("has_role", {
+      _user_id: targetId,
+      _role: "super_admin",
+    });
+    if (targetIsAdmin) throw new Error("You can't block another super admin");
+
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    // GoTrue: a duration bans; "none" lifts the ban. ~100 years = effectively permanent.
+    const { error } = await supabaseAdmin.auth.admin.updateUserById(targetId, {
+      ban_duration: data.blocked ? "876000h" : "none",
+    });
+    if (error) throw new Error(error.message);
+    return { ok: true, blocked: data.blocked };
+  });
+
+// ---------------------------------------------------------------------------
+// Permanently delete a member: their auth account (which cascade-deletes all of
+// their own rows) plus any invite records keyed to their email. Irreversible.
+// Super admins can't be deleted, and you can't delete yourself.
+// ---------------------------------------------------------------------------
+export const adminDeleteUser = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .validator((input: { email: string }) => input)
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    await assertSuperAdmin(supabase, userId);
+
+    const email = data.email.trim().toLowerCase();
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    const { data: uid, error: rErr } = await supabase.rpc("admin_resolve_user_id", {
+      _email: email,
+    });
+    if (rErr) throw new Error(rErr.message);
+    const targetId = (uid as string | null) ?? null;
+
+    if (targetId) {
+      if (targetId === userId) throw new Error("You can't delete your own account");
+      const { data: targetIsAdmin } = await supabase.rpc("has_role", {
+        _user_id: targetId,
+        _role: "super_admin",
+      });
+      if (targetIsAdmin) throw new Error("You can't delete another super admin");
+
+      // Almost every user table cascades on auth.users delete. A handful of
+      // "actor" columns don't (they point at whoever awarded/reviewed/assigned/
+      // created a row for SOMEONE ELSE). Detach those first so a stray reference
+      // can't block the delete. Best-effort — a failure here shouldn't abort.
+      await Promise.allSettled([
+        supabaseAdmin.from("points_ledger").update({ awarded_by: null }).eq("awarded_by", targetId),
+        supabaseAdmin.from("milestone_awards").update({ awarded_by: null }).eq("awarded_by", targetId),
+        supabaseAdmin.from("weekly_progress").update({ coach_id: null }).eq("coach_id", targetId),
+        supabaseAdmin.from("business_snapshots").update({ reviewed_by: null }).eq("reviewed_by", targetId),
+        supabaseAdmin.from("coach_assignments").update({ assigned_by: null }).eq("assigned_by", targetId),
+        supabaseAdmin.from("programs").update({ created_by: null }).eq("created_by", targetId),
+      ]);
+
+      const { error: delErr } = await supabaseAdmin.auth.admin.deleteUser(targetId);
+      if (delErr) throw new Error(delErr.message);
+    }
+
+    // Invite rows are keyed by email (not FK-linked to the auth user), so remove
+    // them explicitly — this also clears the row for invites never accepted.
+    await supabaseAdmin.from("user_invites").delete().ilike("email", email);
+
+    return { ok: true, deletedAuthUser: !!targetId };
+  });
+
 export type AdminUserDetail = {
   user_id: string;
   email: string;
