@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { motion, Reorder } from "framer-motion";
 import { format } from "date-fns";
 import { toast } from "sonner";
-import { currentWeekNo } from "@/components/coach/coach-data";
+import { useEnrollment } from "@/components/participant/enrollment-data";
 import {
   Target,
   CheckCircle2,
@@ -28,13 +28,12 @@ import {
 } from "lucide-react";
 import { PageHeader } from "@/components/vkm/page-header";
 import { SectionCard } from "@/components/vkm/section-card";
-import { KpiTile } from "@/components/vkm/kpi-tile";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
-import { weekByNumber, isOfflineWeek } from "@/lib/vkm/program";
+import { weekByNumber, isOfflineWeek, type ProgramWeek } from "@/lib/vkm/program";
 import { HABITS, HABIT_CATEGORIES, useHabitTracker } from "@/components/habits/habit-tracker";
 import { haptic } from "@/lib/haptics";
 import { IconBadge } from "@/components/vkm/icon-badge";
@@ -45,9 +44,16 @@ export const Route = createFileRoute("/_authenticated/participant/focus")({
   component: FocusPage,
 });
 
-const CURRENT_WEEK = currentWeekNo();
-const WEEK = weekByNumber(CURRENT_WEEK)!;
+const FALLBACK_WEEK = weekByNumber(1)!;
 const TODAY_KEY = format(new Date(), "yyyy-MM-dd");
+
+// The participant's CURRENT program week — relative to THEIR own start (not the
+// global cohort week), so a fresh starter sees Week 1, not the calendar week.
+function useProgramWeek() {
+  const { currentWeek } = useEnrollment();
+  const weekNo = Math.max(1, currentWeek || 1);
+  return { weekNo, w: weekByNumber(weekNo) ?? FALLBACK_WEEK };
+}
 
 // ---------------------------------------------------------------------------
 // Tiny localStorage-backed state (SSR-safe: hydrates after mount)
@@ -80,16 +86,17 @@ function usePersistentState<T>(key: string, initial: T) {
 // ---------------------------------------------------------------------------
 type Task = { id: string; text: string; done: boolean };
 
-function seedTaskTexts(): string[] {
+function seedTaskTexts(w: ProgramWeek): string[] {
   return [
-    `Apply Week ${WEEK.week} task — ${WEEK.task}`,
+    `Apply Week ${w.week} task — ${w.task}`,
     "Run today's daily OMM (1-minute discipline log)",
     "Update the Master Tracker (attendance + proof)",
   ];
 }
 
 function FocusPage() {
-  const { tasks, setTasks } = useDailyActions(seedTaskTexts);
+  const { w } = useProgramWeek();
+  const { tasks, setTasks } = useDailyActions(() => seedTaskTexts(w));
   const doneCount = tasks.filter((t) => t.done).length;
   const pct = tasks.length ? Math.round((doneCount / tasks.length) * 100) : 0;
 
@@ -119,7 +126,7 @@ function FocusPage() {
       <PageHeader
         eyebrow="Participant"
         title="Today's Focus"
-        description={`${format(new Date(), "EEEE, d MMMM")} · Week ${WEEK.week} — ${WEEK.topic}. One clear day at a time.`}
+        description={`${format(new Date(), "EEEE, d MMMM")} · Week ${w.week} — ${w.topic}. One clear day at a time.`}
         icon={Target}
         actions={
           <>
@@ -138,37 +145,34 @@ function FocusPage() {
       />
 
       {/* KPIs */}
-      <div className="grid min-w-0 grid-cols-3 gap-3 sm:gap-4">
-        <KpiTile
-          label="Today's actions"
-          value={`${doneCount} / ${tasks.length}`}
-          delta={pct === 100 ? "All done 🎉" : `${pct}% complete`}
-          trend={pct === 100 ? "up" : "flat"}
+      <div className="grid min-w-0 grid-cols-3 gap-2.5 sm:gap-4">
+        <FocusStat
           icon={ListChecks}
-          accent="success"
+          accent="bg-[oklch(0.71_0.14_160)] text-white"
+          label="To-do"
+          value={`${doneCount}/${tasks.length}`}
+          sub={pct === 100 ? "All done 🎉" : `${pct}% done`}
         />
-        <KpiTile
-          label="Focus sessions"
-          value={String(currentSessions.count)}
-          delta={`${totalFocusMinutes}m deep work`}
-          trend="up"
+        <FocusStat
           icon={Timer}
-          accent="navy"
+          accent="bg-gradient-navy text-primary-foreground"
+          label="Focus"
+          value={String(currentSessions.count)}
+          sub={`${totalFocusMinutes}m deep work`}
         />
-        <KpiTile
-          label="Habits today"
-          value={`${habits.todayDone} / ${HABITS.length}`}
-          delta={`${habits.streak}d streak`}
-          trend="up"
+        <FocusStat
           icon={Flame}
-          accent="gold"
+          accent="bg-gradient-gold text-navy"
+          label="Habits"
+          value={`${habits.todayDone}/${HABITS.length}`}
+          sub={`${habits.streak}d streak`}
         />
       </div>
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
         {/* Main column — the "do" content: priority hero → today's work → habits */}
         <div className="min-w-0 space-y-6">
-          <ThisWeekHero pct={Math.round(((CURRENT_WEEK - 1) / 16) * 100)} />
+          <ThisWeekHero />
           <TodaysWork
             sessions={currentSessions}
             addSession={addSession}
@@ -196,21 +200,61 @@ function FocusPage() {
 // ---------------------------------------------------------------------------
 // This Week hero
 // ---------------------------------------------------------------------------
-function ThisWeekHero({ pct }: { pct: number }) {
+// Compact stat card for the Focus header row — mobile-friendly (short label,
+// no-wrap value, icon top-right) so it never truncates like the old KpiTile did.
+function FocusStat({
+  icon: Icon,
+  accent,
+  label,
+  value,
+  sub,
+}: {
+  icon: LucideIcon;
+  accent: string;
+  label: string;
+  value: string;
+  sub: string;
+}) {
+  return (
+    <div className="min-w-0 rounded-2xl border border-border bg-card p-3 shadow-vkm sm:p-4">
+      <div className="flex items-start justify-between gap-1.5">
+        <span className="text-[10px] font-semibold uppercase leading-tight tracking-wide text-muted-foreground sm:text-[11px]">
+          {label}
+        </span>
+        <span
+          className={cn(
+            "inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-lg sm:h-8 sm:w-8",
+            accent,
+          )}
+        >
+          <Icon className="h-4 w-4" />
+        </span>
+      </div>
+      <p className="mt-1.5 whitespace-nowrap text-xl font-bold tracking-tight text-foreground tabular-nums sm:text-2xl">
+        {value}
+      </p>
+      <p className="mt-0.5 truncate text-[11px] text-muted-foreground">{sub}</p>
+    </div>
+  );
+}
+
+function ThisWeekHero() {
+  const { weekNo, w } = useProgramWeek();
+  const pct = Math.round(((weekNo - 1) / 16) * 100);
   return (
     <div className="overflow-hidden rounded-3xl bg-gradient-navy p-6 text-primary-foreground shadow-vkm-float md:p-7">
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0">
           <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-primary-foreground/70">
-            Your #1 priority · Week {WEEK.week} · {WEEK.mode}
-            {isOfflineWeek(WEEK.week) ? " — coach visits in person" : ""}
+            Your #1 priority · Week {w.week} · {w.mode}
+            {isOfflineWeek(w.week) ? " — coach visits in person" : ""}
           </p>
-          <h2 className="mt-2 text-2xl font-semibold leading-tight">{WEEK.task}</h2>
+          <h2 className="mt-2 text-2xl font-semibold leading-tight">{w.task}</h2>
           <p className="mt-2 max-w-xl text-sm text-primary-foreground/75">
-            <span className="font-medium text-primary-foreground">Why:</span> {WEEK.why}
+            <span className="font-medium text-primary-foreground">Why:</span> {w.why}
           </p>
           <p className="mt-1 max-w-xl text-sm text-primary-foreground/75">
-            <span className="font-medium text-primary-foreground">Proof:</span> {WEEK.proof}
+            <span className="font-medium text-primary-foreground">Proof:</span> {w.proof}
           </p>
           <div className="mt-4 flex flex-wrap items-center gap-2">
             <Button className="rounded-xl bg-gradient-gold text-navy hover:opacity-90" asChild>
@@ -309,9 +353,10 @@ function TodayChecklist({
   pct: number;
 }) {
   const [draft, setDraft] = useState("");
+  const { w } = useProgramWeek();
 
   const suggestions = [
-    `Apply Week ${WEEK.week} task`,
+    `Apply Week ${w.week} task`,
     "Daily OMM + discipline log",
     "Update Master Tracker + attendance",
     "Outreach / lead generation block",
@@ -412,7 +457,7 @@ function TodayChecklist({
         <div className="mb-1.5 text-[10px] font-medium text-muted-foreground">Quick add:</div>
         <div className="mb-2 flex flex-wrap gap-1.5">
           {[
-            `Apply Week ${WEEK.week} task`,
+            `Apply Week ${w.week} task`,
             "Daily OMM discipline log",
             "Update Master Tracker",
             "Outreach / leads block",
@@ -780,6 +825,7 @@ function QuickAccess() {
 // AI nudge
 // ---------------------------------------------------------------------------
 function AiNudge() {
+  const { w } = useProgramWeek();
   return (
     <SectionCard
       title="AI Business Advisor"
@@ -794,7 +840,7 @@ function AiNudge() {
         <div className="flex items-start gap-3">
           <IconBadge icon={Bot} accent="gold" />
           <p className="text-sm text-muted-foreground">
-            You're on Week {WEEK.week} ({WEEK.topic}). Ask your advisor to{" "}
+            You're on Week {w.week} ({w.topic}). Ask your advisor to{" "}
             <span className="font-medium text-foreground">
               pressure-test your 5 lead stages and 3-day follow-up cadence
             </span>{" "}
