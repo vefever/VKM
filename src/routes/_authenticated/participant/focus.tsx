@@ -181,7 +181,6 @@ function FocusPage() {
             doneCount={doneCount}
             pct={pct}
           />
-          <DailyHabitsCard t={habits} />
         </div>
 
         {/* Right rail — light, glanceable context */}
