@@ -50,6 +50,7 @@ import {
 } from "@/components/participant/proof-attachments";
 import { haptic } from "@/lib/haptics";
 import { flyPoints } from "@/lib/fly-points";
+import { playSuccessChime } from "@/lib/sfx";
 
 export function HabitTrackerPage() {
   const t = useHabitTracker();
@@ -881,6 +882,7 @@ function HabitProofModal({
       await t.toggleToday(habit.id, attachments);
       staged.forEach((s) => URL.revokeObjectURL(s.url));
       haptic("success");
+      playSuccessChime();
       flyPoints(t.config.pointsPerTick);
       toast.success(`${habit.name} marked done`, {
         description:
