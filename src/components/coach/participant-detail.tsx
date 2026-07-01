@@ -5,6 +5,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { format, formatDistanceToNowStrict } from "date-fns";
 import {
   ChevronLeft,
+  ChevronRight,
   ChevronDown,
   Download,
   Phone,
@@ -52,7 +53,12 @@ import {
 } from "@/lib/vkm/program";
 import { useParticipantProfile, useParticipantTeam, type WeekRow } from "@/components/coach/coach-data";
 import { staffLoginAsParticipant } from "@/lib/vkm/admin-users.functions";
-import { useParticipantHabits } from "@/components/habits/habit-tracker";
+import {
+  useParticipantHabits,
+  HABITS,
+  TRACKER_HABITS,
+  dateForDay,
+} from "@/components/habits/habit-tracker";
 import { HabitGrid } from "@/components/habits/habit-grid";
 import { ProofAttachments } from "@/components/participant/proof-attachments";
 import { toast } from "sonner";
@@ -136,6 +142,100 @@ function LoginAsParticipant({ participantId, name }: { participantId: string; na
         </DialogContent>
       </Dialog>
     </>
+  );
+}
+
+// Daily habit proofs — coach/mentor picks any day; shows every completed habit,
+// including tracker habits (water / steps) which auto-complete with no file.
+function DailyHabitProofs({ habits }: { habits: ReturnType<typeof useParticipantHabits> }) {
+  const maxDay = Math.max(1, habits.programDay || 1);
+  const [day, setDay] = useState(maxDay);
+  useEffect(() => {
+    setDay((d) => Math.min(Math.max(1, d), maxDay));
+  }, [maxDay]);
+
+  const rows = HABITS.map((h) => ({
+    habit: h,
+    done: habits.isDone(day, h.id),
+    files: habits.proofsFor(day, h.id),
+  })).filter((r) => r.done || r.files.length > 0);
+
+  const dateLabel = habits.startedAt
+    ? format(dateForDay(day, habits.startedAt), "EEE, MMM d")
+    : `Day ${day}`;
+
+  return (
+    <SectionCard
+      title="Daily habit proofs"
+      subtitle={`Day ${day} · ${dateLabel}`}
+      action={
+        <div className="flex items-center gap-1.5">
+          <button
+            type="button"
+            onClick={() => setDay((d) => Math.max(1, d - 1))}
+            disabled={day <= 1}
+            className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-border text-muted-foreground hover:text-foreground disabled:opacity-40"
+            aria-label="Previous day"
+          >
+            <ChevronLeft className="h-4 w-4" />
+          </button>
+          <select
+            value={day}
+            onChange={(e) => setDay(Number(e.target.value))}
+            className="h-8 rounded-lg border border-border bg-card px-2 text-sm text-foreground"
+            aria-label="Select day"
+          >
+            {Array.from({ length: maxDay }, (_, i) => maxDay - i).map((d) => (
+              <option key={d} value={d}>
+                Day {d}
+              </option>
+            ))}
+          </select>
+          <button
+            type="button"
+            onClick={() => setDay((d) => Math.min(maxDay, d + 1))}
+            disabled={day >= maxDay}
+            className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-border text-muted-foreground hover:text-foreground disabled:opacity-40"
+            aria-label="Next day"
+          >
+            <ChevronRight className="h-4 w-4" />
+          </button>
+        </div>
+      }
+    >
+      {rows.length === 0 ? (
+        <p className="py-3 text-sm text-muted-foreground">No habits completed on day {day}.</p>
+      ) : (
+        <div className="space-y-4">
+          {rows.map(({ habit, done, files }) => {
+            const Icon = habit.icon;
+            return (
+              <div key={habit.id}>
+                <div className="mb-1.5 flex items-center gap-2">
+                  <span
+                    className="inline-flex h-7 w-7 items-center justify-center rounded-lg text-white"
+                    style={{ background: `linear-gradient(135deg, ${habit.from}, ${habit.to})` }}
+                  >
+                    <Icon className="h-4 w-4" />
+                  </span>
+                  <span className="text-sm font-medium text-foreground">{habit.name}</span>
+                  {done && <Check className="h-3.5 w-3.5 text-[#10b981]" />}
+                </div>
+                {files.length > 0 ? (
+                  <ProofAttachments files={files} />
+                ) : (
+                  <p className="rounded-lg bg-secondary/40 px-3 py-2 text-xs text-muted-foreground">
+                    {TRACKER_HABITS.has(habit.id)
+                      ? "Auto-completed from the in-app tracker — no file attached."
+                      : "Marked done — no file attached."}
+                  </p>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </SectionCard>
   );
 }
 
@@ -382,39 +482,8 @@ export function ParticipantDetail({
               />
             )}
 
-            {/* Today's habit proofs */}
-            <SectionCard
-              title="Daily habit proofs"
-              subtitle={`Evidence submitted for day ${habits.programDay}`}
-            >
-              {habits.todayProofs.length === 0 ? (
-                <p className="py-3 text-sm text-muted-foreground">
-                  No habit proofs submitted today yet.
-                </p>
-              ) : (
-                <div className="space-y-4">
-                  {habits.todayProofs.map(({ habit, files }) => {
-                    const Icon = habit.icon;
-                    return (
-                      <div key={habit.id}>
-                        <div className="mb-1.5 flex items-center gap-2">
-                          <span
-                            className="inline-flex h-7 w-7 items-center justify-center rounded-lg text-white"
-                            style={{
-                              background: `linear-gradient(135deg, ${habit.from}, ${habit.to})`,
-                            }}
-                          >
-                            <Icon className="h-4 w-4" />
-                          </span>
-                          <span className="text-sm font-medium text-foreground">{habit.name}</span>
-                        </div>
-                        <ProofAttachments files={files} />
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </SectionCard>
+            {/* Daily habit proofs — pick any day, includes tracker habits (water/steps) */}
+            {!habits.loading && <DailyHabitProofs habits={habits} />}
 
             {/* Today's engagement (Focus) */}
             <ParticipantToday userId={userId} />
