@@ -735,6 +735,23 @@ body {
   animation: vkm-toast-pop 0.42s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
+/* Content fades/slides in just behind the badge pop — safe because it targets
+   the content group, not the toast's own transform (which sonner drives for
+   stacking + its slide-in). */
+@keyframes vkm-toast-content-in {
+  from {
+    opacity: 0;
+    transform: translateY(3px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.vkm-toaster [data-sonner-toast][data-mounted="true"] [data-content] {
+  animation: vkm-toast-content-in 0.34s 0.04s ease-out both;
+}
+
 /* Typography — bold title, calmer same-hue description. */
 .vkm-toaster [data-sonner-toast] [data-title] {
   font-weight: 800 !important;
@@ -799,7 +816,8 @@ body {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .vkm-toaster [data-sonner-toast][data-mounted="true"] [data-icon] {
+  .vkm-toaster [data-sonner-toast][data-mounted="true"] [data-icon],
+  .vkm-toaster [data-sonner-toast][data-mounted="true"] [data-content] {
     animation: none;
   }
 }

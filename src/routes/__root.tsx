@@ -163,11 +163,11 @@ function RootComponent() {
         <FlyPointsHost />
         <ChatWidget />
         {/* Duolingo-style toasts — full-width bottom banner above the mobile nav,
-            compact top-right card on desktop (styling in styles.css → .vkm-toaster). */}
+            compact top-center card on desktop (styling in styles.css → .vkm-toaster). */}
         <Toaster
           mobile={appShell}
           closeButton
-          position={appShell ? "bottom-center" : "top-right"}
+          position={appShell ? "bottom-center" : "top-center"}
           offset={appShell ? "calc(env(safe-area-inset-bottom) + 5.5rem)" : undefined}
         />
       </AuthProvider>
