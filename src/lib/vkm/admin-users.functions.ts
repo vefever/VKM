@@ -223,11 +223,84 @@ export const impersonateUser = createServerFn({ method: "POST" })
     await assertSuperAdmin(supabase, userId);
 
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const redirectTo = `${SITE_URL}/app`;
+    // `?impersonated=1` lets the app skip the forced password-reset gate for this
+    // support session (see _authenticated/route.tsx), so the admin lands in the
+    // member's app instead of their onboarding reset screen.
+    const redirectTo = `${SITE_URL}/app?impersonated=1`;
     const { data: link, error } = await supabaseAdmin.auth.admin.generateLink({
       type: "magiclink",
       email: data.email,
       options: { redirectTo },
+    });
+    if (error) throw new Error(error.message);
+    const actionLink = link?.properties?.action_link;
+    if (!actionLink) throw new Error("Could not generate a login link");
+    return { actionLink };
+  });
+
+// ---------------------------------------------------------------------------
+// Staff "log in as participant" (support / troubleshooting). Available to
+// super_admin, mentor AND coach — but ONLY onto PARTICIPANT accounts (never
+// another staff member, so no privilege escalation), and a coach is limited to
+// participants assigned to them. Returns a one-time magic link the staffer opens
+// (ideally in a private window). This is a NEW, role-scoped entry point and does
+// NOT change the existing admin-only impersonateUser().
+// ---------------------------------------------------------------------------
+export const staffLoginAsParticipant = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .validator((input: { participantId: string }) => input)
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    const targetId = data.participantId;
+    if (!targetId) throw new Error("Missing participant");
+    if (targetId === userId) throw new Error("You're already signed in as yourself");
+
+    // Caller must be staff (coach / mentor / super_admin).
+    const [{ data: isAdmin }, { data: isMentor }, { data: isCoach }] = await Promise.all([
+      supabase.rpc("has_role", { _user_id: userId, _role: "super_admin" }),
+      supabase.rpc("has_role", { _user_id: userId, _role: "mentor" }),
+      supabase.rpc("has_role", { _user_id: userId, _role: "coach" }),
+    ]);
+    if (!isAdmin && !isMentor && !isCoach) throw new Error("Forbidden: staff only");
+
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    // The target must be a participant and must NOT hold any staff role — you
+    // can never impersonate another coach/mentor/admin.
+    const { data: roleRows, error: roleErr } = await supabaseAdmin
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", targetId);
+    if (roleErr) throw new Error(roleErr.message);
+    const roles = (roleRows ?? []).map((r) => r.role as string);
+    if (roles.some((r) => r === "coach" || r === "mentor" || r === "super_admin")) {
+      throw new Error("You can only log in as a participant, not another staff member");
+    }
+    if (!roles.includes("participant")) throw new Error("That account isn't a participant");
+
+    // Coaches are limited to their own assigned participants (mentor/admin: any).
+    if (!isAdmin && !isMentor) {
+      const { data: assigned } = await supabaseAdmin
+        .from("coach_assignments")
+        .select("participant_id")
+        .eq("coach_id", userId)
+        .eq("participant_id", targetId)
+        .maybeSingle();
+      if (!assigned) throw new Error("You can only log in as a participant assigned to you");
+    }
+
+    // Resolve their email (service role) and mint a one-time login link.
+    const { data: userRes, error: uErr } = await supabaseAdmin.auth.admin.getUserById(targetId);
+    if (uErr) throw new Error(uErr.message);
+    const email = userRes?.user?.email;
+    if (!email) throw new Error("Participant email not found");
+
+    const { data: link, error } = await supabaseAdmin.auth.admin.generateLink({
+      type: "magiclink",
+      email,
+      // `?impersonated=1` tells the app to skip the forced-reset gate for this
+      // support session, so staff land in the participant's app (not onboarding).
+      options: { redirectTo: `${SITE_URL}/app?impersonated=1` },
     });
     if (error) throw new Error(error.message);
     const actionLink = link?.properties?.action_link;

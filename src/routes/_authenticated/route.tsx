@@ -18,7 +18,24 @@ function AuthenticatedLayout() {
     if (!loading && !user) navigate({ to: "/auth", replace: true });
   }, [loading, user, navigate]);
 
-  // Force password reset on first login (when invited)
+  // A staff "log in as participant" support session arrives at /app?impersonated=1.
+  // Remember it (for this tab) so the forced-reset gate below is skipped — support
+  // staff need the participant's real app, not their onboarding screen. This never
+  // touches the participant's own must_reset_password flag.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("impersonated") === "1") {
+      try {
+        sessionStorage.setItem("vkm.impersonated", "1");
+      } catch {
+        /* private mode — flag just won't persist */
+      }
+    }
+  }, []);
+
+  // Force password reset on first login (when invited) — unless this is a staff
+  // impersonation session.
   useEffect(() => {
     let cancelled = false;
     if (!user) {
@@ -26,6 +43,12 @@ function AuthenticatedLayout() {
       return;
     }
     if (location.pathname === "/reset-password") {
+      setCheckedReset(true);
+      return;
+    }
+    const impersonating =
+      typeof window !== "undefined" && sessionStorage.getItem("vkm.impersonated") === "1";
+    if (impersonating) {
       setCheckedReset(true);
       return;
     }

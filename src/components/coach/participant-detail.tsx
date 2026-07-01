@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Link } from "@tanstack/react-router";
+import { useServerFn } from "@tanstack/react-start";
 import { format, formatDistanceToNowStrict } from "date-fns";
 import {
   ChevronLeft,
@@ -27,6 +28,9 @@ import {
   Bell,
   Send,
   Users,
+  LogIn,
+  ShieldAlert,
+  Copy,
   type LucideIcon,
 } from "lucide-react";
 import { SectionCard } from "@/components/vkm/section-card";
@@ -47,6 +51,7 @@ import {
   type ProgramWeek,
 } from "@/lib/vkm/program";
 import { useParticipantProfile, useParticipantTeam, type WeekRow } from "@/components/coach/coach-data";
+import { staffLoginAsParticipant } from "@/lib/vkm/admin-users.functions";
 import { useParticipantHabits } from "@/components/habits/habit-tracker";
 import { HabitGrid } from "@/components/habits/habit-grid";
 import { ProofAttachments } from "@/components/participant/proof-attachments";
@@ -63,6 +68,76 @@ const STATUS: Record<string, string> = {
   rejected: "bg-[oklch(0.93_0.06_25)] text-[oklch(0.45_0.16_25)]",
   none: "bg-muted text-muted-foreground",
 };
+
+// Staff "log in as participant" — mints a one-time link (coach: assigned only;
+// mentor / admin: any participant) and opens it in a new / private window.
+function LoginAsParticipant({ participantId, name }: { participantId: string; name: string }) {
+  const loginAs = useServerFn(staffLoginAsParticipant);
+  const [busy, setBusy] = useState(false);
+  const [link, setLink] = useState<string | null>(null);
+  const [open, setOpen] = useState(false);
+
+  async function generate() {
+    setBusy(true);
+    setLink(null);
+    try {
+      const r = await loginAs({ data: { participantId } });
+      setLink(r.actionLink);
+      setOpen(true);
+    } catch (e) {
+      toast.error("Couldn't create login link", { description: (e as Error).message });
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <>
+      <Button variant="outline" className="rounded-full" onClick={generate} disabled={busy}>
+        {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <LogIn className="h-4 w-4" />} Login as
+        participant
+      </Button>
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent className="sm:max-w-[520px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <LogIn className="h-4 w-4" /> Log in as {name}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <p className="flex items-start gap-1.5 rounded-xl border border-amber-400/40 bg-amber-50/50 p-3 text-xs text-muted-foreground dark:bg-amber-950/10">
+              <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
+              This one-time link signs you in <span className="font-medium">as {name}</span>. Open it
+              in a private/incognito window so it doesn't replace your own session. The link expires
+              shortly.
+            </p>
+            {link && (
+              <div className="flex gap-2">
+                <Input value={link} readOnly className="h-10 rounded-xl font-mono text-xs" />
+                <Button
+                  variant="outline"
+                  className="rounded-xl"
+                  onClick={() => {
+                    navigator.clipboard.writeText(link);
+                    toast.success("Login link copied");
+                  }}
+                >
+                  <Copy className="h-4 w-4" />
+                </Button>
+                <Button
+                  className="rounded-xl bg-gradient-navy text-primary-foreground hover:opacity-90"
+                  onClick={() => window.open(link, "_blank", "noopener")}
+                >
+                  <LogIn className="h-4 w-4" /> Open
+                </Button>
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+}
 
 export function ParticipantDetail({
   userId,
@@ -92,15 +167,21 @@ export function ParticipantDetail({
       className="space-y-5"
     >
       {/* Toolbar (not printed) */}
-      <div className="no-print flex items-center justify-between gap-3">
+      <div className="no-print flex flex-wrap items-center justify-between gap-3">
         <Button variant="ghost" className="rounded-full" asChild>
           <Link to={backTo}>
             <ChevronLeft className="h-4 w-4" /> Participants
           </Link>
         </Button>
-        <Button className="rounded-full bg-gradient-navy shadow-vkm" onClick={() => window.print()}>
-          <Download className="h-4 w-4" /> Download report
-        </Button>
+        <div className="flex items-center gap-2">
+          <LoginAsParticipant participantId={userId} name={name} />
+          <Button
+            className="rounded-full bg-gradient-navy shadow-vkm"
+            onClick={() => window.print()}
+          >
+            <Download className="h-4 w-4" /> Download report
+          </Button>
+        </div>
       </div>
 
       <div data-print-report className="space-y-5">
