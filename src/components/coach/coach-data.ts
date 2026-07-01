@@ -394,19 +394,35 @@ export type HabitProofItem = {
   log_date: string;
   files: Attachment[];
   created_at: string;
+  proof_status: "pending" | "approved" | "rejected";
+  coach_note: string | null;
 };
 
-export function useHabitProofFeed(limit = 40) {
+export function useHabitProofFeed(limit = 60) {
   const [items, setItems] = useState<HabitProofItem[]>([]);
   const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
     const { data } = await supabase
       .from("habit_logs")
-      .select("id, user_id, habit_id, day_no, log_date, proof_files, created_at")
+      .select("id, user_id, habit_id, day_no, log_date, proof_files, proof_status, coach_note, created_at")
       .neq("proof_files", "[]")
       .order("created_at", { ascending: false })
-      .limit(limit);
+      .limit(limit)
+      // proof_status/coach_note aren't in the generated types yet — assert the shape.
+      .returns<
+        {
+          id: string;
+          user_id: string;
+          habit_id: string;
+          day_no: number;
+          log_date: string;
+          proof_files: Attachment[] | null;
+          proof_status: string;
+          coach_note: string | null;
+          created_at: string;
+        }[]
+      >();
     const rows = (data ?? []).filter((r) => ((r.proof_files as Attachment[]) ?? []).length > 0);
     const names = await namesFor([...new Set(rows.map((r) => r.user_id))]);
     setItems(
@@ -419,6 +435,8 @@ export function useHabitProofFeed(limit = 40) {
         log_date: r.log_date,
         files: (r.proof_files ?? []) as Attachment[],
         created_at: r.created_at,
+        proof_status: (r.proof_status as HabitProofItem["proof_status"]) ?? "pending",
+        coach_note: (r.coach_note as string | null) ?? null,
       })),
     );
     setLoading(false);
@@ -435,7 +453,35 @@ export function useHabitProofFeed(limit = 40) {
     };
   }, [load]);
 
-  return { items, loading };
+  // Staff approve/reject a habit proof (RPC gates on is_staff; only touches the
+  // review fields). Optimistic — the realtime channel reconciles.
+  const reviewHabit = useCallback(
+    async (id: string, status: "approved" | "rejected", note: string) => {
+      setItems((prev) =>
+        prev.map((i) =>
+          i.id === id ? { ...i, proof_status: status, coach_note: note.trim() || null } : i,
+        ),
+      );
+      const sb = supabase as unknown as {
+        rpc: (
+          fn: string,
+          args: Record<string, unknown>,
+        ) => Promise<{ error: { message: string } | null }>;
+      };
+      const { error } = await sb.rpc("review_habit_proof", {
+        _log_id: id,
+        _status: status,
+        _note: note,
+      });
+      if (error) {
+        void load();
+        throw new Error(error.message);
+      }
+    },
+    [load],
+  );
+
+  return { items, loading, reviewHabit };
 }
 
 // ---------------------------------------------------------------------------

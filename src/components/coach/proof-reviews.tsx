@@ -70,7 +70,11 @@ export function ProofReviews() {
 
   const TABS: { id: Tab; label: string; count?: number }[] = [
     { id: "weekly", label: "Weekly proofs", count: items.length },
-    { id: "habits", label: "Habit proofs", count: habitFeed.items.length },
+    {
+      id: "habits",
+      label: "Habit proofs",
+      count: habitFeed.items.filter((i) => i.proof_status === "pending").length,
+    },
     { id: "business", label: "Business numbers" },
     { id: "history", label: "History", count: historyData.items.length },
   ];
@@ -572,11 +576,13 @@ function ProofCard({
   );
 }
 
+type HabitReviewFn = (id: string, status: "approved" | "rejected", note: string) => Promise<void>;
+
 function HabitFeed({ feed }: { feed: ReturnType<typeof useHabitProofFeed> }) {
   return (
     <SectionCard
       title="Daily habit proofs"
-      subtitle="Latest evidence participants attached when marking habits done — read-only."
+      subtitle="Approve or reject the evidence participants attached when marking habits done."
     >
       {feed.loading ? (
         <p className="flex items-center gap-2 py-4 text-sm text-muted-foreground">
@@ -587,7 +593,7 @@ function HabitFeed({ feed }: { feed: ReturnType<typeof useHabitProofFeed> }) {
       ) : (
         <div className="space-y-4">
           {feed.items.map((h) => (
-            <HabitProofRow key={h.id} item={h} />
+            <HabitProofRow key={h.id} item={h} review={feed.reviewHabit} />
           ))}
         </div>
       )}
@@ -595,9 +601,37 @@ function HabitFeed({ feed }: { feed: ReturnType<typeof useHabitProofFeed> }) {
   );
 }
 
-function HabitProofRow({ item }: { item: HabitProofItem }) {
+const HABIT_STATUS_PILL: Record<HabitProofItem["proof_status"], { label: string; cls: string }> = {
+  pending: { label: "Pending", cls: "bg-gold/15 text-[oklch(0.45_0.1_85)]" },
+  approved: { label: "Approved", cls: "bg-[#10b981]/12 text-[#059669]" },
+  rejected: { label: "Rejected", cls: "bg-destructive/10 text-destructive" },
+};
+
+function HabitProofRow({ item, review }: { item: HabitProofItem; review: HabitReviewFn }) {
   const habit = HABIT_BY_ID[item.habit_id];
   const Icon = habit?.icon;
+  const [note, setNote] = useState("");
+  const [busy, setBusy] = useState<null | "approved" | "rejected">(null);
+  const pill = HABIT_STATUS_PILL[item.proof_status];
+
+  async function act(status: "approved" | "rejected") {
+    if (status === "rejected" && !note.trim()) {
+      toast.error("Add a reason to reject", { description: "It’s saved with the review." });
+      return;
+    }
+    setBusy(status);
+    try {
+      await review(item.id, status, note);
+      if (status === "approved") toast.success("Habit proof approved");
+      else toast("Habit proof rejected");
+      setNote("");
+    } catch (e) {
+      toast.error("Couldn’t update", { description: (e as Error).message });
+    } finally {
+      setBusy(null);
+    }
+  }
+
   return (
     <div className="rounded-xl border border-border bg-card p-3">
       <div className="mb-2 flex items-center gap-2">
@@ -619,8 +653,64 @@ function HabitProofRow({ item }: { item: HabitProofItem }) {
             {formatDistanceToNowStrict(new Date(item.created_at), { addSuffix: true })}
           </p>
         </div>
+        <span
+          className={cn(
+            "inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold",
+            pill.cls,
+          )}
+        >
+          {item.proof_status === "approved" ? (
+            <Check className="h-3 w-3" />
+          ) : item.proof_status === "rejected" ? (
+            <X className="h-3 w-3" />
+          ) : (
+            <Clock className="h-3 w-3" />
+          )}
+          {pill.label}
+        </span>
       </div>
+
       <ProofAttachments files={item.files} />
+
+      {item.coach_note && (
+        <p className="mt-2 rounded-lg bg-secondary/60 px-3 py-1.5 text-xs text-foreground">
+          <span className="font-medium">Your note:</span> {item.coach_note}
+        </p>
+      )}
+
+      <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center">
+        <Input
+          value={note}
+          onChange={(e) => setNote(e.target.value)}
+          placeholder="Optional note (required to reject)…"
+          className="h-9 flex-1 rounded-lg"
+        />
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={busy !== null}
+            onClick={() => act("rejected")}
+            className="h-9 rounded-lg border-destructive/40 text-destructive hover:bg-destructive/10 hover:text-destructive"
+          >
+            {busy === "rejected" ? <Loader2 className="h-4 w-4 animate-spin" /> : <X className="h-4 w-4" />}
+            Reject
+          </Button>
+          <Button
+            size="sm"
+            disabled={busy !== null}
+            onClick={() => act("approved")}
+            className="h-9 rounded-lg bg-[#10b981] text-white hover:opacity-90"
+          >
+            {busy === "approved" ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Check className="h-4 w-4" />
+            )}
+            Approve
+          </Button>
+        </div>
+      </div>
     </div>
   );
 }
