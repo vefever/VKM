@@ -1,14 +1,16 @@
 /* VK Mentorship — service worker (offline + app-like install) */
-const CACHE = "vkm-cache-v3";
+const CACHE = "vkm-cache-v4";
 const PRECACHE = ["/offline.html", "/manifest.webmanifest", "/icon-192.png", "/icon-512.png"];
 
 self.addEventListener("install", (event) => {
-  event.waitUntil(
-    caches
-      .open(CACHE)
-      .then((cache) => cache.addAll(PRECACHE))
-      .then(() => self.skipWaiting()),
-  );
+  // NOTE: intentionally NOT calling skipWaiting() here. If a freshly deployed
+  // worker took control immediately it would fire controllerchange and force a
+  // reload of every open app — and a reload that lands mid token-refresh
+  // (Supabase rotates refresh tokens) can strand a stale token and sign the user
+  // out. Instead the new worker waits; it activates on the next full app
+  // restart, or right away when the user taps the "Update" toast (which posts
+  // SKIP_WAITING below). This keeps live sessions from being logged out.
+  event.waitUntil(caches.open(CACHE).then((cache) => cache.addAll(PRECACHE)));
 });
 
 self.addEventListener("activate", (event) => {

@@ -32,16 +32,15 @@ export function PwaManager() {
   const [iosHint, setIosHint] = useState(false);
   const [updateReady, setUpdateReady] = useState<ServiceWorker | null>(null);
 
-  // ---- Keep the installed PWA signed in across app suspensions ----
-  // iOS/Android freeze background JS timers, so Supabase's token auto-refresh
-  // ticker stalls while the app is backgrounded. If the access token lapses in
-  // the meantime, the user reopens to a logged-out state. Every time the
-  // installed app returns to the foreground, restart the refresh loop and
-  // recover the session (getSession refreshes it if it has expired). Scoped to
-  // standalone so browser tabs — which Supabase already handles — are untouched.
+  // ---- Keep users signed in across app/tab suspensions ----
+  // Phones (and backgrounded desktop tabs) freeze JS timers, so Supabase's token
+  // auto-refresh ticker stalls while the app is hidden. If the access token
+  // lapses in the meantime, the user returns to a logged-out state. Every time
+  // the app comes back to the foreground, restart the refresh loop and recover
+  // the session (getSession refreshes it if it has expired). Runs in both the
+  // installed PWA and the browser as a belt-and-suspenders safety net.
   useEffect(() => {
     if (typeof window === "undefined") return;
-    if (!isStandalone()) return;
 
     const resume = () => {
       if (document.visibilityState === "visible") {
