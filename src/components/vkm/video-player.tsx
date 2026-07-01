@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import {
   Play,
   Pause,
@@ -93,9 +94,19 @@ function FilePlayer({
   className?: string;
 }) {
   const wrapRef = useRef<HTMLDivElement>(null);
+  const inlineRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const saveAt = useRef(0);
+  // A stable host node the player renders into. We physically move THIS node
+  // between the inline slot and <body> (appendChild preserves the live <video>,
+  // so it keeps playing) — instead of switching the portal container, which
+  // would remount and reload the video.
+  const hostRef = useRef<HTMLDivElement | null>(null);
+  if (typeof document !== "undefined" && !hostRef.current) {
+    hostRef.current = document.createElement("div");
+    hostRef.current.style.display = "contents";
+  }
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const hlsRef = useRef<any>(null);
 
@@ -118,6 +129,28 @@ function FilePlayer({
   const [error, setError] = useState<string | null>(null);
 
   const inFs = fsReal || fake !== "off";
+
+  // Move the host node to <body> in immersive mode (escaping any transformed
+  // ancestor that would otherwise trap position:fixed), back to the inline slot
+  // otherwise. Runs after mount so the inline slot exists.
+  useEffect(() => {
+    const host = hostRef.current;
+    if (!host) return;
+    const target = fake !== "off" ? document.body : inlineRef.current;
+    if (target && host.parentElement !== target) target.appendChild(host);
+  }, [fake]);
+  // Detach the host on unmount.
+  useEffect(() => () => hostRef.current?.remove(), []);
+
+  // Lock page scroll while the CSS-immersive layer covers the screen.
+  useEffect(() => {
+    if (fake === "off") return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [fake]);
 
   // ── Source attach: HLS (native on Safari, else hls.js) or direct file ──────
   useEffect(() => {
@@ -212,9 +245,17 @@ function FilePlayer({
   // mode instead — no native API means no browser "<domain> — to exit
   // fullscreen" banner, and on a portrait phone we CSS-rotate to landscape so
   // the video fills the screen (no OS orientation permission needed).
+  // Rotate to landscape ONLY when the screen is portrait AND the video is a
+  // landscape video — a portrait video would look sideways, so it just fills.
+  const computeFake = useCallback((): FakeFs => {
+    const v = videoRef.current;
+    const videoLandscape = v && v.videoWidth > 0 ? v.videoWidth >= v.videoHeight : true;
+    const screenPortrait = window.innerHeight > window.innerWidth;
+    return screenPortrait && videoLandscape ? "rotate" : "fill";
+  }, []);
+
   const enterFake = useCallback(() => {
-    const portrait = window.innerHeight > window.innerWidth;
-    setFake(portrait ? "rotate" : "fill");
+    setFake(computeFake());
     try {
       history.pushState({ vpImm: true }, "");
     } catch {
@@ -246,8 +287,7 @@ function FilePlayer({
   useEffect(() => {
     if (fake === "off") return;
     const onPop = () => exitFake(true);
-    const onResize = () =>
-      setFake((f) => (f === "off" ? f : window.innerHeight > window.innerWidth ? "rotate" : "fill"));
+    const onResize = () => setFake((f) => (f === "off" ? f : computeFake()));
     window.addEventListener("popstate", onPop);
     window.addEventListener("resize", onResize);
     window.addEventListener("orientationchange", onResize);
@@ -256,7 +296,7 @@ function FilePlayer({
       window.removeEventListener("resize", onResize);
       window.removeEventListener("orientationchange", onResize);
     };
-  }, [fake, exitFake]);
+  }, [fake, exitFake, computeFake]);
 
   const toggleFullscreen = useCallback(() => {
     if (fsReal) {
@@ -345,20 +385,31 @@ function FilePlayer({
       ? {
           position: "fixed",
           top: 0,
-          left: "100vw",
-          width: "100vh",
-          height: "100vw",
-          transform: "rotate(90deg)",
+          left: 0,
+          width: "100vh", // element is "landscape": width = screen height…
+          height: "100vw", // …height = screen width
           transformOrigin: "0 0",
-          zIndex: 9999,
+          // rotate about the top-left, then shift right by a screen-width so the
+          // rotated box lands back over the portrait viewport.
+          transform: "translateX(100vw) rotate(90deg)",
+          zIndex: 2147483000,
           borderRadius: 0,
           background: "#000",
         }
       : fake === "fill"
-        ? { position: "fixed", inset: 0, width: "100vw", height: "100vh", zIndex: 9999, borderRadius: 0, background: "#000" }
+        ? {
+            position: "fixed",
+            top: 0,
+            left: 0,
+            width: "100vw",
+            height: "100vh",
+            zIndex: 2147483000,
+            borderRadius: 0,
+            background: "#000",
+          }
         : undefined;
 
-  return (
+  const content = (
     <div
       ref={wrapRef}
       tabIndex={0}
@@ -369,10 +420,9 @@ function FilePlayer({
       onContextMenu={(e) => e.preventDefault()} // no "save video as"
       style={fakeStyle}
       className={cn(
-        "group/vp relative w-full select-none overflow-hidden bg-black outline-none",
-        fake === "off" && "aspect-video rounded-xl",
+        "group/vp select-none overflow-hidden bg-black outline-none",
+        fake === "off" ? "absolute inset-0 rounded-xl" : "",
         !showUi && playing && "cursor-none",
-        className,
       )}
     >
       <video
@@ -616,6 +666,17 @@ function FilePlayer({
           <p className="truncate text-sm font-semibold text-white drop-shadow">{title}</p>
         </div>
       )}
+    </div>
+  );
+
+  // Inline placeholder reserves the 16:9 slot; the player itself renders into
+  // the stable host node (which lives here inline, or on <body> in fullscreen).
+  return (
+    <div
+      ref={inlineRef}
+      className={cn("relative aspect-video w-full", fake === "off" && "overflow-hidden rounded-xl", className)}
+    >
+      {hostRef.current ? createPortal(content, hostRef.current) : null}
     </div>
   );
 }
