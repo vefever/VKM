@@ -85,6 +85,25 @@ async function checkAdmin(req: Request): Promise<AdminCheck> {
   }
 }
 
+// Any staff member (coach / mentor / super_admin) — used for the meeting
+// scheduler's bulk invite emails (not just super admins).
+async function checkStaff(req: Request): Promise<{ ok: boolean; userId?: string }> {
+  try {
+    const token = req.headers.get("Authorization")?.replace("Bearer ", "");
+    if (!token) return { ok: false };
+    const { data, error } = await admin.auth.getUser(token);
+    if (error || !data.user) return { ok: false };
+    const { data: roles } = await admin
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", data.user.id)
+      .in("role", ["coach", "mentor", "super_admin"]);
+    return (roles?.length ?? 0) > 0 ? { ok: true, userId: data.user.id } : { ok: false };
+  } catch {
+    return { ok: false };
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Email providers
 // ---------------------------------------------------------------------------
@@ -367,6 +386,39 @@ Deno.serve(async (req) => {
       }
       // Always return ok so account existence + provider state can't be probed.
       return json({ ok: true }, 200, cors);
+    }
+
+    // Staff-gated bulk email — the meeting scheduler uses this to email invites
+    // to participants + coaches + mentors + admins (any staff can send, not just
+    // super admins). Content is built by the caller; this just fans it out.
+    if (action === "send_bulk") {
+      if (!ADMIN_ENV_OK) {
+        return json(
+          { ok: false, error: "Email function is misconfigured (service key missing)." },
+          200,
+          cors,
+        );
+      }
+      const staff = await checkStaff(req);
+      if (!staff.ok) return json({ ok: false, error: "Staff only." }, 200, cors);
+      const recipients: string[] = Array.isArray(p.recipients)
+        ? [...new Set(p.recipients.filter((x: unknown) => typeof x === "string" && x))]
+        : [];
+      const subject = String(p.subject || "VK Mentorship");
+      const html = String(p.html || "");
+      const text = p.text ? String(p.text) : undefined;
+      let sent = 0;
+      let failed = 0;
+      for (const to of recipients) {
+        try {
+          await sendEmail(to, subject, html, text);
+          sent++;
+        } catch (e) {
+          failed++;
+          console.error("send_bulk sendEmail failed:", (e as Error).message);
+        }
+      }
+      return json({ ok: true, sent, failed }, 200, cors);
     }
 
     // All other actions are admin-only.

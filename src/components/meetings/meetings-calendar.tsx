@@ -50,12 +50,18 @@ import {
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/use-auth";
+import { useServerFn } from "@tanstack/react-start";
 import {
   useMeetings,
   useSchedulableParticipants,
-  scheduleMeeting,
+  scheduleMeeting as scheduleInstantZoom,
   type Meeting,
 } from "@/components/meetings/meetings-data";
+import {
+  scheduleMeeting,
+  getSchedulableStaff,
+  type MeetingType,
+} from "@/lib/vkm/meetings.functions";
 import { ZoomMeetingModal } from "@/components/meetings/zoom-meeting-modal";
 
 // ─── Calendar constants ─────────────────────────────────────────────────────
@@ -705,7 +711,7 @@ function InstantMeetingDialog({
     if (!participantId) return toast.error("Choose a participant first");
     setBusy(true);
     try {
-      const result = await scheduleMeeting({
+      const result = await scheduleInstantZoom({
         participantId,
         topic: topic.trim() || "Quick coaching call",
         startTime: new Date(Date.now() + 60_000).toISOString(),
@@ -837,40 +843,79 @@ function ScheduleDialog({
   defaultSlot: { date: string; time: string } | null;
 }) {
   const { people, loading } = useSchedulableParticipants();
+  const listStaff = useServerFn(getSchedulableStaff);
+  const schedule = useServerFn(scheduleMeeting);
   const now = new Date();
 
-  const [participantId, setParticipantId] = useState("");
+  const [staff, setStaff] = useState<{ id: string; name: string; role: string }[]>([]);
+  const [type, setType] = useState<MeetingType>("zoom");
   const [topic, setTopic] = useState("Coaching call");
   const [date, setDate] = useState(format(now, "yyyy-MM-dd"));
   const [time, setTime] = useState(`${pad((now.getHours() + 1) % 24)}:00`);
   const [duration, setDuration] = useState("30");
+  const [joinUrl, setJoinUrl] = useState("");
+  const [location, setLocation] = useState("");
+  const [notes, setNotes] = useState("");
+  const [selP, setSelP] = useState<Set<string>>(new Set());
+  const [selS, setSelS] = useState<Set<string>>(new Set());
   const [busy, setBusy] = useState(false);
 
-  // Sync pre-filled time slot when dialog opens from a calendar click
   useEffect(() => {
-    if (open && defaultSlot) {
-      setDate(defaultSlot.date);
-      setTime(defaultSlot.time);
-    }
-    if (!open) {
-      setParticipantId("");
+    if (open) {
+      void listStaff({}).then(setStaff).catch(() => {});
+      if (defaultSlot) {
+        setDate(defaultSlot.date);
+        setTime(defaultSlot.time);
+      }
+    } else {
+      setSelP(new Set());
+      setSelS(new Set());
       setTopic("Coaching call");
+      setJoinUrl("");
+      setLocation("");
+      setNotes("");
     }
-  }, [open, defaultSlot]);
+  }, [open, defaultSlot, listStaff]);
+
+  function toggle(set: Set<string>, setSet: (s: Set<string>) => void, id: string) {
+    const n = new Set(set);
+    if (n.has(id)) n.delete(id);
+    else n.add(id);
+    setSet(n);
+  }
 
   async function submit() {
-    if (!participantId) return toast.error("Pick a participant");
+    if (selP.size === 0 && selS.size === 0) {
+      toast.error("Pick at least one attendee");
+      return;
+    }
     const startTime = new Date(`${date}T${time}`);
-    if (isNaN(startTime.getTime())) return toast.error("Invalid date / time");
+    if (isNaN(startTime.getTime())) {
+      toast.error("Invalid date / time");
+      return;
+    }
+    if (type === "link" && !joinUrl.trim()) {
+      toast.error("Paste a meeting link (or switch to Zoom / In-person)");
+      return;
+    }
     setBusy(true);
     try {
-      await scheduleMeeting({
-        participantId,
-        topic: topic.trim() || "Coaching call",
-        startTime: startTime.toISOString(),
-        duration: Number(duration),
+      const r = await schedule({
+        data: {
+          topic: topic.trim() || "Meeting",
+          startTime: startTime.toISOString(),
+          duration: Number(duration),
+          type,
+          joinUrl: joinUrl.trim() || undefined,
+          location: location.trim() || undefined,
+          notes: notes.trim() || undefined,
+          participantIds: [...selP],
+          staffIds: [...selS],
+        },
       });
-      toast.success("Meeting scheduled", { description: "It's on the calendar." });
+      toast.success("Meeting scheduled", {
+        description: `${r.attendees} invited · ${r.emailed} emailed · notifications sent.`,
+      });
       onScheduled();
       onOpenChange(false);
     } catch (e) {
@@ -880,84 +925,160 @@ function ScheduleDialog({
     }
   }
 
+  const TYPES: { id: MeetingType; label: string }[] = [
+    { id: "zoom", label: "Zoom (auto)" },
+    { id: "link", label: "Custom link" },
+    { id: "in_person", label: "In person" },
+  ];
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90dvh] max-w-md overflow-y-auto">
+      <DialogContent className="max-h-[90dvh] max-w-lg overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <Video className="h-5 w-5 text-[#2D8CFF]" /> Schedule Zoom meeting
+            <Video className="h-5 w-5 text-[#2D8CFF]" /> Schedule meeting
           </DialogTitle>
           <DialogDescription>
-            Creates a Zoom meeting and adds it to the participant's calendar.
+            Everyone you invite gets a calendar block, an email invite and a notification.
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-3.5 py-1">
           <div className="space-y-1.5">
-            <Label>Participant</Label>
-            <Select value={participantId} onValueChange={setParticipantId}>
-              <SelectTrigger className="rounded-lg">
-                <SelectValue placeholder={loading ? "Loading…" : "Choose a participant"} />
-              </SelectTrigger>
-              <SelectContent>
-                {people.map((p) => (
-                  <SelectItem key={p.id} value={p.id}>
-                    {p.name}
-                  </SelectItem>
-                ))}
-                {!loading && people.length === 0 && (
-                  <div className="px-2 py-2 text-xs text-muted-foreground">
-                    No participants in your batches yet.
-                  </div>
-                )}
-              </SelectContent>
-            </Select>
+            <Label>Meeting type</Label>
+            <div className="grid grid-cols-3 gap-1.5">
+              {TYPES.map((t) => (
+                <button
+                  key={t.id}
+                  type="button"
+                  onClick={() => setType(t.id)}
+                  className={cn(
+                    "rounded-lg border px-2 py-2 text-xs font-medium transition-colors",
+                    type === t.id
+                      ? "border-transparent bg-gradient-navy text-primary-foreground"
+                      : "border-border bg-card text-muted-foreground hover:text-foreground",
+                  )}
+                >
+                  {t.label}
+                </button>
+              ))}
+            </div>
           </div>
 
           <div className="space-y-1.5">
             <Label>Topic</Label>
+            <Input value={topic} onChange={(e) => setTopic(e.target.value)} className="rounded-lg" />
+          </div>
+
+          <div className="grid grid-cols-3 gap-3">
+            <div className="space-y-1.5">
+              <Label>Date</Label>
+              <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="rounded-lg" />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Time</Label>
+              <Input type="time" value={time} onChange={(e) => setTime(e.target.value)} className="rounded-lg" />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Mins</Label>
+              <Select value={duration} onValueChange={setDuration}>
+                <SelectTrigger className="rounded-lg">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {["15", "30", "45", "60", "90"].map((d) => (
+                    <SelectItem key={d} value={d}>
+                      {d}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          {type === "link" && (
+            <div className="space-y-1.5">
+              <Label>Meeting link</Label>
+              <Input
+                value={joinUrl}
+                onChange={(e) => setJoinUrl(e.target.value)}
+                placeholder="https://meet.google.com/… or a Zoom link"
+                className="rounded-lg"
+              />
+            </div>
+          )}
+          {type === "in_person" && (
+            <div className="space-y-1.5">
+              <Label>Location</Label>
+              <Input
+                value={location}
+                onChange={(e) => setLocation(e.target.value)}
+                placeholder="Office / room / address"
+                className="rounded-lg"
+              />
+            </div>
+          )}
+
+          <div className="space-y-1.5">
+            <Label>Notes (optional)</Label>
             <Input
-              value={topic}
-              onChange={(e) => setTopic(e.target.value)}
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              placeholder="Agenda / what to prepare"
               className="rounded-lg"
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1.5">
-              <Label>Date</Label>
-              <Input
-                type="date"
-                value={date}
-                onChange={(e) => setDate(e.target.value)}
-                className="rounded-lg"
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label>Time</Label>
-              <Input
-                type="time"
-                value={time}
-                onChange={(e) => setTime(e.target.value)}
-                className="rounded-lg"
-              />
+          <div className="space-y-1.5">
+            <Label>Participants{selP.size > 0 ? ` · ${selP.size}` : ""}</Label>
+            <div className="flex max-h-28 flex-wrap gap-1.5 overflow-y-auto rounded-lg border border-border p-2">
+              {loading ? (
+                <span className="text-xs text-muted-foreground">Loading…</span>
+              ) : people.length === 0 ? (
+                <span className="text-xs text-muted-foreground">No participants in your batches.</span>
+              ) : (
+                people.map((p) => (
+                  <button
+                    key={p.id}
+                    type="button"
+                    onClick={() => toggle(selP, setSelP, p.id)}
+                    className={cn(
+                      "rounded-full px-2.5 py-1 text-xs font-medium transition-colors",
+                      selP.has(p.id)
+                        ? "bg-gradient-navy text-primary-foreground"
+                        : "bg-secondary/60 text-muted-foreground hover:text-foreground",
+                    )}
+                  >
+                    {p.name}
+                  </button>
+                ))
+              )}
             </div>
           </div>
 
           <div className="space-y-1.5">
-            <Label>Duration</Label>
-            <Select value={duration} onValueChange={setDuration}>
-              <SelectTrigger className="rounded-lg">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {["15", "30", "45", "60", "90"].map((d) => (
-                  <SelectItem key={d} value={d}>
-                    {d} minutes
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <Label>Also invite staff{selS.size > 0 ? ` · ${selS.size}` : ""}</Label>
+            <div className="flex max-h-28 flex-wrap gap-1.5 overflow-y-auto rounded-lg border border-border p-2">
+              {staff.length === 0 ? (
+                <span className="text-xs text-muted-foreground">No other staff.</span>
+              ) : (
+                staff.map((s) => (
+                  <button
+                    key={s.id}
+                    type="button"
+                    onClick={() => toggle(selS, setSelS, s.id)}
+                    className={cn(
+                      "rounded-full px-2.5 py-1 text-xs font-medium transition-colors",
+                      selS.has(s.id)
+                        ? "bg-gradient-gold text-navy"
+                        : "bg-secondary/60 text-muted-foreground hover:text-foreground",
+                    )}
+                  >
+                    {s.name} <span className="opacity-60">· {s.role.replace("super_admin", "admin")}</span>
+                  </button>
+                ))
+              )}
+            </div>
           </div>
         </div>
 
@@ -971,7 +1092,7 @@ function ScheduleDialog({
             className="gap-1.5 rounded-lg bg-gradient-navy text-primary-foreground hover:opacity-90"
           >
             {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Video className="h-4 w-4" />}
-            Create & schedule
+            Schedule &amp; invite
           </Button>
         </div>
       </DialogContent>

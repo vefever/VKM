@@ -140,6 +140,7 @@ export function groupNotifications(items: AppNotification[]): NotifGroup[] {
 const META: Record<string, { Icon: LucideIcon; color: string }> = {
   proof: { Icon: CheckCircle2, color: "#10b981" },
   alert: { Icon: AlertTriangle, color: "#ef4444" },
+  meeting: { Icon: Video, color: "#3b82f6" },
   points: { Icon: Coins, color: "#C8A84B" },
   milestone: { Icon: Trophy, color: "#C8A84B" },
   assignment: { Icon: ClipboardList, color: "#3b82f6" },
