@@ -18,8 +18,40 @@ import type { Attachment } from "@/components/chat/chat-data";
 import { useAppShell } from "@/hooks/use-app-shell";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { useDisplaySrc, isHeicUrl, isHeicSource } from "@/lib/heic";
 
 const isPdf = (a: Attachment) => /\.pdf(\?|$)/i.test(a.name || "") || /\.pdf(\?|$)/i.test(a.url);
+// A stored .heic that predates upload-time conversion may be tagged kind "file"
+// (its MIME was empty at upload) — still treat it as an image so it previews.
+const isImageAttachment = (a: Attachment) => a.kind === "image" || isHeicUrl(a.url);
+
+// <img> that transparently decodes stored HEIC to a viewable JPEG.
+function SmartImage({ url, alt, className }: { url: string; alt: string; className?: string }) {
+  const { src, converting, failed } = useDisplaySrc(url);
+  if (converting) {
+    return (
+      <div className={cn("flex flex-col items-center justify-center gap-1.5 bg-secondary/40", className)}>
+        <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+        <span className="text-[10px] text-muted-foreground">Loading photo…</span>
+      </div>
+    );
+  }
+  if (failed) {
+    return (
+      <div
+        className={cn(
+          "flex flex-col items-center justify-center gap-1.5 bg-secondary/40 px-2 text-center",
+          className,
+        )}
+      >
+        <ImageIcon className="h-6 w-6 text-muted-foreground" />
+        <span className="text-[11px] font-medium text-foreground">iPhone photo</span>
+        <span className="text-[10px] text-muted-foreground">Use Download to view</span>
+      </div>
+    );
+  }
+  return <img src={src} alt={alt} className={className} />;
+}
 
 // Force a real download even for cross-origin files (R2 / Supabase public URLs):
 // fetch the blob (CORS GET is allowed for the app origins) and save with the
@@ -64,7 +96,7 @@ export function ProofAttachments({ files }: { files: Attachment[] }) {
 }
 
 function Tile({ a, onOpen }: { a: Attachment; onOpen: () => void }) {
-  if (a.kind === "image") {
+  if (isImageAttachment(a)) {
     return (
       <button
         type="button"
@@ -72,7 +104,7 @@ function Tile({ a, onOpen }: { a: Attachment; onOpen: () => void }) {
         className="group relative block w-full overflow-hidden rounded-xl border border-border"
         title={a.name}
       >
-        <img src={a.url} alt={a.name} className="h-28 w-full object-cover" />
+        <SmartImage url={a.url} alt={a.name} className="h-28 w-full object-cover" />
         <span className="absolute inset-0 flex items-center justify-center bg-black/0 transition-colors group-hover:bg-black/25">
           <Eye className="h-6 w-6 text-white opacity-0 transition-opacity group-hover:opacity-100" />
         </span>
@@ -203,9 +235,9 @@ function Lightbox({
         )}
 
         <div className="max-h-full max-w-full" onClick={(e) => e.stopPropagation()}>
-          {a.kind === "image" ? (
-            <img
-              src={a.url}
+          {isImageAttachment(a) ? (
+            <SmartImage
+              url={a.url}
               alt={a.name}
               className="max-h-[82vh] max-w-full rounded-lg object-contain"
             />
@@ -269,7 +301,8 @@ export function LocalPreviewTile({
   onRemove: () => void;
   uploading?: boolean;
 }) {
-  const isImage = file.type.startsWith("image/");
+  const isHeic = isHeicSource(file.type, file.name);
+  const isImage = file.type.startsWith("image/") && !isHeic;
   const isVideo = file.type.startsWith("video/");
   return (
     <div className="group relative overflow-hidden rounded-xl border border-border">
@@ -277,6 +310,13 @@ export function LocalPreviewTile({
         <img src={url} alt={file.name} className="h-28 w-full object-cover" />
       ) : isVideo ? (
         <video src={url} className="h-28 w-full bg-black object-contain" />
+      ) : isHeic ? (
+        // Browsers can't render a HEIC preview; it converts to JPEG on upload.
+        <div className="flex h-28 flex-col items-center justify-center gap-1.5 bg-secondary/40 p-2 text-center">
+          <ImageIcon className="h-7 w-7 text-muted-foreground" />
+          <span className="text-[11px] font-medium text-foreground">iPhone photo</span>
+          <span className="text-[10px] text-muted-foreground">Ready to upload</span>
+        </div>
       ) : (
         <div className="flex h-28 flex-col items-center justify-center gap-1.5 bg-secondary/40 p-2 text-center">
           <FileText className="h-7 w-7 text-muted-foreground" />
@@ -312,7 +352,8 @@ export function FilePickerZone({ onFiles }: { onFiles: (files: FileList | null) 
   const fileRef = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState(false);
 
-  const ALL = "image/*,video/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv";
+  const ALL =
+    "image/*,.heic,.heif,video/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv";
   const inputs = (
     <>
       <input
@@ -329,7 +370,7 @@ export function FilePickerZone({ onFiles }: { onFiles: (files: FileList | null) 
       <input
         ref={libRef}
         type="file"
-        accept="image/*,video/*"
+        accept="image/*,.heic,.heif,video/*"
         multiple
         className="hidden"
         onChange={(e) => {
@@ -391,7 +432,7 @@ export function FilePickerZone({ onFiles }: { onFiles: (files: FileList | null) 
         <span className="font-medium">
           {dragging ? "Drop files to attach" : "Drag & drop files here, or click to browse"}
         </span>
-        <span className="text-[11px] text-muted-foreground">jpg, png, mp4, pdf, docx…</span>
+        <span className="text-[11px] text-muted-foreground">jpg, png, heic, mp4, pdf, docx…</span>
       </button>
     </>
   );

@@ -7,12 +7,18 @@
 // left untouched (canvas would flatten/rasterise them), and anything already
 // small is skipped.
 //
+// HEIC/HEIF photos (from iPhones) are decoded to JPEG first (browsers other
+// than Safari can't render HEIC), then compressed like any image — so stored
+// files are viewable everywhere.
+//
 // Videos and other files (PDF, docx, …) can't be safely transcoded in the
 // browser without a heavy ffmpeg.wasm bundle that risks OOM on phones, so they
 // pass through unchanged.
 //
 // EVERYTHING degrades to the original file on any error — an upload must never
 // fail because compression failed.
+
+import { isHeicSource, heicToJpeg } from "@/lib/heic";
 
 export type Compressed = {
   blob: Blob | File;
@@ -108,7 +114,17 @@ async function compressImage(file: File | Blob): Promise<Compressed> {
  */
 export async function compressForUpload(file: File | Blob): Promise<Compressed> {
   const type = (file as File).type || "";
+  const name = (file as File).name || "";
   try {
+    // iPhone HEIC/HEIF → decode to JPEG first (type is often empty, so match on
+    // the filename too), then run the normal image compression on the result.
+    if (isHeicSource(type, name)) {
+      const jpeg = await heicToJpeg(file);
+      const out = await compressImage(jpeg);
+      // If the canvas step declined to re-encode, still ship the JPEG we decoded
+      // (never the original .heic, which most browsers can't display).
+      return out.ext ? out : { blob: jpeg, contentType: "image/jpeg", ext: "jpg" };
+    }
     if (type.startsWith("image/")) return await compressImage(file);
     return passthrough(file);
   } catch {
