@@ -7,8 +7,9 @@ import {
   Maximize,
   Minimize,
   Loader2,
-  Gauge,
+  Settings,
   RotateCcw,
+  Check,
 } from "lucide-react";
 import { resolveVideoSource, withAutoplay, isHlsUrl, type VideoKind } from "@/lib/video-source";
 import { cn } from "@/lib/utils";
@@ -65,6 +66,16 @@ function fmt(s: number): string {
   return `${h > 0 ? `${h}:` : ""}${mm}:${String(sec).padStart(2, "0")}`;
 }
 
+// Stable per-source key for the "resume where you left off" position cache.
+function resumeKey(src: string): string {
+  let h = 0;
+  for (let i = 0; i < src.length; i++) h = (h * 31 + src.charCodeAt(i)) | 0;
+  return `vkm.vp.pos.${h}`;
+}
+
+type Level = { index: number; height: number };
+type FakeFs = "off" | "rotate" | "fill";
+
 // ── Branded player for direct files + HLS ────────────────────────────────────
 function FilePlayer({
   src,
@@ -84,6 +95,9 @@ function FilePlayer({
   const wrapRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const saveAt = useRef(0);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const hlsRef = useRef<any>(null);
 
   const [ready, setReady] = useState(false);
   const [playing, setPlaying] = useState(false);
@@ -95,16 +109,23 @@ function FilePlayer({
   const [duration, setDuration] = useState(0);
   const [buffered, setBuffered] = useState(0);
   const [rate, setRate] = useState(1);
-  const [speedOpen, setSpeedOpen] = useState(false);
-  const [fs, setFs] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [levels, setLevels] = useState<Level[]>([]);
+  const [level, setLevel] = useState(-1); // -1 = Auto
+  const [fsReal, setFsReal] = useState(false);
+  const [fake, setFake] = useState<FakeFs>("off");
   const [showUi, setShowUi] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // HLS: native on Safari/iOS, else lazy-load hls.js and attach.
+  const inFs = fsReal || fake !== "off";
+
+  // ── Source attach: HLS (native on Safari, else hls.js) or direct file ──────
   useEffect(() => {
     const video = videoRef.current;
     if (!video) return;
     setError(null);
+    setLevels([]);
+    setLevel(-1);
 
     if (!isHlsUrl(src) || video.canPlayType("application/vnd.apple.mpegurl")) {
       video.src = src;
@@ -112,17 +133,24 @@ function FilePlayer({
     }
 
     let destroyed = false;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    let hls: any;
     void import("hls.js").then(({ default: Hls }) => {
       if (destroyed) return;
       if (!Hls.isSupported()) {
-        video.src = src; // last-ditch: let the browser try
+        video.src = src;
         return;
       }
-      hls = new Hls({ enableWorker: true });
+      const hls = new Hls({ enableWorker: true, capLevelToPlayerSize: true });
+      hlsRef.current = hls;
       hls.loadSource(src);
       hls.attachMedia(video);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      hls.on(Hls.Events.MANIFEST_PARSED, (_e: unknown, data: { levels: any[] }) => {
+        const ls: Level[] = (data.levels || [])
+          .map((l, i) => ({ index: i, height: l.height || 0 }))
+          .filter((l) => l.height > 0)
+          .sort((a, b) => b.height - a.height);
+        setLevels(ls);
+      });
       hls.on(Hls.Events.ERROR, (_e: unknown, data: { fatal: boolean; type: string }) => {
         if (!data?.fatal) return;
         if (data.type === "networkError") hls.startLoad();
@@ -135,9 +163,19 @@ function FilePlayer({
     });
     return () => {
       destroyed = true;
-      if (hls) hls.destroy();
+      if (hlsRef.current) {
+        hlsRef.current.destroy();
+        hlsRef.current = null;
+      }
     };
   }, [src]);
+
+  // Apply a chosen HLS quality (or Auto).
+  const pickLevel = useCallback((idx: number) => {
+    setLevel(idx);
+    if (hlsRef.current) hlsRef.current.currentLevel = idx; // -1 → auto
+    setSettingsOpen(false);
+  }, []);
 
   // Keep element volume/mute/rate in sync with state.
   useEffect(() => {
@@ -151,18 +189,97 @@ function FilePlayer({
     if (videoRef.current) videoRef.current.playbackRate = rate;
   }, [rate]);
 
-  // Fullscreen state sync.
+  // Real (desktop) fullscreen state sync.
   useEffect(() => {
-    const onFs = () => setFs(document.fullscreenElement === wrapRef.current);
+    const onFs = () => setFsReal(document.fullscreenElement === wrapRef.current);
     document.addEventListener("fullscreenchange", onFs);
     return () => document.removeEventListener("fullscreenchange", onFs);
   }, []);
+
+  // Anti screen-recording deterrent (best-effort): pause when the tab/app is
+  // hidden. NOTE: the web platform can't truly block screenshots or screen
+  // recording — that's an OS capability only native apps can gate.
+  useEffect(() => {
+    const onVis = () => {
+      if (document.hidden && videoRef.current) videoRef.current.pause();
+    };
+    document.addEventListener("visibilitychange", onVis);
+    return () => document.removeEventListener("visibilitychange", onVis);
+  }, []);
+
+  // ── Custom immersive fullscreen ────────────────────────────────────────────
+  // Desktop uses the native Fullscreen API. Touch devices use a CSS "immersive"
+  // mode instead — no native API means no browser "<domain> — to exit
+  // fullscreen" banner, and on a portrait phone we CSS-rotate to landscape so
+  // the video fills the screen (no OS orientation permission needed).
+  const enterFake = useCallback(() => {
+    const portrait = window.innerHeight > window.innerWidth;
+    setFake(portrait ? "rotate" : "fill");
+    try {
+      history.pushState({ vpImm: true }, "");
+    } catch {
+      /* ignore */
+    }
+    // Best-effort real orientation lock where allowed (Android Chrome).
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      void (screen.orientation as any)?.lock?.("landscape");
+    } catch {
+      /* not permitted outside real FS — the CSS rotate covers it */
+    }
+  }, []);
+
+  const exitFake = useCallback((fromPop: boolean) => {
+    setFake("off");
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (screen.orientation as any)?.unlock?.();
+    } catch {
+      /* ignore */
+    }
+    if (!fromPop && typeof history !== "undefined" && history.state?.vpImm) {
+      history.back(); // pop the state we pushed
+    }
+  }, []);
+
+  // Hardware/browser back exits immersive instead of navigating away.
+  useEffect(() => {
+    if (fake === "off") return;
+    const onPop = () => exitFake(true);
+    const onResize = () =>
+      setFake((f) => (f === "off" ? f : window.innerHeight > window.innerWidth ? "rotate" : "fill"));
+    window.addEventListener("popstate", onPop);
+    window.addEventListener("resize", onResize);
+    window.addEventListener("orientationchange", onResize);
+    return () => {
+      window.removeEventListener("popstate", onPop);
+      window.removeEventListener("resize", onResize);
+      window.removeEventListener("orientationchange", onResize);
+    };
+  }, [fake, exitFake]);
+
+  const toggleFullscreen = useCallback(() => {
+    if (fsReal) {
+      void document.exitFullscreen();
+      return;
+    }
+    if (fake !== "off") {
+      exitFake(false);
+      return;
+    }
+    const coarse = typeof window !== "undefined" && window.matchMedia("(pointer: coarse)").matches;
+    if (coarse) {
+      enterFake();
+      return;
+    }
+    const el = wrapRef.current;
+    if (el?.requestFullscreen) void el.requestFullscreen();
+  }, [fsReal, fake, enterFake, exitFake]);
 
   const armAutoHide = useCallback(() => {
     setShowUi(true);
     if (hideTimer.current) clearTimeout(hideTimer.current);
     hideTimer.current = setTimeout(() => {
-      // Only hide while actively playing (and no menu open).
       if (videoRef.current && !videoRef.current.paused) setShowUi(false);
     }, 2600);
   }, []);
@@ -193,20 +310,6 @@ function FilePlayer({
     setCurrent(t);
   };
 
-  const toggleFullscreen = useCallback(() => {
-    const el = wrapRef.current;
-    const v = videoRef.current;
-    if (document.fullscreenElement) {
-      void document.exitFullscreen();
-    } else if (el?.requestFullscreen) {
-      void el.requestFullscreen();
-    } else if (v && "webkitEnterFullscreen" in v) {
-      // iOS Safari: only the <video> element can go fullscreen.
-      (v as unknown as { webkitEnterFullscreen: () => void }).webkitEnterFullscreen();
-    }
-  }, []);
-
-  // Keyboard shortcuts (player focused).
   const onKey = (e: React.KeyboardEvent) => {
     switch (e.key) {
       case " ":
@@ -237,6 +340,24 @@ function FilePlayer({
   const bufferedPct = duration > 0 ? Math.min(100, (buffered / duration) * 100) : 0;
   const playedPct = duration > 0 ? Math.min(100, (current / duration) * 100) : 0;
 
+  const fakeStyle: React.CSSProperties | undefined =
+    fake === "rotate"
+      ? {
+          position: "fixed",
+          top: 0,
+          left: "100vw",
+          width: "100vh",
+          height: "100vw",
+          transform: "rotate(90deg)",
+          transformOrigin: "0 0",
+          zIndex: 9999,
+          borderRadius: 0,
+          background: "#000",
+        }
+      : fake === "fill"
+        ? { position: "fixed", inset: 0, width: "100vw", height: "100vh", zIndex: 9999, borderRadius: 0, background: "#000" }
+        : undefined;
+
   return (
     <div
       ref={wrapRef}
@@ -245,8 +366,11 @@ function FilePlayer({
       onMouseMove={armAutoHide}
       onMouseLeave={() => playing && setShowUi(false)}
       onTouchStart={armAutoHide}
+      onContextMenu={(e) => e.preventDefault()} // no "save video as"
+      style={fakeStyle}
       className={cn(
-        "group/vp relative aspect-video w-full select-none overflow-hidden rounded-xl bg-black outline-none",
+        "group/vp relative w-full select-none overflow-hidden bg-black outline-none",
+        fake === "off" && "aspect-video rounded-xl",
         !showUi && playing && "cursor-none",
         className,
       )}
@@ -258,13 +382,40 @@ function FilePlayer({
         muted={autoPlay}
         preload="metadata"
         playsInline
+        draggable={false}
+        controlsList="nodownload noremoteplayback noplaybackrate"
+        disablePictureInPicture
+        onContextMenu={(e) => e.preventDefault()}
         onClick={togglePlay}
         onDoubleClick={toggleFullscreen}
         onLoadedMetadata={(e) => {
-          setDuration(e.currentTarget.duration || 0);
+          const v = e.currentTarget;
+          setDuration(v.duration || 0);
           setReady(true);
+          // Resume where the user left off (skip if basically at start/end).
+          try {
+            const saved = Number(localStorage.getItem(resumeKey(src)) || 0);
+            if (saved > 5 && Number.isFinite(v.duration) && saved < v.duration - 8) {
+              v.currentTime = saved;
+              setCurrent(saved);
+            }
+          } catch {
+            /* ignore */
+          }
         }}
-        onTimeUpdate={(e) => setCurrent(e.currentTarget.currentTime)}
+        onTimeUpdate={(e) => {
+          const v = e.currentTarget;
+          setCurrent(v.currentTime);
+          const now = Date.now();
+          if (now - saveAt.current > 4000) {
+            saveAt.current = now;
+            try {
+              localStorage.setItem(resumeKey(src), String(Math.floor(v.currentTime)));
+            } catch {
+              /* ignore */
+            }
+          }
+        }}
         onProgress={(e) => {
           const v = e.currentTarget;
           if (v.buffered.length) setBuffered(v.buffered.end(v.buffered.length - 1));
@@ -273,7 +424,6 @@ function FilePlayer({
           setPlaying(true);
           setEnded(false);
           armAutoHide();
-          // Only one inline video plays at a time.
           document.querySelectorAll("video").forEach((el) => {
             if (el !== videoRef.current) el.pause();
           });
@@ -281,6 +431,14 @@ function FilePlayer({
         onPause={() => {
           setPlaying(false);
           setShowUi(true);
+          const v = videoRef.current;
+          if (v) {
+            try {
+              localStorage.setItem(resumeKey(src), String(Math.floor(v.currentTime)));
+            } catch {
+              /* ignore */
+            }
+          }
         }}
         onWaiting={() => setWaiting(true)}
         onPlaying={() => setWaiting(false)}
@@ -289,10 +447,15 @@ function FilePlayer({
           setPlaying(false);
           setEnded(true);
           setShowUi(true);
+          try {
+            localStorage.removeItem(resumeKey(src));
+          } catch {
+            /* ignore */
+          }
           onEnded?.();
         }}
         onError={() => setError("This video couldn't be loaded.")}
-        className="h-full w-full bg-black"
+        className="h-full w-full bg-black object-contain"
       >
         <track kind="captions" />
       </video>
@@ -328,11 +491,7 @@ function FilePlayer({
           className="absolute inset-0 flex items-center justify-center"
         >
           <span className="flex h-16 w-16 items-center justify-center rounded-full bg-gradient-navy text-primary-foreground shadow-vkm-float ring-1 ring-white/20 transition-transform duration-200 hover:scale-110 sm:h-[72px] sm:w-[72px]">
-            {ended ? (
-              <RotateCcw className="h-7 w-7" />
-            ) : (
-              <Play className="ml-1 h-8 w-8 fill-current" />
-            )}
+            {ended ? <RotateCcw className="h-7 w-7" /> : <Play className="ml-1 h-8 w-8 fill-current" />}
           </span>
         </button>
       )}
@@ -341,18 +500,16 @@ function FilePlayer({
       <div
         className={cn(
           "absolute inset-x-0 bottom-0 z-10 bg-gradient-to-t from-black/80 via-black/40 to-transparent px-3 pb-2 pt-8 transition-opacity duration-300",
-          showUi || !playing ? "opacity-100" : "opacity-0",
+          showUi || !playing ? "opacity-100" : "opacity-0 pointer-events-none",
         )}
-        // Clicks in the bar shouldn't bubble to the video (which would pause it).
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Seek bar: buffered underlay + played fill + invisible range on top */}
+        {/* Seek bar */}
         <div className="group/seek relative mb-1.5 h-4 w-full">
           <div className="absolute top-1/2 h-1 w-full -translate-y-1/2 overflow-hidden rounded-full bg-white/25">
             <div className="absolute inset-y-0 left-0 bg-white/35" style={{ width: `${bufferedPct}%` }} />
             <div className="absolute inset-y-0 left-0 bg-gold" style={{ width: `${playedPct}%` }} />
           </div>
-          {/* Thumb */}
           <div
             className="pointer-events-none absolute top-1/2 h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full bg-gold opacity-0 shadow transition-opacity group-hover/seek:opacity-100"
             style={{ left: `${playedPct}%` }}
@@ -374,7 +531,6 @@ function FilePlayer({
             {playing ? <Pause className="h-5 w-5 fill-current" /> : <Play className="h-5 w-5 fill-current" />}
           </Ctrl>
 
-          {/* Volume (hover to reveal slider on desktop) */}
           <div className="group/vol flex items-center">
             <Ctrl label={muted || volume === 0 ? "Unmute" : "Mute"} onClick={() => setMuted((m) => !m)}>
               {muted || volume === 0 ? <VolumeX className="h-5 w-5" /> : <Volume2 className="h-5 w-5" />}
@@ -400,44 +556,56 @@ function FilePlayer({
           </span>
 
           <div className="ml-auto flex items-center gap-1">
-            {/* Playback speed */}
+            {/* Settings: quality (HLS) + speed */}
             <div className="relative">
-              <Ctrl label="Playback speed" onClick={() => setSpeedOpen((o) => !o)}>
-                <span className="flex items-center gap-0.5">
-                  <Gauge className="h-5 w-5" />
-                  {rate !== 1 && <span className="text-[10px] font-bold">{rate}x</span>}
-                </span>
+              <Ctrl label="Settings" onClick={() => setSettingsOpen((o) => !o)}>
+                <Settings className={cn("h-5 w-5 transition-transform", settingsOpen && "rotate-45")} />
               </Ctrl>
-              {speedOpen && (
-                <div className="absolute bottom-full right-0 mb-2 w-24 overflow-hidden rounded-xl border border-white/10 bg-black/90 py-1 backdrop-blur">
+              {settingsOpen && (
+                <div className="absolute bottom-full right-0 mb-2 w-44 overflow-hidden rounded-xl border border-white/10 bg-black/90 p-1 backdrop-blur">
+                  {levels.length > 0 && (
+                    <>
+                      <p className="px-3 pb-1 pt-1.5 text-[10px] font-bold uppercase tracking-wide text-white/50">
+                        Quality
+                      </p>
+                      <MenuItem active={level === -1} onClick={() => pickLevel(-1)}>
+                        Auto
+                      </MenuItem>
+                      {levels.map((l) => (
+                        <MenuItem key={l.index} active={level === l.index} onClick={() => pickLevel(l.index)}>
+                          {l.height}p
+                        </MenuItem>
+                      ))}
+                      <div className="my-1 h-px bg-white/10" />
+                    </>
+                  )}
+                  <p className="px-3 pb-1 pt-1.5 text-[10px] font-bold uppercase tracking-wide text-white/50">
+                    Speed
+                  </p>
                   {SPEEDS.map((s) => (
-                    <button
+                    <MenuItem
                       key={s}
-                      type="button"
+                      active={s === rate}
                       onClick={() => {
                         setRate(s);
-                        setSpeedOpen(false);
+                        setSettingsOpen(false);
                       }}
-                      className={cn(
-                        "block w-full px-3 py-1.5 text-left text-xs font-medium hover:bg-white/10",
-                        s === rate ? "text-gold" : "text-white/90",
-                      )}
                     >
                       {s === 1 ? "Normal" : `${s}x`}
-                    </button>
+                    </MenuItem>
                   ))}
                 </div>
               )}
             </div>
 
-            <Ctrl label={fs ? "Exit fullscreen" : "Fullscreen"} onClick={toggleFullscreen}>
-              {fs ? <Minimize className="h-5 w-5" /> : <Maximize className="h-5 w-5" />}
+            <Ctrl label={inFs ? "Exit fullscreen" : "Fullscreen"} onClick={toggleFullscreen}>
+              {inFs ? <Minimize className="h-5 w-5" /> : <Maximize className="h-5 w-5" />}
             </Ctrl>
           </div>
         </div>
       </div>
 
-      {/* Title chip (top) — fades with controls */}
+      {/* Title chip */}
       {title && title !== "Video" && (
         <div
           className={cn(
@@ -452,15 +620,7 @@ function FilePlayer({
   );
 }
 
-function Ctrl({
-  children,
-  label,
-  onClick,
-}: {
-  children: React.ReactNode;
-  label: string;
-  onClick: () => void;
-}) {
+function Ctrl({ children, label, onClick }: { children: React.ReactNode; label: string; onClick: () => void }) {
   return (
     <button
       type="button"
@@ -470,6 +630,30 @@ function Ctrl({
       className="inline-flex h-9 min-w-9 items-center justify-center rounded-lg px-1.5 text-white/90 transition-colors hover:bg-white/15 hover:text-white"
     >
       {children}
+    </button>
+  );
+}
+
+function MenuItem({
+  children,
+  active,
+  onClick,
+}: {
+  children: React.ReactNode;
+  active: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        "flex w-full items-center justify-between rounded-lg px-3 py-1.5 text-left text-xs font-medium hover:bg-white/10",
+        active ? "text-gold" : "text-white/90",
+      )}
+    >
+      {children}
+      {active && <Check className="h-3.5 w-3.5" />}
     </button>
   );
 }
