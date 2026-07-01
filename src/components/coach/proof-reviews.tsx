@@ -909,6 +909,10 @@ function ProofHistoryTab({ data }: { data: ReturnType<typeof useProofHistory> })
 function HistoryCard({ item }: { item: HistoryProof }) {
   const [expanded, setExpanded] = useState(false);
   const week = weekByNumber(item.week_no);
+  const isHabit = item.kind === "habit";
+  const habitLabel = isHabit
+    ? `Day ${item.day_no} · ${HABIT_BY_ID[item.habit_id ?? ""]?.name ?? "Habit"}`
+    : `Week ${item.week_no}${week ? ` · ${week.topic}` : ""}`;
   const approved = item.proof_status === "approved";
   const hasDetail =
     !!item.proof_note || !!item.coach_note || !!item.proof_url || item.proof_files.length > 0;
@@ -938,7 +942,7 @@ function HistoryCard({ item }: { item: HistoryProof }) {
               </span>
             )}
             <span className="rounded-full bg-secondary/60 px-2 py-0.5 text-[11px] text-muted-foreground">
-              Week {item.week_no}{week ? ` · ${week.topic}` : ""}
+              {habitLabel}
             </span>
           </div>
           <div className="mt-0.5 flex flex-wrap items-center gap-2">

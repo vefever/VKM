@@ -406,6 +406,7 @@ export function useHabitProofFeed(limit = 60) {
     const { data } = await supabase
       .from("habit_logs")
       .select("id, user_id, habit_id, day_no, log_date, proof_files, proof_status, coach_note, created_at")
+      .eq("proof_status" as "id", "pending") // reviewed ones move to History (col not in generated types)
       .neq("proof_files", "[]")
       .order("created_at", { ascending: false })
       .limit(limit)
@@ -457,11 +458,8 @@ export function useHabitProofFeed(limit = 60) {
   // review fields). Optimistic — the realtime channel reconciles.
   const reviewHabit = useCallback(
     async (id: string, status: "approved" | "rejected", note: string) => {
-      setItems((prev) =>
-        prev.map((i) =>
-          i.id === id ? { ...i, proof_status: status, coach_note: note.trim() || null } : i,
-        ),
-      );
+      // Once reviewed it leaves the pending queue (moves to History).
+      setItems((prev) => prev.filter((i) => i.id !== id));
       const sb = supabase as unknown as {
         rpc: (
           fn: string,
@@ -650,10 +648,13 @@ export function useCoachPerformance() {
 // ---------------------------------------------------------------------------
 export type HistoryProof = {
   id: string;
+  kind: "weekly" | "habit";
   user_id: string;
   name: string;
   avatar_url: string | null;
-  week_no: number;
+  week_no: number; // weekly proofs; 0 for habits
+  day_no?: number; // habit proofs
+  habit_id?: string; // habit proofs
   proof_status: "approved" | "rejected";
   proof_url: string | null;
   proof_files: Attachment[];
@@ -672,17 +673,38 @@ export function useProofHistory() {
   const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
-    const { data } = await supabase
-      .from("weekly_progress")
-      .select(
-        "id, user_id, week_no, proof_status, proof_url, proof_files, proof_note, coach_note, reviewed_at, attended, points, batch_id, created_at",
-      )
-      .in("proof_status", ["approved", "rejected"])
-      .order("reviewed_at", { ascending: false });
+    const [weeklyRes, habitRes] = await Promise.all([
+      supabase
+        .from("weekly_progress")
+        .select(
+          "id, user_id, week_no, proof_status, proof_url, proof_files, proof_note, coach_note, reviewed_at, attended, points, batch_id, created_at",
+        )
+        .in("proof_status", ["approved", "rejected"])
+        .order("reviewed_at", { ascending: false }),
+      supabase
+        .from("habit_logs")
+        .select("id, user_id, habit_id, day_no, proof_files, coach_note, reviewed_at, proof_status, created_at")
+        .in("proof_status", ["approved", "rejected"])
+        .order("reviewed_at", { ascending: false })
+        .returns<
+          {
+            id: string;
+            user_id: string;
+            habit_id: string;
+            day_no: number;
+            proof_files: Attachment[] | null;
+            coach_note: string | null;
+            reviewed_at: string | null;
+            proof_status: string;
+            created_at: string;
+          }[]
+        >(),
+    ]);
 
-    const rows = data ?? [];
-    const userIds = [...new Set(rows.map((r) => r.user_id))];
-    const batchIds = [...new Set(rows.map((r) => r.batch_id).filter(Boolean))] as string[];
+    const wrows = weeklyRes.data ?? [];
+    const hrows = habitRes.data ?? [];
+    const userIds = [...new Set([...wrows.map((r) => r.user_id), ...hrows.map((r) => r.user_id)])];
+    const batchIds = [...new Set(wrows.map((r) => r.batch_id).filter(Boolean))] as string[];
 
     const [display, batchRes] = await Promise.all([
       profilesDisplayFor(userIds),
@@ -696,19 +718,47 @@ export function useProofHistory() {
       batchMap[b.id] = b.name;
     });
 
-    setItems(
-      rows.map((r) => {
-        const prof = display.get(r.user_id);
-        return {
-          ...r,
-          proof_files: (r.proof_files ?? []) as Attachment[],
-          proof_status: r.proof_status as "approved" | "rejected",
-          name: prof?.name ?? "Participant",
-          avatar_url: prof?.avatar ?? null,
-          batch_name: r.batch_id ? (batchMap[r.batch_id] ?? null) : null,
-        };
-      }),
+    const weekly: HistoryProof[] = wrows.map((r) => {
+      const prof = display.get(r.user_id);
+      return {
+        ...r,
+        kind: "weekly",
+        proof_files: (r.proof_files ?? []) as Attachment[],
+        proof_status: r.proof_status as "approved" | "rejected",
+        name: prof?.name ?? "Participant",
+        avatar_url: prof?.avatar ?? null,
+        batch_name: r.batch_id ? (batchMap[r.batch_id] ?? null) : null,
+      };
+    });
+    const habit: HistoryProof[] = hrows.map((r) => {
+      const prof = display.get(r.user_id);
+      return {
+        id: r.id,
+        kind: "habit",
+        user_id: r.user_id,
+        name: prof?.name ?? "Participant",
+        avatar_url: prof?.avatar ?? null,
+        week_no: 0,
+        day_no: r.day_no,
+        habit_id: r.habit_id,
+        proof_status: r.proof_status as "approved" | "rejected",
+        proof_url: null,
+        proof_files: (r.proof_files ?? []) as Attachment[],
+        proof_note: null,
+        coach_note: r.coach_note ?? null,
+        reviewed_at: r.reviewed_at ?? null,
+        attended: false,
+        points: 0,
+        batch_id: null,
+        batch_name: null,
+        created_at: r.created_at,
+      };
+    });
+
+    const all = [...weekly, ...habit].sort(
+      (a, b) => (b.reviewed_at ? +new Date(b.reviewed_at) : 0) - (a.reviewed_at ? +new Date(a.reviewed_at) : 0),
     );
+    setItems(all);
     setLoading(false);
   }, []);
 
@@ -719,6 +769,7 @@ export function useProofHistory() {
       .on("postgres_changes", { event: "*", schema: "public", table: "weekly_progress" }, () =>
         load(),
       )
+      .on("postgres_changes", { event: "*", schema: "public", table: "habit_logs" }, () => load())
       .subscribe();
     return () => {
       supabase.removeChannel(ch);
