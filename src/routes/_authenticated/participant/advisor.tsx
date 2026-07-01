@@ -10,7 +10,7 @@ import {
   User,
   BrainCircuit,
   AlertTriangle,
-  Settings2,
+  Briefcase,
   Sunrise,
   Target,
   TrendingUp,
@@ -227,18 +227,20 @@ function AdvisorPage() {
         icon={BrainCircuit}
         actions={
           <>
-            <Button variant="outline" className="rounded-full" asChild>
-              <Link to="/participant/brain">
-                <Settings2 className="h-4 w-4" /> Business Brain
+            <Button variant="outline" size="sm" className="rounded-full" asChild>
+              <Link to="/participant/business" aria-label="My Business">
+                <Briefcase className="h-4 w-4" /> <span className="hidden sm:inline">My Business</span>
               </Link>
             </Button>
             <Button
               variant="outline"
+              size="sm"
               className="rounded-full"
               onClick={newChat}
               disabled={!messages.length}
+              aria-label="New chat"
             >
-              <Plus className="h-4 w-4" /> New chat
+              <Plus className="h-4 w-4" /> <span className="hidden sm:inline">New chat</span>
             </Button>
           </>
         }
@@ -276,9 +278,9 @@ function AdvisorPage() {
         </div>
 
         {/* Composer */}
-        <div className="border-t border-border bg-card/80 px-3 py-3 backdrop-blur md:px-6">
+        <div className="border-t border-border bg-card/80 px-3 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] pt-3 backdrop-blur md:px-6">
           <div className="mx-auto w-full max-w-3xl">
-            <div className="flex items-end gap-2 rounded-2xl border border-border bg-background p-2 shadow-vkm focus-within:border-gold/50 focus-within:shadow-vkm-float">
+            <div className="flex items-end gap-2 rounded-2xl border border-border bg-background p-1.5 shadow-vkm transition-all focus-within:border-gold/60 focus-within:shadow-vkm-float">
               <textarea
                 ref={taRef}
                 value={input}
@@ -293,22 +295,23 @@ function AdvisorPage() {
                   }
                 }}
                 rows={1}
-                placeholder="Ask anything about your business — English, తెలుగు or Tenglish…"
-                className="max-h-40 flex-1 resize-none bg-transparent px-2 py-1.5 text-sm text-foreground outline-none placeholder:text-muted-foreground"
+                placeholder="Ask anything — English, తెలుగు or Tenglish…"
+                className="max-h-40 flex-1 resize-none bg-transparent px-2.5 py-2 text-sm text-foreground outline-none placeholder:text-muted-foreground"
               />
               <Button
                 onClick={() => send()}
                 disabled={!input.trim() || loading}
                 size="icon"
-                className="h-9 w-9 shrink-0 rounded-xl bg-gradient-navy text-primary-foreground hover:opacity-90 disabled:opacity-40"
+                aria-label="Send"
+                className="h-10 w-10 shrink-0 rounded-xl bg-gradient-navy text-primary-foreground shadow-vkm transition-transform hover:opacity-90 active:scale-95 disabled:opacity-40 disabled:shadow-none"
               >
                 <Send className="h-4 w-4" />
               </Button>
             </div>
-            <p className="mt-1.5 px-1 text-center text-[11px] text-muted-foreground">
+            <p className="mt-2 hidden px-1 text-center text-[11px] text-muted-foreground sm:block">
               <span className="font-medium">Enter</span> to send ·{" "}
-              <span className="font-medium">Shift+Enter</span> for a new line · Advice supports your
-              coach, not replaces them.
+              <span className="font-medium">Shift + Enter</span> for a new line · Guides you alongside
+              your coach, never replaces them.
             </p>
           </div>
         </div>
@@ -322,41 +325,54 @@ function AdvisorPage() {
 // ---------------------------------------------------------------------------
 function EmptyState({ firstName, onPick }: { firstName: string; onPick: (p: string) => void }) {
   return (
-    <div className="flex flex-col items-center py-6 text-center md:py-10">
-      <span className="inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-gold text-navy shadow-vkm-float">
-        <Bot className="h-7 w-7" />
-      </span>
-      <h2 className="mt-4 text-2xl font-semibold tracking-tight text-foreground">
-        Hi {firstName}, how can I help your business today?
+    <div className="flex flex-col items-center py-4 text-center md:py-10">
+      <motion.span
+        initial={{ scale: 0.6, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        transition={{ type: "spring", stiffness: 260, damping: 18 }}
+        className="relative inline-flex h-16 w-16 items-center justify-center rounded-3xl bg-gradient-navy text-primary-foreground shadow-vkm-float"
+      >
+        <span
+          aria-hidden
+          className="absolute -inset-1 rounded-3xl bg-gradient-gold opacity-30 blur-lg"
+        />
+        <Bot className="relative h-8 w-8" />
+      </motion.span>
+      <h2 className="mt-4 text-xl font-bold tracking-tight text-foreground sm:text-2xl">
+        Hi {firstName} 👋 how can I help today?
       </h2>
-      <p className="mt-2 max-w-md text-sm text-muted-foreground">
-        I'm trained on your business profile, revenue and VK's 16-week method. Ask me to plan your
-        day, fix a system, or sharpen your sales — in English, Telugu (తెలుగు) or Tenglish.
+      <p className="mt-2 max-w-md text-sm leading-relaxed text-muted-foreground">
+        I know your business profile, revenue and where you are in VK's 16-week method. Ask me to
+        plan your day, fix a system, or sharpen sales — in{" "}
+        <span className="font-medium text-foreground">English, తెలుగు or Tenglish</span>.
       </p>
-      <div className="mt-6 grid w-full max-w-2xl grid-cols-1 gap-2.5 sm:grid-cols-2">
-        {SUGGESTIONS.map((s) => {
+      <div className="mt-5 grid w-full max-w-2xl grid-cols-1 gap-2.5 sm:mt-6 sm:grid-cols-2">
+        {SUGGESTIONS.map((s, i) => {
           const Icon = s.icon;
           return (
-            <button
+            <motion.button
               key={s.label}
               type="button"
               onClick={() => onPick(s.prompt)}
-              className="group flex items-start gap-3 rounded-2xl border border-border bg-card p-3.5 text-left transition-all hover:-translate-y-0.5 hover:border-gold/40 hover:shadow-vkm"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.06 * i + 0.1 }}
+              className="group flex items-center gap-3 rounded-2xl border border-border bg-card p-3.5 text-left transition-all hover:-translate-y-0.5 hover:border-gold/50 hover:shadow-vkm active:scale-[0.98]"
             >
-              <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-secondary text-navy transition-colors group-hover:bg-gradient-gold">
-                <Icon className="h-4 w-4" />
+              <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-secondary text-navy transition-colors group-hover:bg-gradient-gold group-hover:text-navy">
+                <Icon className="h-[18px] w-[18px]" />
               </span>
-              <span className="min-w-0">
-                <span className="block text-sm font-medium text-foreground">{s.label}</span>
+              <span className="min-w-0 flex-1">
+                <span className="block text-sm font-semibold text-foreground">{s.label}</span>
                 <span className="block truncate text-xs text-muted-foreground">{s.prompt}</span>
               </span>
-              <ArrowRight className="ml-auto h-4 w-4 shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />
-            </button>
+              <ArrowRight className="h-4 w-4 shrink-0 text-muted-foreground transition-all group-hover:translate-x-0.5 group-hover:text-gold" />
+            </motion.button>
           );
         })}
       </div>
-      <Badge variant="outline" className="mt-6 rounded-full">
-        <Sparkles className="h-3 w-3 text-gold" /> Context-aware · uses your Business Brain
+      <Badge variant="outline" className="mt-6 rounded-full text-[11px]">
+        <Sparkles className="h-3 w-3 text-gold" /> Private to you · uses your live business data
       </Badge>
     </div>
   );
@@ -385,10 +401,10 @@ function MessageRow({ role, content }: { role: ChatMsg["role"]; content: string 
       <div className={cn("min-w-0 max-w-[85%]", isUser && "flex flex-col items-end")}>
         <div
           className={cn(
-            "rounded-2xl px-4 py-2.5 text-sm leading-relaxed",
+            "px-4 py-2.5 text-sm leading-relaxed",
             isUser
-              ? "bg-gradient-navy text-primary-foreground"
-              : "border border-border bg-secondary/60 text-foreground",
+              ? "rounded-2xl rounded-tr-md bg-gradient-navy text-primary-foreground shadow-vkm"
+              : "rounded-2xl rounded-tl-md border border-border bg-card text-foreground shadow-sm",
           )}
         >
           {isUser ? (
@@ -409,7 +425,7 @@ function TypingRow() {
       <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-gradient-gold text-navy shadow-vkm">
         <Bot className="h-4 w-4" />
       </span>
-      <div className="flex items-center gap-1.5 rounded-2xl border border-border bg-secondary/60 px-4 py-3.5">
+      <div className="flex items-center gap-1.5 rounded-2xl rounded-tl-md border border-border bg-card px-4 py-3.5 shadow-sm">
         {[0, 1, 2].map((i) => (
           <span
             key={i}
