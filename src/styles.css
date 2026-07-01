@@ -635,3 +635,171 @@ body {
 .pb-safe-nav {
   padding-bottom: max(env(safe-area-inset-bottom), 0px);
 }
+
+/* ─────────────────────────────────────────────────────────────────────────
+   Duolingo-style toasts (sonner restyle)
+   Pastel card + saturated same-hue border + a popping icon badge. Colors are
+   driven by [data-type] so every toast.success/error/warning/info/loading and
+   plain toast() is themed automatically. Two layouts: compact top-right card on
+   desktop, full-width bottom banner on the mobile app shell.
+   ───────────────────────────────────────────────────────────────────────── */
+.vkm-toaster--desktop {
+  --width: 388px;
+}
+.vkm-toaster--mobile {
+  --width: calc(100vw - 24px);
+}
+
+/* Base card — plain toast() falls back to the navy/gold brand accent. */
+.vkm-toaster [data-sonner-toast] {
+  --vkm-accent: var(--navy);
+  --vkm-bg: #ffffff;
+  --vkm-text: var(--navy);
+  gap: 12px !important;
+  align-items: center !important;
+  width: var(--width);
+  border-radius: 18px !important;
+  border: 2px solid var(--vkm-accent) !important;
+  background: var(--vkm-bg) !important;
+  color: var(--vkm-text) !important;
+  padding: 14px 16px !important;
+  box-shadow:
+    0 10px 30px -8px color-mix(in srgb, var(--vkm-accent) 40%, transparent),
+    0 3px 0 0 color-mix(in srgb, var(--vkm-accent) 22%, transparent) !important;
+}
+
+/* Per-state palette (Duolingo hues). */
+.vkm-toaster [data-sonner-toast][data-type="success"] {
+  --vkm-accent: #58cc02;
+  --vkm-bg: #f2fde2;
+  --vkm-text: #3f8f00;
+}
+.vkm-toaster [data-sonner-toast][data-type="error"] {
+  --vkm-accent: #ff4b4b;
+  --vkm-bg: #ffecec;
+  --vkm-text: #d02f2f;
+}
+.vkm-toaster [data-sonner-toast][data-type="warning"] {
+  --vkm-accent: #ffc800;
+  --vkm-bg: #fff6d8;
+  --vkm-text: #a97c00;
+}
+.vkm-toaster [data-sonner-toast][data-type="info"] {
+  --vkm-accent: #1cb0f6;
+  --vkm-bg: #e6f6ff;
+  --vkm-text: #0d81b8;
+}
+.vkm-toaster [data-sonner-toast][data-type="loading"] {
+  --vkm-accent: var(--gold);
+  --vkm-bg: #fbf5e4;
+  --vkm-text: #8a6d17;
+}
+
+/* Circular icon badge with a white glyph. */
+.vkm-toaster [data-sonner-toast] [data-icon] {
+  width: 34px;
+  height: 34px;
+  margin: 0 !important;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  background: var(--vkm-accent);
+  box-shadow: 0 2px 0 0 color-mix(in srgb, #000 14%, transparent);
+}
+.vkm-toaster [data-sonner-toast] [data-icon] .vkm-toast-glyph {
+  width: 20px;
+  height: 20px;
+  color: #fff;
+}
+.vkm-toast-glyph--spin {
+  animation: vkm-spin-slow 0.9s linear infinite;
+}
+
+/* Playful badge pop on entry (respects reduced-motion below). */
+@keyframes vkm-toast-pop {
+  0% {
+    transform: scale(0.3);
+    opacity: 0;
+  }
+  60% {
+    transform: scale(1.18);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+.vkm-toaster [data-sonner-toast][data-mounted="true"] [data-icon] {
+  animation: vkm-toast-pop 0.42s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* Typography — bold title, calmer same-hue description. */
+.vkm-toaster [data-sonner-toast] [data-title] {
+  font-weight: 800 !important;
+  font-size: 14px;
+  line-height: 1.25;
+  color: var(--vkm-text) !important;
+}
+.vkm-toaster [data-sonner-toast] [data-description] {
+  font-weight: 600 !important;
+  font-size: 12.5px;
+  margin-top: 2px;
+  color: color-mix(in srgb, var(--vkm-text) 82%, #6b7280) !important;
+}
+
+/* Action / cancel buttons in the accent color. */
+.vkm-toaster [data-sonner-toast] [data-button] {
+  border-radius: 10px !important;
+  font-weight: 700 !important;
+  background: var(--vkm-accent) !important;
+  color: #fff !important;
+}
+.vkm-toaster [data-sonner-toast] [data-button][data-cancel] {
+  background: color-mix(in srgb, var(--vkm-accent) 14%, #fff) !important;
+  color: var(--vkm-text) !important;
+}
+
+/* Close (×) — a soft tinted chip in the accent color. */
+.vkm-toaster [data-sonner-toast] [data-close-button] {
+  border: none !important;
+  background: color-mix(in srgb, var(--vkm-accent) 16%, #fff) !important;
+  color: var(--vkm-text) !important;
+  transition:
+    transform 0.12s ease,
+    background 0.12s ease;
+}
+.vkm-toaster [data-sonner-toast] [data-close-button]:hover {
+  background: color-mix(in srgb, var(--vkm-accent) 26%, #fff) !important;
+  transform: scale(1.08);
+}
+
+/* Mobile app shell — chunkier full-width banner. */
+.vkm-toaster--mobile [data-sonner-toast] {
+  border-radius: 22px !important;
+  padding: 16px 18px !important;
+  box-shadow:
+    0 14px 36px -8px color-mix(in srgb, var(--vkm-accent) 46%, transparent),
+    0 4px 0 0 color-mix(in srgb, var(--vkm-accent) 24%, transparent) !important;
+}
+.vkm-toaster--mobile [data-sonner-toast] [data-icon] {
+  width: 40px;
+  height: 40px;
+}
+.vkm-toaster--mobile [data-sonner-toast] [data-icon] .vkm-toast-glyph {
+  width: 23px;
+  height: 23px;
+}
+.vkm-toaster--mobile [data-sonner-toast] [data-title] {
+  font-size: 15px;
+}
+.vkm-toaster--mobile [data-sonner-toast] [data-description] {
+  font-size: 13px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .vkm-toaster [data-sonner-toast][data-mounted="true"] [data-icon] {
+    animation: none;
+  }
+}

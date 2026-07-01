@@ -162,9 +162,10 @@ function RootComponent() {
         <PwaManager />
         <FlyPointsHost />
         <ChatWidget />
-        {/* #26 — app-style toasts slide up above the bottom nav on the mobile shell */}
+        {/* Duolingo-style toasts — full-width bottom banner above the mobile nav,
+            compact top-right card on desktop (styling in styles.css → .vkm-toaster). */}
         <Toaster
-          richColors
+          mobile={appShell}
           closeButton
           position={appShell ? "bottom-center" : "top-right"}
           offset={appShell ? "calc(env(safe-area-inset-bottom) + 5.5rem)" : undefined}
