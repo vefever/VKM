@@ -42,13 +42,23 @@ export function useCohort() {
 
   useEffect(() => {
     let active = true;
-    void supabase.rpc("coach_cohort_overview").then(({ data, error: err }) => {
+    // Rapid hydration logging in the last 24h → surfaces as an attention flag.
+    const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+    void Promise.all([
+      supabase.rpc("coach_cohort_overview"),
+      supabase.from("water_events").select("user_id").eq("rapid", true).gte("created_at", since),
+    ]).then(([rpcRes, waterRes]) => {
       if (!active) return;
+      const { data, error: err } = rpcRes;
       if (err) {
         setError(err.message);
         setLoading(false);
         return;
       }
+      const rapidByUser = new Map<string, number>();
+      ((waterRes.data ?? []) as { user_id: string }[]).forEach((w) =>
+        rapidByUser.set(w.user_id, (rapidByUser.get(w.user_id) ?? 0) + 1),
+      );
       const now = new Date();
       const mapped: CohortRow[] = ((data ?? []) as RpcRow[]).map((r) => {
         const startedAt = r.started_at ? new Date(r.started_at) : null;
@@ -58,11 +68,14 @@ export function useCohort() {
         const lastProofDays = r.last_proof_at
           ? differenceInCalendarDays(now, new Date(r.last_proof_at))
           : null;
+        const rapidWater = rapidByUser.get(r.user_id) ?? 0;
         const reasons: string[] = [];
         if (started && behind >= 2) reasons.push(`${behind} weeks behind`);
         if (!r.habit_active_3d) reasons.push("No habit activity in 3 days");
         if (started && (lastProofDays == null || lastProofDays > 7))
           reasons.push("No proof this week");
+        if (rapidWater > 0)
+          reasons.push(`Rapid water logging (${rapidWater}× in 24h)`);
         return {
           ...r,
           name: r.full_name ?? "Participant",

@@ -553,12 +553,15 @@ export function useDailySteps(programDay: number, goal: number) {
       if (!user) return;
       if (saveTimer.current) clearTimeout(saveTimer.current);
       saveTimer.current = window.setTimeout(() => {
-        supabase
+        void supabase
           .from("daily_steps")
           .upsert(
             { user_id: user.id, log_date: todayDate, day_no: programDay, steps: value, goal },
             { onConflict: "user_id,log_date" },
-          );
+          )
+          .then(({ error }) => {
+            if (error) console.error("[steps] daily_steps upsert failed:", error.message);
+          });
       }, 1500);
     },
     [user, todayDate, programDay, goal],
@@ -644,24 +647,34 @@ export function useDailyWater(programDay: number) {
     };
   }, [user, todayDate]);
 
-  // Persist the running total + record one audited event.
+  // Persist the running total + record one audited event. NOTE: supabase-js
+  // query builders are lazy — the request only fires when the promise is
+  // consumed, so we MUST attach `.then` (not fire-and-forget) or nothing saves.
   const writeEvent = useCallback(
     (delta: number, total: number, reason: string | null, rapid: boolean) => {
       if (!user) return;
-      supabase
+      void supabase
         .from("daily_water")
         .upsert(
           { user_id: user.id, log_date: todayDate, day_no: programDay, ml: total, goal_ml: goalMl },
           { onConflict: "user_id,log_date" },
-        );
-      supabase.from("water_events").insert({
-        user_id: user.id,
-        log_date: todayDate,
-        day_no: programDay,
-        ml: delta,
-        reason,
-        rapid,
-      });
+        )
+        .then(({ error }) => {
+          if (error) console.error("[water] daily_water upsert failed:", error.message);
+        });
+      void supabase
+        .from("water_events")
+        .insert({
+          user_id: user.id,
+          log_date: todayDate,
+          day_no: programDay,
+          ml: delta,
+          reason,
+          rapid,
+        })
+        .then(({ error }) => {
+          if (error) console.error("[water] water_events insert failed:", error.message);
+        });
     },
     [user, todayDate, programDay, goalMl],
   );
