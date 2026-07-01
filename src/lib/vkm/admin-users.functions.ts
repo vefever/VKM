@@ -255,6 +255,30 @@ export const adminSetUserCoach = createServerFn({ method: "POST" })
   });
 
 // ---------------------------------------------------------------------------
+// Emails of currently-blocked (banned) users, so the directory can flag them
+// and offer the right Block/Unblock action per row. Small user base → a single
+// listUsers page is plenty.
+// ---------------------------------------------------------------------------
+export const adminListBlocked = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { supabase, userId } = context;
+    await assertSuperAdmin(supabase, userId);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data, error } = await supabaseAdmin.auth.admin.listUsers({ page: 1, perPage: 1000 });
+    if (error) throw new Error(error.message);
+    const now = Date.now();
+    const blocked: string[] = [];
+    for (const u of data.users) {
+      const bannedUntil = (u as { banned_until?: string | null }).banned_until;
+      if (u.email && bannedUntil && new Date(bannedUntil).getTime() > now) {
+        blocked.push(u.email.toLowerCase());
+      }
+    }
+    return blocked;
+  });
+
+// ---------------------------------------------------------------------------
 // Block / unblock (ban) a member. A blocked user keeps all their data but can't
 // sign in until unblocked. Super admins can't be blocked, and you can't block
 // yourself.

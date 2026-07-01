@@ -20,6 +20,10 @@ import {
   KeyRound,
   Link as LinkIcon,
   MessageCircle,
+  MoreHorizontal,
+  Ban,
+  ShieldCheck,
+  UserCog,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -63,12 +67,32 @@ import {
   type InviteRole,
 } from "@/lib/vkm/invites.functions";
 import { Checkbox } from "@/components/ui/checkbox";
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { UserDetailDialog } from "@/components/admin/user-detail-dialog";
 import {
   getCoachAssignments,
   adminListCoaches,
   adminSetUserCoach,
   adminBulkAssignCoach,
+  adminListBlocked,
+  adminSetUserBlocked,
+  adminDeleteUser,
 } from "@/lib/vkm/admin-users.functions";
 
 const UNASSIGNED = "__none__";
@@ -148,9 +172,11 @@ function UsersPage() {
   const list = useServerFn(listInvites);
   const coachMapFn = useServerFn(getCoachAssignments);
   const coachesFn = useServerFn(adminListCoaches);
+  const blockedFn = useServerFn(adminListBlocked);
   const [invites, setInvites] = useState<Invite[]>([]);
   const [coachMap, setCoachMap] = useState<Record<string, CoachRef>>({});
   const [coaches, setCoaches] = useState<CoachOpt[]>([]);
+  const [blockedEmails, setBlockedEmails] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<"all" | InviteRole>("all");
   const [q, setQ] = useState("");
@@ -170,13 +196,15 @@ function UsersPage() {
 
   async function refresh() {
     try {
-      const [inv, assignments, coachList] = await Promise.all([
+      const [inv, assignments, coachList, blocked] = await Promise.all([
         list({}),
         coachMapFn({}).catch(() => []),
         coachesFn({}).catch(() => []),
+        blockedFn({}).catch(() => [] as string[]),
       ]);
       setInvites(inv);
       setCoaches(coachList);
+      setBlockedEmails(new Set(blocked.map((e) => e.toLowerCase())));
       const map: Record<string, CoachRef> = {};
       for (const c of assignments) {
         if (!c.coach_id) continue;
@@ -327,6 +355,7 @@ function UsersPage() {
                 rows={filtered}
                 coachMap={coachMap}
                 coaches={coaches}
+                blockedEmails={blockedEmails}
                 onChanged={refresh}
                 onOpenDetail={(email, name) => setDetailUser({ email, name })}
               />
@@ -388,12 +417,14 @@ function UsersTable({
   rows,
   coachMap,
   coaches,
+  blockedEmails,
   onChanged,
   onOpenDetail,
 }: {
   rows: Invite[];
   coachMap: Record<string, CoachRef>;
   coaches: CoachOpt[];
+  blockedEmails: Set<string>;
   onChanged: () => void;
   onOpenDetail: (email: string, name: string) => void;
 }) {
@@ -401,11 +432,15 @@ function UsersTable({
   const revoke = useServerFn(revokeInvite);
   const setCoach = useServerFn(adminSetUserCoach);
   const bulkAssign = useServerFn(adminBulkAssignCoach);
+  const setBlocked = useServerFn(adminSetUserBlocked);
+  const deleteUser = useServerFn(adminDeleteUser);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [assigningEmail, setAssigningEmail] = useState<string | null>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [bulkCoach, setBulkCoach] = useState<string>(UNASSIGNED);
   const [bulkBusy, setBulkBusy] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState<{ email: string; name: string } | null>(null);
+  const [deleteBusy, setDeleteBusy] = useState(false);
 
   const participantEmails = useMemo(
     () => rows.filter((r) => r.role === "participant").map((r) => r.email),
@@ -511,6 +546,35 @@ function UsersTable({
     navigator.clipboard.writeText(url);
     toast.success("Invite link copied");
   }
+  async function handleToggleBlock(u: Invite) {
+    const currentlyBlocked = blockedEmails.has(u.email.toLowerCase());
+    setBusyId(u.id);
+    try {
+      await setBlocked({ data: { email: u.email, blocked: !currentlyBlocked } });
+      toast.success(currentlyBlocked ? "User unblocked" : "User blocked", {
+        description: currentlyBlocked ? u.email : "They can't sign in until unblocked.",
+      });
+      onChanged();
+    } catch (e) {
+      toast.error((e as Error).message);
+    } finally {
+      setBusyId(null);
+    }
+  }
+  async function handleDelete() {
+    if (!confirmDelete) return;
+    setDeleteBusy(true);
+    try {
+      await deleteUser({ data: { email: confirmDelete.email } });
+      toast.success("User deleted", { description: confirmDelete.email });
+      setConfirmDelete(null);
+      onChanged();
+    } catch (e) {
+      toast.error((e as Error).message);
+    } finally {
+      setDeleteBusy(false);
+    }
+  }
 
   return (
     <div className="space-y-3">
@@ -580,6 +644,7 @@ function UsersTable({
             {rows.map((u) => {
               const isParticipant = u.role === "participant";
               const current = coachMap[u.email.toLowerCase()];
+              const isBlocked = blockedEmails.has(u.email.toLowerCase());
               return (
                 <TableRow
                   key={u.id}
@@ -654,44 +719,90 @@ function UsersTable({
                     )}
                   </TableCell>
                   <TableCell>
-                    <StatusBadge inv={u} />
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <StatusBadge inv={u} />
+                      {isBlocked && (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-destructive/10 px-2 py-0.5 text-[11px] font-medium text-destructive">
+                          <Ban className="h-3 w-3" /> Blocked
+                        </span>
+                      )}
+                    </div>
                   </TableCell>
                   <TableCell className="text-xs text-muted-foreground tabular-nums">
                     {new Date(u.expires_at).toLocaleDateString()}
                   </TableCell>
                   <TableCell className="text-right">
-                    <div className="flex justify-end gap-1 opacity-0 transition-opacity group-hover:opacity-100">
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        className="h-8 rounded-lg"
-                        onClick={() => copyLink(u.token)}
-                        title="Copy invite link"
-                      >
-                        <LinkIcon className="h-4 w-4" /> Copy
-                      </Button>
-                      {u.status === "pending" && (
+                    <div className="flex items-center justify-end gap-1">
+                      <div className="flex justify-end gap-1 opacity-0 transition-opacity group-hover:opacity-100">
                         <Button
                           size="sm"
                           variant="ghost"
                           className="h-8 rounded-lg"
-                          disabled={busyId === u.id}
-                          onClick={() => handleResend(u.id)}
+                          onClick={() => copyLink(u.token)}
+                          title="Copy invite link"
                         >
-                          <Send className="h-4 w-4" /> Resend
+                          <LinkIcon className="h-4 w-4" /> Copy
                         </Button>
-                      )}
-                      {u.status !== "accepted" && (
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          className="h-8 w-8 rounded-lg text-destructive"
-                          disabled={busyId === u.id}
-                          onClick={() => handleRevoke(u.id, u.email)}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      )}
+                        {u.status === "pending" && (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-8 rounded-lg"
+                            disabled={busyId === u.id}
+                            onClick={() => handleResend(u.id)}
+                          >
+                            <Send className="h-4 w-4" /> Resend
+                          </Button>
+                        )}
+                      </div>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className="h-8 w-8 rounded-lg"
+                            disabled={busyId === u.id}
+                            title="More actions"
+                          >
+                            {busyId === u.id ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <MoreHorizontal className="h-4 w-4" />
+                            )}
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="w-48">
+                          <DropdownMenuItem onClick={() => onOpenDetail(u.email, u.name)}>
+                            <UserCog className="h-4 w-4" /> Open details
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => copyLink(u.token)}>
+                            <LinkIcon className="h-4 w-4" /> Copy invite link
+                          </DropdownMenuItem>
+                          {u.status !== "accepted" && (
+                            <DropdownMenuItem onClick={() => handleRevoke(u.id, u.email)}>
+                              <XCircle className="h-4 w-4" /> Revoke invite
+                            </DropdownMenuItem>
+                          )}
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem onClick={() => handleToggleBlock(u)}>
+                            {isBlocked ? (
+                              <>
+                                <ShieldCheck className="h-4 w-4" /> Unblock sign-in
+                              </>
+                            ) : (
+                              <>
+                                <Ban className="h-4 w-4" /> Block sign-in
+                              </>
+                            )}
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            className="text-destructive focus:text-destructive"
+                            onClick={() => setConfirmDelete({ email: u.email, name: u.name })}
+                          >
+                            <Trash2 className="h-4 w-4" /> Delete user
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </div>
                   </TableCell>
                 </TableRow>
@@ -700,6 +811,41 @@ function UsersTable({
           </TableBody>
         </Table>
       </div>
+
+      <AlertDialog
+        open={!!confirmDelete}
+        onOpenChange={(o) => !deleteBusy && !o && setConfirmDelete(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete {confirmDelete?.name}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This permanently deletes{" "}
+              <span className="font-medium text-foreground">{confirmDelete?.email}</span> and all of
+              their data (progress, points, proofs, memberships, invites). This can't be undone. To
+              only stop their access, use <span className="font-medium">Block sign-in</span> instead.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleteBusy}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => {
+                e.preventDefault();
+                handleDelete();
+              }}
+              disabled={deleteBusy}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deleteBusy ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <Trash2 className="mr-2 h-4 w-4" />
+              )}
+              Delete permanently
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
@@ -1170,3 +1316,4 @@ function ImportDialog({
     </Dialog>
   );
 }
+
