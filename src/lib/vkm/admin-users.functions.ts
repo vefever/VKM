@@ -149,6 +149,69 @@ export const adminSetUserBatch = createServerFn({ method: "POST" })
   });
 
 // ---------------------------------------------------------------------------
+// Bulk-assign a batch to many participants at once (find-or-create once, then
+// swap each participant's membership + keep invite/community labels in sync).
+// ---------------------------------------------------------------------------
+export const adminBulkSetBatch = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .validator((input: { emails: string[]; batch: string }) => input)
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    await assertSuperAdmin(supabase, userId);
+
+    const batchName = data.batch.trim();
+    if (!batchName) throw new Error("Batch name is required");
+    if (!data.emails.length) return { count: 0, batch: batchName };
+
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    // Find-or-create the batch once (case-insensitive).
+    let batchId: string | null = null;
+    const { data: existing } = await supabaseAdmin
+      .from("batches")
+      .select("id")
+      .ilike("name", batchName)
+      .limit(1)
+      .maybeSingle();
+    if (existing) batchId = existing.id;
+    else {
+      const { data: nb, error: bErr } = await supabaseAdmin
+        .from("batches")
+        .insert({ name: batchName, status: "active" })
+        .select("id")
+        .single();
+      if (bErr) throw new Error(bErr.message);
+      batchId = nb?.id ?? null;
+    }
+    if (!batchId) throw new Error("Could not resolve batch");
+
+    let count = 0;
+    for (const email of data.emails) {
+      const { data: uid } = await supabase.rpc("admin_resolve_user_id", { _email: email });
+      if (!uid) continue;
+      const userUid = uid as string;
+      await supabaseAdmin
+        .from("batch_members")
+        .delete()
+        .eq("user_id", userUid)
+        .eq("role", "participant");
+      await supabaseAdmin
+        .from("batch_members")
+        .upsert(
+          { batch_id: batchId, user_id: userUid, role: "participant" },
+          { onConflict: "batch_id,user_id,role", ignoreDuplicates: true },
+        );
+      await supabaseAdmin.from("user_invites").update({ batch: batchName }).ilike("email", email);
+      await supabaseAdmin
+        .from("member_profiles")
+        .update({ batch_label: batchName })
+        .eq("user_id", userUid);
+      count++;
+    }
+    return { ok: true, batch: batchName, count };
+  });
+
+// ---------------------------------------------------------------------------
 // Login as a member (impersonation) — returns a one-time magic-link the admin
 // can open (ideally in a private window) to sign in as that member.
 // ---------------------------------------------------------------------------
@@ -186,22 +249,31 @@ export const getCoachAssignments = createServerFn({ method: "GET" })
   });
 
 // ---------------------------------------------------------------------------
-// Bulk assign / unassign many participants (by email) to one coach at once.
+// Bulk add / remove one coach across many participants (by email). Participants
+// can have several coaches, so this adds/removes rather than replaces.
 // ---------------------------------------------------------------------------
-export const adminBulkAssignCoach = createServerFn({ method: "POST" })
+export const adminBulkSetCoach = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .validator((input: { emails: string[]; coachId: string }) => input)
+  .validator((input: { emails: string[]; coachId: string; action: "add" | "remove" }) => input)
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
     await assertSuperAdmin(supabase, userId);
-    if (!data.emails.length) return { count: 0 };
-    const { data: count, error } = await supabase.rpc("admin_bulk_assign_coach", {
+    if (!data.emails.length || !data.coachId) return { count: 0 };
+    // Retype the client (not an extracted method) so the RPC — not yet in the
+    // generated types — can be called with `this` still bound to the client.
+    const sb = supabase as unknown as {
+      rpc: (
+        fn: string,
+        args: Record<string, unknown>,
+      ) => Promise<{ data: number | null; error: { message: string } | null }>;
+    };
+    const fn = data.action === "remove" ? "admin_bulk_remove_coach" : "admin_bulk_add_coach";
+    const { data: count, error } = await sb.rpc(fn, {
       _emails: data.emails,
-      // _coach_id is nullable in SQL (null = unassign); the generated type omits null.
-      _coach_id: (data.coachId || null) as string,
+      _coach_id: data.coachId,
     });
     if (error) throw new Error(error.message);
-    return { count: (count as number) ?? 0 };
+    return { count: count ?? 0 };
   });
 
 // ---------------------------------------------------------------------------
@@ -218,9 +290,38 @@ export const adminListCoaches = createServerFn({ method: "GET" })
   });
 
 // ---------------------------------------------------------------------------
-// Assign / reassign / unassign a participant's coach. Empty coachId = unassign.
+// Add / remove one coach for a participant. Participants can have several
+// coaches at once, so these are additive (not a single-slot replace).
 // ---------------------------------------------------------------------------
-export const adminSetUserCoach = createServerFn({ method: "POST" })
+export const adminAddUserCoach = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .validator((input: { participantEmail: string; coachId: string }) => input)
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    await assertSuperAdmin(supabase, userId);
+    if (!data.coachId) throw new Error("A coach is required");
+
+    const { data: uid, error: rErr } = await supabase.rpc("admin_resolve_user_id", {
+      _email: data.participantEmail,
+    });
+    if (rErr) throw new Error(rErr.message);
+    if (!uid) throw new Error("Participant not found for that email");
+
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { error } = await supabaseAdmin.from("coach_assignments").upsert(
+      {
+        participant_id: uid as string,
+        coach_id: data.coachId,
+        assigned_by: userId,
+        assigned_at: new Date().toISOString(),
+      },
+      { onConflict: "participant_id,coach_id", ignoreDuplicates: true },
+    );
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
+export const adminRemoveUserCoach = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .validator((input: { participantEmail: string; coachId: string }) => input)
   .handler(async ({ data, context }) => {
@@ -232,26 +333,15 @@ export const adminSetUserCoach = createServerFn({ method: "POST" })
     });
     if (rErr) throw new Error(rErr.message);
     if (!uid) throw new Error("Participant not found for that email");
-    const participantId = uid as string;
 
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-
-    if (!data.coachId) {
-      // Unassign.
-      await supabaseAdmin.from("coach_assignments").delete().eq("participant_id", participantId);
-      return { ok: true, assigned: false };
-    }
-
-    await supabaseAdmin.from("coach_assignments").upsert(
-      {
-        participant_id: participantId,
-        coach_id: data.coachId,
-        assigned_by: userId,
-        assigned_at: new Date().toISOString(),
-      },
-      { onConflict: "participant_id" },
-    );
-    return { ok: true, assigned: true };
+    const { error } = await supabaseAdmin
+      .from("coach_assignments")
+      .delete()
+      .eq("participant_id", uid as string)
+      .eq("coach_id", data.coachId);
+    if (error) throw new Error(error.message);
+    return { ok: true };
   });
 
 // ---------------------------------------------------------------------------
@@ -375,7 +465,7 @@ export type AdminUserDetail = {
     phone: string | null;
     must_reset_password: boolean | null;
   } | null;
-  assigned_coach: { coach_id: string; name: string | null; email: string | null } | null;
+  assigned_coaches: { coach_id: string; name: string | null; email: string | null }[];
   auth: {
     last_sign_in_at: string | null;
     created_at: string | null;

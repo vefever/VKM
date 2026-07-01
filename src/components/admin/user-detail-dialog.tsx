@@ -3,7 +3,7 @@ import { useServerFn } from "@tanstack/react-start";
 import {
   Loader2, Trophy, CheckCircle2, Flame, Timer, Target, IndianRupee, Award,
   KeyRound, LogIn, Copy, Users, Clock, ShieldAlert, ArrowRightLeft, Save, UserCog,
-  Ban, ShieldCheck, Trash2,
+  Ban, ShieldCheck, Trash2, Plus, X,
 } from "lucide-react";
 import { format, formatDistanceToNowStrict } from "date-fns";
 import { toast } from "sonner";
@@ -23,11 +23,10 @@ import { cn } from "@/lib/utils";
 import { useParticipantTeam } from "@/components/coach/coach-data";
 import {
   getUserDetail, adminResetPassword, adminSetUserBatch, impersonateUser,
-  adminListCoaches, adminSetUserCoach, adminSetUserBlocked, adminDeleteUser,
+  adminListCoaches, adminAddUserCoach, adminRemoveUserCoach, adminSetUserBlocked, adminDeleteUser,
   type AdminUserDetail,
 } from "@/lib/vkm/admin-users.functions";
 
-const UNASSIGNED = "__none__";
 type CoachOpt = { id: string; full_name: string | null; email: string; participant_count: number };
 
 function initials(name: string) {
@@ -70,7 +69,8 @@ export function UserDetailDialog({
   const setBatch = useServerFn(adminSetUserBatch);
   const impersonate = useServerFn(impersonateUser);
   const listCoaches = useServerFn(adminListCoaches);
-  const setCoach = useServerFn(adminSetUserCoach);
+  const addCoach = useServerFn(adminAddUserCoach);
+  const removeCoach = useServerFn(adminRemoveUserCoach);
   const setBlocked = useServerFn(adminSetUserBlocked);
   const deleteUser = useServerFn(adminDeleteUser);
 
@@ -78,7 +78,7 @@ export function UserDetailDialog({
   const [loading, setLoading] = useState(false);
   const [batchInput, setBatchInput] = useState("");
   const [coaches, setCoaches] = useState<CoachOpt[]>([]);
-  const [coachSel, setCoachSel] = useState<string>(UNASSIGNED);
+  const [coachToAdd, setCoachToAdd] = useState<string>("");
   const [busy, setBusy] = useState<null | "batch" | "reset" | "login" | "coach" | "block" | "delete">(null);
   const [tempPw, setTempPw] = useState<string | null>(null);
   const [loginLink, setLoginLink] = useState<string | null>(null);
@@ -96,7 +96,7 @@ export function UserDetailDialog({
       .then((d) => {
         setDetail(d);
         setBatchInput(d.batches.find((b) => b.role === "participant")?.name ?? "");
-        setCoachSel(d.assigned_coach?.coach_id ?? UNASSIGNED);
+        setCoachToAdd("");
       })
       .catch((e) => toast.error("Could not load user", { description: (e as Error).message }))
       .finally(() => setLoading(false));
@@ -106,16 +106,29 @@ export function UserDetailDialog({
     }
   }, [open, email, fetchDetail, listCoaches, coaches.length]);
 
-  async function handleSetCoach() {
-    if (!email) return;
+  async function handleAddCoach() {
+    if (!email || !coachToAdd) return;
     setBusy("coach");
     try {
-      await setCoach({ data: { participantEmail: email, coachId: coachSel === UNASSIGNED ? "" : coachSel } });
-      toast.success(coachSel === UNASSIGNED ? "Coach unassigned" : "Coach assigned");
+      await addCoach({ data: { participantEmail: email, coachId: coachToAdd } });
+      toast.success("Coach added");
+      setCoachToAdd("");
       const d = await fetchDetail({ data: { email } });
       setDetail(d);
       onChanged();
-    } catch (e) { toast.error("Could not update coach", { description: (e as Error).message }); }
+    } catch (e) { toast.error("Could not add coach", { description: (e as Error).message }); }
+    finally { setBusy(null); }
+  }
+  async function handleRemoveCoach(coachId: string) {
+    if (!email) return;
+    setBusy("coach");
+    try {
+      await removeCoach({ data: { participantEmail: email, coachId } });
+      toast.success("Coach removed");
+      const d = await fetchDetail({ data: { email } });
+      setDetail(d);
+      onChanged();
+    } catch (e) { toast.error("Could not remove coach", { description: (e as Error).message }); }
     finally { setBusy(null); }
   }
 
@@ -330,39 +343,60 @@ export function UserDetailDialog({
 
               {/* MANAGE */}
               <TabsContent value="manage" className="mt-4 space-y-5">
-                {/* Assign coach (participants only) */}
+                {/* Assigned coaches (participants only) — one or more */}
                 {isParticipant && (
                   <div className="space-y-2 rounded-xl border border-border p-4">
-                    <Label className="flex items-center gap-1.5 text-sm font-semibold"><UserCog className="h-4 w-4" /> Assigned coach</Label>
+                    <Label className="flex items-center gap-1.5 text-sm font-semibold"><UserCog className="h-4 w-4" /> Coaches</Label>
                     <p className="text-xs text-muted-foreground">
-                      The coach who sees this member's data and reviews their proofs. Reassign anytime.
+                      One or more coaches can be assigned — each sees this member's data and reviews their proofs.
                     </p>
+                    {detail.assigned_coaches.length > 0 ? (
+                      <div className="flex flex-wrap gap-1.5">
+                        {detail.assigned_coaches.map((c) => (
+                          <span
+                            key={c.coach_id}
+                            className="inline-flex items-center gap-1 rounded-full bg-secondary px-2.5 py-1 text-xs font-medium text-foreground"
+                          >
+                            {c.name || c.email}
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveCoach(c.coach_id)}
+                              disabled={busy === "coach"}
+                              title="Remove coach"
+                              className="ml-0.5 text-muted-foreground transition-colors hover:text-destructive"
+                            >
+                              <X className="h-3 w-3" />
+                            </button>
+                          </span>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-xs text-muted-foreground">No coaches assigned yet.</p>
+                    )}
                     <div className="flex gap-2">
-                      <Select value={coachSel} onValueChange={setCoachSel}>
-                        <SelectTrigger className="h-10 flex-1 rounded-xl"><SelectValue placeholder="Select a coach" /></SelectTrigger>
+                      <Select value={coachToAdd} onValueChange={setCoachToAdd}>
+                        <SelectTrigger className="h-10 flex-1 rounded-xl">
+                          <SelectValue placeholder="Add a coach…" />
+                        </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value={UNASSIGNED}>Unassigned</SelectItem>
-                          {coaches.map((c) => (
-                            <SelectItem key={c.id} value={c.id}>
-                              {c.full_name || c.email}
-                              <span className="ml-1 text-xs text-muted-foreground">· {c.participant_count}</span>
-                            </SelectItem>
-                          ))}
+                          {coaches
+                            .filter((c) => !detail.assigned_coaches.some((ac) => ac.coach_id === c.id))
+                            .map((c) => (
+                              <SelectItem key={c.id} value={c.id}>
+                                {c.full_name || c.email}
+                                <span className="ml-1 text-xs text-muted-foreground">· {c.participant_count}</span>
+                              </SelectItem>
+                            ))}
                         </SelectContent>
                       </Select>
                       <Button
-                        onClick={handleSetCoach}
-                        disabled={busy === "coach" || coachSel === (detail.assigned_coach?.coach_id ?? UNASSIGNED)}
+                        onClick={handleAddCoach}
+                        disabled={busy === "coach" || !coachToAdd}
                         className="rounded-xl bg-gradient-navy text-primary-foreground hover:opacity-90"
                       >
-                        {busy === "coach" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />} Save
+                        {busy === "coach" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />} Add
                       </Button>
                     </div>
-                    {detail.assigned_coach && (
-                      <p className="text-xs text-muted-foreground">
-                        Currently: <span className="font-medium text-foreground">{detail.assigned_coach.name || detail.assigned_coach.email}</span>
-                      </p>
-                    )}
                   </div>
                 )}
 

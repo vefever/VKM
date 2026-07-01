@@ -24,6 +24,10 @@ import {
   Ban,
   ShieldCheck,
   UserCog,
+  Plus,
+  X,
+  ChevronDown,
+  ArrowRightLeft,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -64,6 +68,7 @@ import {
   listInvites,
   revokeInvite,
   resendInvite,
+  bulkResendInvites,
   type InviteRole,
 } from "@/lib/vkm/invites.functions";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -73,6 +78,8 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
+  DropdownMenuLabel,
+  DropdownMenuCheckboxItem,
 } from "@/components/ui/dropdown-menu";
 import {
   AlertDialog,
@@ -88,14 +95,15 @@ import { UserDetailDialog } from "@/components/admin/user-detail-dialog";
 import {
   getCoachAssignments,
   adminListCoaches,
-  adminSetUserCoach,
-  adminBulkAssignCoach,
+  adminAddUserCoach,
+  adminRemoveUserCoach,
+  adminBulkSetCoach,
+  adminBulkSetBatch,
   adminListBlocked,
   adminSetUserBlocked,
   adminDeleteUser,
 } from "@/lib/vkm/admin-users.functions";
 
-const UNASSIGNED = "__none__";
 type CoachOpt = { id: string; full_name: string | null; email: string; participant_count: number };
 type CoachRef = { id: string; name: string };
 
@@ -174,7 +182,7 @@ function UsersPage() {
   const coachesFn = useServerFn(adminListCoaches);
   const blockedFn = useServerFn(adminListBlocked);
   const [invites, setInvites] = useState<Invite[]>([]);
-  const [coachMap, setCoachMap] = useState<Record<string, CoachRef>>({});
+  const [coachMap, setCoachMap] = useState<Record<string, CoachRef[]>>({});
   const [coaches, setCoaches] = useState<CoachOpt[]>([]);
   const [blockedEmails, setBlockedEmails] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
@@ -205,13 +213,11 @@ function UsersPage() {
       setInvites(inv);
       setCoaches(coachList);
       setBlockedEmails(new Set(blocked.map((e) => e.toLowerCase())));
-      const map: Record<string, CoachRef> = {};
+      const map: Record<string, CoachRef[]> = {};
       for (const c of assignments) {
         if (!c.coach_id) continue;
-        map[c.participant_email.toLowerCase()] = {
-          id: c.coach_id,
-          name: c.coach_name || c.coach_email || "Coach",
-        };
+        const key = c.participant_email.toLowerCase();
+        (map[key] ??= []).push({ id: c.coach_id, name: c.coach_name || c.coach_email || "Coach" });
       }
       setCoachMap(map);
     } catch (e) {
@@ -422,7 +428,7 @@ function UsersTable({
   onOpenDetail,
 }: {
   rows: Invite[];
-  coachMap: Record<string, CoachRef>;
+  coachMap: Record<string, CoachRef[]>;
   coaches: CoachOpt[];
   blockedEmails: Set<string>;
   onChanged: () => void;
@@ -430,17 +436,27 @@ function UsersTable({
 }) {
   const resend = useServerFn(resendInvite);
   const revoke = useServerFn(revokeInvite);
-  const setCoach = useServerFn(adminSetUserCoach);
-  const bulkAssign = useServerFn(adminBulkAssignCoach);
+  const addCoach = useServerFn(adminAddUserCoach);
+  const removeCoach = useServerFn(adminRemoveUserCoach);
+  const bulkSetCoach = useServerFn(adminBulkSetCoach);
+  const bulkSetBatch = useServerFn(adminBulkSetBatch);
+  const bulkResend = useServerFn(bulkResendInvites);
   const setBlocked = useServerFn(adminSetUserBlocked);
   const deleteUser = useServerFn(adminDeleteUser);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [assigningEmail, setAssigningEmail] = useState<string | null>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
-  const [bulkCoach, setBulkCoach] = useState<string>(UNASSIGNED);
+  const [bulkCoach, setBulkCoach] = useState<string>("");
+  const [bulkBatch, setBulkBatch] = useState<string>("");
   const [bulkBusy, setBulkBusy] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState<{ email: string; name: string } | null>(null);
   const [deleteBusy, setDeleteBusy] = useState(false);
+
+  const batchOptions = useMemo(() => {
+    const set = new Set<string>();
+    rows.forEach((r) => r.batch && set.add(r.batch));
+    return Array.from(set).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+  }, [rows]);
 
   const participantEmails = useMemo(
     () => rows.filter((r) => r.role === "participant").map((r) => r.email),
@@ -473,13 +489,11 @@ function UsersTable({
     });
   }
 
-  async function handleInlineCoach(email: string, coachId: string) {
+  async function handleToggleCoach(email: string, coachId: string, assigned: boolean) {
     setAssigningEmail(email);
     try {
-      await setCoach({
-        data: { participantEmail: email, coachId: coachId === UNASSIGNED ? "" : coachId },
-      });
-      toast.success(coachId === UNASSIGNED ? "Coach unassigned" : "Coach assigned");
+      if (assigned) await removeCoach({ data: { participantEmail: email, coachId } });
+      else await addCoach({ data: { participantEmail: email, coachId } });
       onChanged();
     } catch (e) {
       toast.error((e as Error).message);
@@ -488,17 +502,59 @@ function UsersTable({
     }
   }
 
-  async function handleBulkAssign() {
+  async function handleBulkCoach(action: "add" | "remove") {
     const emails = [...selected];
-    if (emails.length === 0) return;
+    if (emails.length === 0 || !bulkCoach) return;
     setBulkBusy(true);
     try {
-      const r = await bulkAssign({
-        data: { emails, coachId: bulkCoach === UNASSIGNED ? "" : bulkCoach },
-      });
-      toast.success(`${r.count} ${bulkCoach === UNASSIGNED ? "unassigned" : "assigned"}`);
-      setSelected(new Set());
-      setBulkCoach(UNASSIGNED);
+      const r = await bulkSetCoach({ data: { emails, coachId: bulkCoach, action } });
+      toast.success(
+        `Coach ${action === "add" ? "added to" : "removed from"} ${r.count} ${r.count === 1 ? "user" : "users"}`,
+      );
+      onChanged();
+    } catch (e) {
+      toast.error((e as Error).message);
+    } finally {
+      setBulkBusy(false);
+    }
+  }
+
+  async function handleBulkBatch() {
+    const emails = [...selected];
+    if (emails.length === 0 || !bulkBatch.trim()) return;
+    setBulkBusy(true);
+    try {
+      const r = await bulkSetBatch({ data: { emails, batch: bulkBatch.trim() } });
+      toast.success(`${r.count} moved to ${r.batch}`);
+      setBulkBatch("");
+      onChanged();
+    } catch (e) {
+      toast.error((e as Error).message);
+    } finally {
+      setBulkBusy(false);
+    }
+  }
+
+  async function handleBulkResend() {
+    const ids = rows
+      .filter((r) => selected.has(r.email) && r.status === "pending")
+      .map((r) => r.id);
+    if (ids.length === 0) {
+      toast("No pending invites in the selection to resend.");
+      return;
+    }
+    setBulkBusy(true);
+    try {
+      const r = await bulkResend({ data: { ids } });
+      if (r.sent > 0) {
+        toast.success(`${r.sent} invite ${r.sent === 1 ? "email" : "emails"} sent`, {
+          description: r.failed ? `${r.failed} couldn't be sent.` : undefined,
+        });
+      } else {
+        toast.error("No invites were sent", {
+          description: "Email may not be configured for these invites.",
+        });
+      }
       onChanged();
     } catch (e) {
       toast.error((e as Error).message);
@@ -578,44 +634,95 @@ function UsersTable({
 
   return (
     <div className="space-y-3">
-      {/* Bulk-assign bar — appears when participants are selected */}
+      {/* Bulk actions — appears when participants are selected */}
       {selected.size > 0 && (
-        <div className="flex flex-wrap items-center gap-2 rounded-xl border border-border bg-muted/40 px-3 py-2">
-          <span className="text-sm font-medium">{selected.size} selected</span>
-          <span className="text-sm text-muted-foreground">→ assign coach</span>
-          <Select value={bulkCoach} onValueChange={setBulkCoach}>
-            <SelectTrigger className="h-9 w-[200px] rounded-xl">
-              <SelectValue placeholder="Choose a coach" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value={UNASSIGNED}>Unassign</SelectItem>
-              {coaches.map((c) => (
-                <SelectItem key={c.id} value={c.id}>
-                  {c.full_name || c.email}
-                  <span className="ml-1 text-xs text-muted-foreground">
-                    · {c.participant_count}
-                  </span>
-                </SelectItem>
+        <div className="space-y-2 rounded-xl border border-border bg-muted/40 px-3 py-2.5">
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-medium">{selected.size} selected</span>
+            {bulkBusy && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
+            <Button
+              size="sm"
+              variant="ghost"
+              className="ml-auto rounded-xl"
+              onClick={() => setSelected(new Set())}
+            >
+              Clear
+            </Button>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            {/* Coach add / remove */}
+            <Select value={bulkCoach} onValueChange={setBulkCoach}>
+              <SelectTrigger className="h-9 w-[180px] rounded-xl">
+                <SelectValue placeholder="Choose a coach" />
+              </SelectTrigger>
+              <SelectContent>
+                {coaches.map((c) => (
+                  <SelectItem key={c.id} value={c.id}>
+                    {c.full_name || c.email}
+                    <span className="ml-1 text-xs text-muted-foreground">
+                      · {c.participant_count}
+                    </span>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Button
+              size="sm"
+              variant="outline"
+              className="rounded-xl"
+              disabled={bulkBusy || !bulkCoach}
+              onClick={() => handleBulkCoach("add")}
+            >
+              <Plus className="h-4 w-4" /> Add coach
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              className="rounded-xl"
+              disabled={bulkBusy || !bulkCoach}
+              onClick={() => handleBulkCoach("remove")}
+            >
+              <X className="h-4 w-4" /> Remove
+            </Button>
+
+            <span className="mx-0.5 hidden h-6 w-px bg-border sm:block" />
+
+            {/* Batch */}
+            <Input
+              value={bulkBatch}
+              onChange={(e) => setBulkBatch(e.target.value)}
+              placeholder="Batch name"
+              list="bulk-batch-list"
+              className="h-9 w-[140px] rounded-xl"
+            />
+            <datalist id="bulk-batch-list">
+              {batchOptions.map((b) => (
+                <option key={b} value={b} />
               ))}
-            </SelectContent>
-          </Select>
-          <Button
-            size="sm"
-            className="rounded-xl bg-gradient-navy text-primary-foreground hover:opacity-90"
-            disabled={bulkBusy}
-            onClick={handleBulkAssign}
-          >
-            {bulkBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}{" "}
-            Apply
-          </Button>
-          <Button
-            size="sm"
-            variant="ghost"
-            className="rounded-xl"
-            onClick={() => setSelected(new Set())}
-          >
-            Clear
-          </Button>
+            </datalist>
+            <Button
+              size="sm"
+              variant="outline"
+              className="rounded-xl"
+              disabled={bulkBusy || !bulkBatch.trim()}
+              onClick={handleBulkBatch}
+            >
+              <ArrowRightLeft className="h-4 w-4" /> Set batch
+            </Button>
+
+            <span className="mx-0.5 hidden h-6 w-px bg-border sm:block" />
+
+            {/* Resend invites (pending only) */}
+            <Button
+              size="sm"
+              variant="outline"
+              className="rounded-xl"
+              disabled={bulkBusy}
+              onClick={handleBulkResend}
+            >
+              <Send className="h-4 w-4" /> Resend invites
+            </Button>
+          </div>
         </div>
       )}
 
@@ -643,7 +750,7 @@ function UsersTable({
           <TableBody>
             {rows.map((u) => {
               const isParticipant = u.role === "participant";
-              const current = coachMap[u.email.toLowerCase()];
+              const rowCoaches = coachMap[u.email.toLowerCase()] ?? [];
               const isBlocked = blockedEmails.has(u.email.toLowerCase());
               return (
                 <TableRow
@@ -693,27 +800,53 @@ function UsersTable({
                   <TableCell className="text-sm text-muted-foreground">{u.batch || "—"}</TableCell>
                   <TableCell>
                     {isParticipant ? (
-                      <Select
-                        value={current?.id ?? UNASSIGNED}
-                        onValueChange={(v) => handleInlineCoach(u.email, v)}
-                        disabled={assigningEmail === u.email}
-                      >
-                        <SelectTrigger className="h-8 w-[160px] rounded-lg text-xs">
-                          {assigningEmail === u.email ? (
-                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            disabled={assigningEmail === u.email}
+                            className="h-8 w-[170px] justify-between rounded-lg px-2.5 text-xs font-normal"
+                            title={rowCoaches.map((c) => c.name).join(", ")}
+                          >
+                            <span className="truncate">
+                              {assigningEmail === u.email ? (
+                                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                              ) : rowCoaches.length === 0 ? (
+                                <span className="text-muted-foreground">Assign coach</span>
+                              ) : rowCoaches.length === 1 ? (
+                                rowCoaches[0].name
+                              ) : (
+                                `${rowCoaches.length} coaches`
+                              )}
+                            </span>
+                            <ChevronDown className="h-3.5 w-3.5 shrink-0 opacity-60" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="start" className="w-56">
+                          <DropdownMenuLabel>Assign coaches</DropdownMenuLabel>
+                          {coaches.length === 0 ? (
+                            <div className="px-2 py-1.5 text-xs text-muted-foreground">
+                              No coaches yet
+                            </div>
                           ) : (
-                            <SelectValue placeholder="Unassigned" />
+                            coaches.map((c) => {
+                              const assigned = rowCoaches.some((rc) => rc.id === c.id);
+                              return (
+                                <DropdownMenuCheckboxItem
+                                  key={c.id}
+                                  checked={assigned}
+                                  disabled={assigningEmail === u.email}
+                                  onCheckedChange={() => handleToggleCoach(u.email, c.id, assigned)}
+                                  onSelect={(e) => e.preventDefault()}
+                                >
+                                  {c.full_name || c.email}
+                                </DropdownMenuCheckboxItem>
+                              );
+                            })
                           )}
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value={UNASSIGNED}>Unassigned</SelectItem>
-                          {coaches.map((c) => (
-                            <SelectItem key={c.id} value={c.id}>
-                              {c.full_name || c.email}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     ) : (
                       <span className="text-sm text-muted-foreground">—</span>
                     )}

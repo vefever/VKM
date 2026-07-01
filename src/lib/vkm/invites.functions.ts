@@ -427,6 +427,41 @@ export const resendInvite = createServerFn({ method: "POST" })
     return { ok: true, emailSent: result.sent, emailReason: result.reason, inviteUrl };
   });
 
+// Resend the invite email for many invites at once (pending only). Returns how
+// many actually sent vs failed so the UI can report a clear summary.
+export const bulkResendInvites = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .validator((input: { ids: string[] }) => input)
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    const { data: isAdmin } = await supabase.rpc("has_role", {
+      _user_id: userId,
+      _role: "super_admin",
+    });
+    if (!isAdmin) throw new Error("Forbidden");
+
+    let sent = 0;
+    let failed = 0;
+    for (const id of data.ids) {
+      const { data: inv } = await supabase.from("user_invites").select("*").eq("id", id).single();
+      if (!inv || inv.status !== "pending") {
+        failed++;
+        continue;
+      }
+      const result = await sendInviteEmail(supabase, {
+        to: inv.email,
+        name: inv.name,
+        role: inv.role as InviteRole,
+        inviteUrl: `${SITE_URL}/invite/${inv.token}`,
+        tempPassword: inv.temp_password,
+        expiresAt: inv.expires_at,
+      });
+      if (result.sent) sent++;
+      else failed++;
+    }
+    return { sent, failed, total: data.ids.length };
+  });
+
 type InvitePublicRow = {
   email: string;
   name: string;
