@@ -104,6 +104,45 @@ async function checkStaff(req: Request): Promise<{ ok: boolean; userId?: string 
   }
 }
 
+// All platform member emails (lowercased) from auth.users — profiles has no
+// email column, so this is the source of truth. Paginated.
+async function memberEmailSet(): Promise<Set<string>> {
+  const set = new Set<string>();
+  for (let page = 1; page <= 20; page++) {
+    const { data } = await admin.auth.admin.listUsers({ page, perPage: 1000 });
+    const users = data?.users ?? [];
+    for (const u of users) if (u.email) set.add(u.email.trim().toLowerCase());
+    if (users.length < 1000) break;
+  }
+  return set;
+}
+
+// Record a reminder delivery (idempotent via the unique key) for audit + to skip
+// duplicate sends on a re-run.
+async function logReminder(
+  userId: string,
+  date: string,
+  channel: string,
+  status: string,
+  detail?: string,
+) {
+  try {
+    await admin.from("reminder_log").upsert(
+      {
+        user_id: userId,
+        target_date: date,
+        channel,
+        status,
+        detail: detail ?? null,
+        created_at: new Date().toISOString(),
+      },
+      { onConflict: "user_id,target_date,channel" },
+    );
+  } catch (e) {
+    console.error("logReminder failed:", (e as Error).message);
+  }
+}
+
 // Throttle the pre-auth OTP endpoint. Returns a reason string when the request
 // should be blocked, or null to allow. Records each allowed attempt. Fails OPEN
 // (returns null) on any DB error so an outage can't lock everyone out of login.
@@ -338,23 +377,47 @@ async function sendSms(to: string, body: string) {
   throw new Error(`Unknown SMS provider: ${s.provider}`);
 }
 
-async function sendWhatsapp(to: string, body: string) {
+// Optional template (Meta): unsolicited WhatsApp (outside the 24h service window)
+// must use a pre-approved template, not free text. When `tpl` is given and the
+// provider is Meta, we send a template message; body params fill {{1}}, {{2}}…
+async function sendWhatsapp(
+  to: string,
+  body: string,
+  tpl?: { name: string; lang: string; params?: string[] },
+) {
   const s = await loadSetting("whatsapp");
   if (!s.enabled) throw new Error("WhatsApp provider is not enabled");
   if (s.provider === "twilio") return twilio(s.config, to, body, true);
   if (s.provider === "meta") {
+    const payload =
+      tpl && tpl.name
+        ? {
+            messaging_product: "whatsapp",
+            to,
+            type: "template",
+            template: {
+              name: tpl.name,
+              language: { code: tpl.lang || "en" },
+              ...(tpl.params && tpl.params.length
+                ? {
+                    components: [
+                      {
+                        type: "body",
+                        parameters: tpl.params.map((t) => ({ type: "text", text: t })),
+                      },
+                    ],
+                  }
+                : {}),
+            },
+          }
+        : { messaging_product: "whatsapp", to, type: "text", text: { body } };
     const r = await fetch(`https://graph.facebook.com/v20.0/${s.config.phoneNumberId}/messages`, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${s.config.accessToken}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({
-        messaging_product: "whatsapp",
-        to,
-        type: "text",
-        text: { body },
-      }),
+      body: JSON.stringify(payload),
     });
     if (!r.ok) throw new Error(`Meta WhatsApp: ${await r.text()}`);
     return;
@@ -378,6 +441,122 @@ async function twilio(c: Record<string, string>, to: string, body: string, whats
     },
   );
   if (!r.ok) throw new Error(`Twilio: ${await r.text()}`);
+}
+
+// ---------------------------------------------------------------------------
+// Daily task reminders
+// ---------------------------------------------------------------------------
+const HABIT_NAMES = [
+  "Walking 20 Min",
+  "Drink Water (4L)",
+  "Meditation",
+  "Affirmation",
+  "Gratitude Journal",
+  "Daily To-Do List",
+];
+const APP_URL = "https://vkmentorship.com/participant/habits";
+
+type AutomationCfg = {
+  daily_reminders_enabled?: boolean;
+  email_enabled?: boolean;
+  whatsapp_enabled?: boolean;
+  email_subject?: string;
+  email_heading?: string;
+  email_intro?: string;
+  whatsapp_message?: string;
+  whatsapp_template_name?: string;
+  whatsapp_template_lang?: string;
+  cron_secret?: string;
+};
+
+async function loadAutomation(): Promise<AutomationCfg> {
+  const { data } = await admin
+    .from("messaging_settings")
+    .select("config")
+    .eq("id", "automation")
+    .maybeSingle();
+  return ((data?.config as AutomationCfg) ?? {}) as AutomationCfg;
+}
+
+function fillVars(tpl: string, v: { name: string; done: number; remaining: number }): string {
+  return tpl
+    .replaceAll("{name}", v.name)
+    .replaceAll("{done}", String(v.done))
+    .replaceAll("{remaining}", String(v.remaining));
+}
+
+// Modern, email-client-safe (table + inline CSS) reminder. Navy/gold theme.
+function renderReminderEmail(cfg: AutomationCfg, name: string, done: number): {
+  subject: string;
+  html: string;
+  text: string;
+} {
+  const remaining = Math.max(0, 6 - done);
+  const heading = cfg.email_heading || "Keep your streak alive";
+  const intro =
+    cfg.email_intro ||
+    "You still have tasks left for today. A few focused minutes now keeps your momentum going.";
+  const subject = fillVars(cfg.email_subject || "Finish today's tasks ⏰", { name, done, remaining });
+
+  const dots = Array.from({ length: 6 }, (_, i) => {
+    const filled = i < done;
+    return `<td style="padding:0 4px"><div style="width:34px;height:34px;border-radius:50%;background:${
+      filled ? "#1f8f4e" : "#eceff3"
+    };color:${filled ? "#ffffff" : "#9aa3af"};font:600 13px/34px system-ui,Arial;text-align:center">${
+      filled ? "✓" : i + 1
+    }</div></td>`;
+  }).join("");
+
+  const habitRows = HABIT_NAMES.map(
+    (h, i) => `<tr><td style="padding:6px 0;font:400 14px/1.4 system-ui,Arial;color:#1e2430">
+        <span style="display:inline-block;width:18px;color:${i < done ? "#1f8f4e" : "#c9ccd3"}">${
+      i < done ? "✓" : "○"
+    }</span>${h}</td></tr>`,
+  ).join("");
+
+  const html = `<!doctype html><html><body style="margin:0;background:#f4f6f9;padding:24px 12px">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:520px;margin:0 auto;background:#ffffff;border-radius:18px;overflow:hidden;border:1px solid #e6e9ef">
+    <tr><td style="background:#0B2545;padding:26px 28px">
+      <div style="font:700 18px/1.2 system-ui,Arial;color:#ffffff">VK Mentorship</div>
+      <div style="font:600 12px/1.4 system-ui,Arial;color:#C9A227;letter-spacing:.14em;text-transform:uppercase;margin-top:4px">Daily reminder</div>
+    </td></tr>
+    <tr><td style="height:4px;background:linear-gradient(90deg,#C9A227,#e6c65a)"></td></tr>
+    <tr><td style="padding:28px">
+      <p style="font:400 15px/1.5 system-ui,Arial;color:#1e2430;margin:0 0 4px">Hi ${escapeHtml(name)},</p>
+      <h1 style="font:700 22px/1.25 system-ui,Arial;color:#0B2545;margin:0 0 10px">${escapeHtml(heading)}</h1>
+      <p style="font:400 15px/1.55 system-ui,Arial;color:#4b5563;margin:0 0 18px">${escapeHtml(intro)}</p>
+      <table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 0 6px"><tr>${dots}</tr></table>
+      <p style="font:600 13px/1.4 system-ui,Arial;color:#0B2545;margin:6px 0 18px">${done} of 6 done · <span style="color:#C9A227">${remaining} left today</span></p>
+      <table role="presentation" cellpadding="0" cellspacing="0" style="width:100%;background:#f8f6f0;border-radius:12px;padding:8px 16px;margin:0 0 22px"><tr><td>
+        <table role="presentation" cellpadding="0" cellspacing="0">${habitRows}</table>
+      </td></tr></table>
+      <table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 auto"><tr><td style="border-radius:12px;background:#0B2545">
+        <a href="${APP_URL}" style="display:inline-block;padding:13px 30px;font:600 15px/1 system-ui,Arial;color:#ffffff;text-decoration:none;border-radius:12px">Complete today's tasks →</a>
+      </td></tr></table>
+      <p style="font:400 12px/1.5 system-ui,Arial;color:#9aa3af;text-align:center;margin:20px 0 0">You're receiving this because your daily habits aren't finished yet. Keep going — consistency is everything. 💪</p>
+    </td></tr>
+    <tr><td style="background:#f4f6f9;padding:16px 28px;font:400 11px/1.5 system-ui,Arial;color:#9aa3af;text-align:center">VK Mentorship · Venu Kalyan Mentorship</td></tr>
+  </table></body></html>`;
+
+  const text = `Hi ${name}, ${heading}. ${intro} You've done ${done} of 6 tasks — ${remaining} left today. Finish them: ${APP_URL}`;
+  return { subject, html, text };
+}
+
+function escapeHtml(s: string): string {
+  return s.replace(/[&<>"']/g, (c) =>
+    ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!,
+  );
+}
+
+// Normalise a phone to E.164-ish (Meta/Twilio want digits, no spaces). Assumes
+// India (+91) when a bare 10-digit number is given.
+function normalizePhone(raw: string): string | null {
+  const d = String(raw || "").replace(/[^\d+]/g, "");
+  if (!d) return null;
+  if (d.startsWith("+")) return d;
+  if (d.length === 10) return `+91${d}`;
+  if (d.length === 12 && d.startsWith("91")) return `+${d}`;
+  return `+${d}`;
 }
 
 // ---------------------------------------------------------------------------
@@ -432,6 +611,137 @@ Deno.serve(async (req) => {
       return json({ ok: true }, 200, cors);
     }
 
+    // Daily task reminders — invoked by pg_cron (with the shared x-cron-secret)
+    // or manually by a super admin ("Run now"). Emails + WhatsApps every active
+    // participant who hasn't finished all 6 of today's (IST) habits.
+    if (action === "run_reminders") {
+      const cfg = await loadAutomation();
+      const secret = req.headers.get("x-cron-secret") || "";
+      const bySecret = !!cfg.cron_secret && secret === cfg.cron_secret;
+      const byAdmin = (await checkAdmin(req)).ok;
+      if (!bySecret && !byAdmin) return json({ ok: false, error: "Forbidden" }, 403, cors);
+
+      if (!cfg.daily_reminders_enabled && !p.force) {
+        return json({ ok: true, skipped: "disabled" }, 200, cors);
+      }
+
+      // "Today" in IST — matches how habit_logs.log_date is stored.
+      const istNow = new Date(Date.now() + 5.5 * 3600 * 1000);
+      const target = istNow.toISOString().slice(0, 10);
+
+      const { data: targets, error: tErr } = await admin.rpc("reminder_targets", {
+        _target: target,
+      });
+      if (tErr) return json({ ok: false, error: tErr.message }, 500, cors);
+
+      // Who already got a reminder today (idempotent re-runs).
+      const { data: already } = await admin
+        .from("reminder_log")
+        .select("user_id, channel, status")
+        .eq("target_date", target)
+        .eq("status", "sent");
+      const sentKey = new Set((already ?? []).map((r) => `${r.user_id}:${r.channel}`));
+
+      const emailOn = cfg.email_enabled !== false;
+      const waOn = cfg.whatsapp_enabled === true;
+      let email = { sent: 0, failed: 0, skipped: 0 };
+      let whatsapp = { sent: 0, failed: 0, skipped: 0 };
+
+      for (const t of (targets ?? []) as Array<{
+        user_id: string;
+        full_name: string;
+        email: string | null;
+        phone: string | null;
+        done: number;
+      }>) {
+        const name = t.full_name || "there";
+        const remaining = Math.max(0, 6 - (t.done || 0));
+
+        if (emailOn && t.email && !sentKey.has(`${t.user_id}:email`)) {
+          try {
+            const { subject, html, text } = renderReminderEmail(cfg, name, t.done || 0);
+            await sendEmail(t.email, subject, html, text);
+            email.sent++;
+            await logReminder(t.user_id, target, "email", "sent");
+          } catch (e) {
+            email.failed++;
+            await logReminder(t.user_id, target, "email", "failed", (e as Error).message);
+          }
+        }
+
+        if (waOn && t.phone && !sentKey.has(`${t.user_id}:whatsapp`)) {
+          const phone = normalizePhone(t.phone);
+          if (!phone) {
+            whatsapp.skipped++;
+          } else {
+            try {
+              const msg = fillVars(
+                cfg.whatsapp_message ||
+                  "Hi {name}! You have {remaining} of 6 tasks left today. Finish them: " + APP_URL,
+                { name, done: t.done || 0, remaining },
+              );
+              const tpl = cfg.whatsapp_template_name
+                ? {
+                    name: cfg.whatsapp_template_name,
+                    lang: cfg.whatsapp_template_lang || "en",
+                    params: [name, String(remaining)],
+                  }
+                : undefined;
+              await sendWhatsapp(phone, msg, tpl);
+              whatsapp.sent++;
+              await logReminder(t.user_id, target, "whatsapp", "sent");
+            } catch (e) {
+              whatsapp.failed++;
+              await logReminder(t.user_id, target, "whatsapp", "failed", (e as Error).message);
+            }
+          }
+        }
+      }
+
+      return json(
+        { ok: true, target, targets: (targets ?? []).length, email, whatsapp },
+        200,
+        cors,
+      );
+    }
+
+    // Send a sample reminder to a specific address/number so an admin can preview
+    // exactly what participants receive. Super-admin only.
+    if (action === "test_reminder") {
+      const adm = await checkAdmin(req);
+      if (!adm.ok) return json({ ok: false, error: "Admin only." }, 200, cors);
+      const cfg = await loadAutomation();
+      const channel = String(p.channel || "email");
+      const to = String(p.to || "").trim();
+      if (!to) return json({ ok: false, error: "A destination is required." }, 400, cors);
+      try {
+        if (channel === "email") {
+          const { subject, html, text } = renderReminderEmail(cfg, p.name || "there", 3);
+          await sendEmail(to, `[Test] ${subject}`, html, text);
+        } else if (channel === "whatsapp") {
+          const phone = normalizePhone(to);
+          if (!phone) return json({ ok: false, error: "Invalid phone number." }, 400, cors);
+          const msg = fillVars(
+            cfg.whatsapp_message || "Hi {name}! You have {remaining} of 6 tasks left today.",
+            { name: p.name || "there", done: 3, remaining: 3 },
+          );
+          const tpl = cfg.whatsapp_template_name
+            ? {
+                name: cfg.whatsapp_template_name,
+                lang: cfg.whatsapp_template_lang || "en",
+                params: [p.name || "there", "3"],
+              }
+            : undefined;
+          await sendWhatsapp(phone, msg, tpl);
+        } else {
+          return json({ ok: false, error: "Unknown channel." }, 400, cors);
+        }
+        return json({ ok: true }, 200, cors);
+      } catch (e) {
+        return json({ ok: false, error: (e as Error).message }, 200, cors);
+      }
+    }
+
     // Staff-gated bulk email — the meeting scheduler uses this to email invites
     // to participants + coaches + mentors + admins (any staff can send, not just
     // super admins). Content is built by the caller; this just fans it out.
@@ -451,14 +761,10 @@ Deno.serve(async (req) => {
       // Anti-abuse: send_bulk is meant for meeting invites to platform members.
       // Restrict recipients to known member emails so a compromised staff account
       // can't fan arbitrary HTML out to arbitrary external addresses (phishing /
-      // spam from the verified VKM domain). Also cap the batch size.
+      // spam from the verified VKM domain). Emails live in auth.users, so build
+      // the allow-list from there (profiles has no email column). Also cap size.
       {
-        const { data: members } = await admin.from("profiles").select("email");
-        const allowed = new Set(
-          (members ?? [])
-            .map((m) => String((m as { email?: string }).email || "").trim().toLowerCase())
-            .filter(Boolean),
-        );
+        const allowed = await memberEmailSet();
         const before = recipients.length;
         recipients = recipients.filter((r) => allowed.has(r.trim().toLowerCase())).slice(0, 2000);
         if (recipients.length < before) {

@@ -309,6 +309,7 @@ export const ADMIN_NAV: NavGroup[] = [
       { label: "CRM", to: "/admin/crm", icon: Users },
       { label: "Backup", to: "/admin/backup", icon: ArrowDownToLine },
       { label: "Feature Flags", to: "/admin/feature-flags", icon: FlaskConical },
+      { label: "Workflow & Automation", to: "/admin/automation", icon: Workflow },
       { label: "Branding", to: "/admin/branding", icon: Sparkles },
       { label: "Installable App", to: "/admin/pwa", icon: Smartphone },
       { label: "SEO & Analytics", to: "/admin/seo", icon: Globe },
