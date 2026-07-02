@@ -77,15 +77,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (event !== "INITIAL_SESSION") setLoading(false);
     });
 
-    supabase.auth.getSession().then(({ data }) => {
-      setSession(data.session);
-      setUser(data.session?.user ?? null);
-      if (data.session?.user) {
-        loadIfMounted(data.session.user.id).finally(() => mounted && setLoading(false));
-      } else {
-        setLoading(false);
+    void (async () => {
+      let { data } = await supabase.auth.getSession();
+      // If there's no live session, the access token may simply have lapsed
+      // while the app (esp. an installed PWA) was closed. Try ONE refresh with
+      // the stored refresh token before concluding the user is logged out — this
+      // is what keeps people signed in across app suspensions.
+      if (!data.session) {
+        try {
+          const r = await supabase.auth.refreshSession();
+          if (r.data.session) data = r.data;
+        } catch {
+          /* refresh token genuinely invalid → treat as logged out */
+        }
       }
-    });
+      if (!mounted) return;
+      setSession(data.session ?? null);
+      setUser(data.session?.user ?? null);
+      if (data.session?.user) await loadIfMounted(data.session.user.id);
+      if (mounted) setLoading(false);
+    })();
 
     return () => {
       mounted = false;

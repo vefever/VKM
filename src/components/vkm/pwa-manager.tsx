@@ -41,15 +41,27 @@ export function PwaManager() {
   // installed PWA and the browser as a belt-and-suspenders safety net.
   useEffect(() => {
     if (typeof window === "undefined") return;
+    let timer: ReturnType<typeof setInterval> | null = null;
+
+    // getSession() returns the current session and silently refreshes the token
+    // when it's near/after expiry — so calling it on resume + on a slow tick
+    // keeps the session alive without over-rotating the refresh token.
+    const keepAlive = () => {
+      if (navigator.onLine === false) return;
+      void supabase.auth.getSession();
+    };
 
     const resume = () => {
       if (document.visibilityState === "visible") {
         supabase.auth.startAutoRefresh();
-        // Refreshes a stale token; safe no-op when the session is still valid.
-        void supabase.auth.getSession();
+        keepAlive();
+        if (!timer) timer = setInterval(keepAlive, 4 * 60 * 1000); // stay fresh while open
       } else {
-        // Pause the ticker while hidden — it can't run reliably anyway.
         supabase.auth.stopAutoRefresh();
+        if (timer) {
+          clearInterval(timer);
+          timer = null;
+        }
       }
     };
 
@@ -57,10 +69,13 @@ export function PwaManager() {
     document.addEventListener("visibilitychange", resume);
     window.addEventListener("focus", resume);
     window.addEventListener("pageshow", resume); // bfcache / iOS resume
+    window.addEventListener("online", keepAlive); // recover the moment we reconnect
     return () => {
       document.removeEventListener("visibilitychange", resume);
       window.removeEventListener("focus", resume);
       window.removeEventListener("pageshow", resume);
+      window.removeEventListener("online", keepAlive);
+      if (timer) clearInterval(timer);
     };
   }, []);
 
