@@ -37,6 +37,7 @@ function sourceMeta(source: string) {
 type RawEntry = {
   user_id: string;
   full_name: string | null;
+  avatar_url: string | null;
   business_name: string | null;
   batch_id: string | null;
   batch_name: string | null;
@@ -69,6 +70,7 @@ function toEntries(rows: RawEntry[], userId?: string): LeaderboardEntry[] {
       points,
       stage: mapStage(stageFor(points).name),
       isCurrentUser: r.user_id === userId,
+      avatar: r.avatar_url ?? null,
       batchId: r.batch_id ?? null,
       batchName: r.batch_name ?? null,
     };

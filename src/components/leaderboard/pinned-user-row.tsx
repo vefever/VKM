@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { initialsOf } from "@/hooks/use-leaderboard";
+import { LbAvatar } from "@/components/leaderboard/lb-avatar";
 import type { LeaderboardEntry } from "@/types/leaderboard";
 
 export function PinnedUserRow({ entry }: { entry: LeaderboardEntry }) {
@@ -16,9 +16,11 @@ export function PinnedUserRow({ entry }: { entry: LeaderboardEntry }) {
       </span>
 
       {/* Avatar + name */}
-      <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gradient-navy text-xs font-semibold text-primary-foreground ring-2 ring-gold/40">
-        {initialsOf(entry.name)}
-      </span>
+      <LbAvatar
+        name={entry.name}
+        avatar={entry.avatar}
+        className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gradient-navy text-xs font-semibold text-primary-foreground ring-2 ring-gold/40"
+      />
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
           <span className="truncate font-semibold text-foreground">{entry.name}</span>

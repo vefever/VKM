@@ -14,6 +14,7 @@ export interface LeaderboardEntry {
   points: number;
   stage: Stage;
   isCurrentUser: boolean;
+  avatar: string | null;
   batchId: string | null;
   batchName: string | null;
 }

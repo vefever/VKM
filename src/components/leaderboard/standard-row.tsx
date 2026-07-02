@@ -1,6 +1,6 @@
 import { motion } from "framer-motion";
 import { Zap, Wrench, Rocket, type LucideIcon } from "lucide-react";
-import { initialsOf } from "@/hooks/use-leaderboard";
+import { LbAvatar } from "@/components/leaderboard/lb-avatar";
 import { cn } from "@/lib/utils";
 import type { LeaderboardEntry, Stage } from "@/types/leaderboard";
 
@@ -35,9 +35,11 @@ export function StandardRow({ entry, index }: { entry: LeaderboardEntry; index: 
       <span className="w-8 shrink-0 text-sm font-bold text-foreground">#{entry.rank}</span>
 
       {/* Avatar */}
-      <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gradient-navy text-xs font-semibold text-primary-foreground">
-        {initialsOf(entry.name)}
-      </span>
+      <LbAvatar
+        name={entry.name}
+        avatar={entry.avatar}
+        className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gradient-navy text-xs font-semibold text-primary-foreground"
+      />
 
       {/* Name + business */}
       <div className="min-w-0 flex-1">

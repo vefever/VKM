@@ -4,6 +4,7 @@ import { ArrowUpRight } from "lucide-react";
 import { initialsOf } from "@/hooks/use-leaderboard";
 import type { LeaderboardEntry } from "@/types/leaderboard";
 
+
 // A few scattered decorative stars over the navy hero.
 const STARS = [
   { top: "14%", left: "18%" },
@@ -36,9 +37,17 @@ export function UserProfilePanel({ user }: { user: LeaderboardEntry | undefined 
       <div className="relative">
         {/* Avatar with XP badge */}
         <div className="relative mx-auto h-16 w-16">
-          <span className="inline-flex h-16 w-16 items-center justify-center rounded-full bg-gradient-gold text-lg font-bold text-navy ring-2 ring-white/40">
-            {initialsOf(user.name)}
-          </span>
+          {user.avatar ? (
+            <img
+              src={user.avatar}
+              alt={user.name}
+              className="h-16 w-16 rounded-full object-cover ring-2 ring-white/40"
+            />
+          ) : (
+            <span className="inline-flex h-16 w-16 items-center justify-center rounded-full bg-gradient-gold text-lg font-bold text-navy ring-2 ring-white/40">
+              {initialsOf(user.name)}
+            </span>
+          )}
           <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full bg-white/10 px-2 py-0.5 text-[10px] font-bold text-gold ring-1 ring-white/15">
             <span className="lb-coin">🪙</span> {user.points} XP
           </span>

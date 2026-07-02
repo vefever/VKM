@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { initialsOf } from "@/hooks/use-leaderboard";
+import { LbAvatar } from "@/components/leaderboard/lb-avatar";
 import type { LeaderboardEntry } from "@/types/leaderboard";
 
 type Place = 1 | 2 | 3;
@@ -60,11 +60,11 @@ export function MedalRow({ entry, index }: { entry: LeaderboardEntry; index: num
       </span>
 
       {/* Avatar */}
-      <span
+      <LbAvatar
+        name={entry.name}
+        avatar={entry.avatar}
         className={`inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-black/20 text-xs font-bold text-white ring-2 ${cfg.ring}`}
-      >
-        {initialsOf(entry.name)}
-      </span>
+      />
 
       {/* Name + business */}
       <div className="min-w-0 flex-1">
