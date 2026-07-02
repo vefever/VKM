@@ -9,6 +9,8 @@ import {
   GraduationCap,
   Users,
   Lock,
+  Globe,
+  Sparkles,
 } from "lucide-react";
 import { SectionCard } from "@/components/vkm/section-card";
 import { Button } from "@/components/ui/button";
@@ -39,7 +41,13 @@ export function MemberProfileView({ memberId }: { memberId: string }) {
   }
 
   const canMessage = !isMe && member.allowMessages;
-  const hasBusiness = member.businessName || member.industry || member.location;
+  const hasBusiness =
+    member.businessName || member.industry || member.location || member.website || member.usp || member.logoUrl;
+  const websiteHref = member.website
+    ? /^https?:\/\//i.test(member.website)
+      ? member.website
+      : `https://${member.website}`
+    : null;
 
   return (
     <motion.div
@@ -100,16 +108,54 @@ export function MemberProfileView({ memberId }: { memberId: string }) {
         </SectionCard>
       )}
 
-      {/* business */}
+      {/* business — auto-pulled from their My Business profile */}
       {hasBusiness && (
-        <SectionCard title="Business">
+        <SectionCard title="Business" subtitle="From their business profile">
+          {(member.logoUrl || member.businessName) && (
+            <div className="mb-3 flex items-center gap-3">
+              {member.logoUrl ? (
+                <img
+                  src={member.logoUrl}
+                  alt={member.businessName ?? "Business logo"}
+                  className="h-12 w-12 shrink-0 rounded-xl border border-border object-contain"
+                />
+              ) : (
+                <span className="inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-gradient-navy text-primary-foreground">
+                  <Briefcase className="h-5 w-5" />
+                </span>
+              )}
+              <div className="min-w-0">
+                <p className="truncate text-base font-semibold text-foreground">
+                  {member.businessName ?? "—"}
+                </p>
+                {member.industry && (
+                  <p className="truncate text-xs text-muted-foreground">{member.industry}</p>
+                )}
+              </div>
+            </div>
+          )}
           <div className="grid gap-2 sm:grid-cols-3">
-            {member.businessName && (
-              <Detail icon={Briefcase} label="Business" value={member.businessName} />
-            )}
             {member.industry && <Detail icon={Users} label="Industry" value={member.industry} />}
             {member.location && <Detail icon={MapPin} label="Location" value={member.location} />}
+            {websiteHref && (
+              <a href={websiteHref} target="_blank" rel="noreferrer" className="block">
+                <div className="rounded-xl border border-border bg-card p-3 transition-colors hover:border-gold/40">
+                  <p className="flex items-center gap-1.5 text-[10px] uppercase tracking-wide text-muted-foreground">
+                    <Globe className="h-3 w-3" /> Website
+                  </p>
+                  <p className="mt-1 truncate text-sm font-medium text-[#2D8CFF]">
+                    {member.website}
+                  </p>
+                </div>
+              </a>
+            )}
           </div>
+          {member.usp && (
+            <div className="mt-2 flex items-start gap-2 rounded-xl bg-secondary/40 p-3">
+              <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-gold" />
+              <p className="text-sm text-foreground">{member.usp}</p>
+            </div>
+          )}
         </SectionCard>
       )}
 

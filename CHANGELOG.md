@@ -6,6 +6,9 @@ A running log of platform updates. Newest first. Ask any time for a **PDF** of t
 
 ## 2026-07-02
 
+### Improved
+- **Community shows real business details** — the Member Network now auto-pulls each member's business name, industry, location, website, USP and logo straight from their **My Business / business profile** (only public, non-financial fields), instead of a separately typed copy. Member profiles show a richer Business card.
+
 ### New
 - **Batches, alumni & tiered access** — a real **Batches** admin page (Admin → Batches): create cohorts, set a batch's status, **import members in bulk** (paste Name/email/phone → invites + auto-assigned to the batch), and **mark a batch's members as alumni**. Access now follows the cohort: **active** batch = full app; **completed/archived** batch = **Community page only**; **alumni** = **Community + My Business + Support + Settings**. Nav and routes adapt automatically to each participant's tier.
 - **Coach Participant Habits, reworked** — same batch-first browsing as the Participants page: pick a batch, then a **Grid ⇄ List** of participants (search, sort by name/points/progress, an **At risk** filter), and open any participant's full live habit tracker. Now scoped to the coach's assigned participants (no coaches in the list).

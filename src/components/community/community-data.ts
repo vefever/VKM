@@ -15,12 +15,36 @@ export type Member = {
   businessName: string | null;
   industry: string | null;
   location: string | null;
+  website?: string | null;
+  usp?: string | null;
+  logoUrl?: string | null;
   batchLabel: string | null;
   status: MemberStatus;
   skills: string[];
   allowMessages: boolean;
   mock?: boolean;
 };
+
+export type CommunityBusiness = {
+  business_name: string | null;
+  industry: string | null;
+  location: string | null;
+  website: string | null;
+  usp: string | null;
+  logo_url: string | null;
+};
+
+// Public business details pulled straight from members' business profiles
+// (business_brains → My Business), keyed by user_id.
+async function communityBusinessMap(): Promise<Map<string, CommunityBusiness>> {
+  const m = new Map<string, CommunityBusiness>();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data } = await (supabase.rpc as any)("get_community_business");
+  ((data ?? []) as (CommunityBusiness & { user_id: string })[]).forEach((r) =>
+    m.set(r.user_id, r),
+  );
+  return m;
+}
 
 export type MyMemberProfile = {
   headline: string | null;
@@ -79,21 +103,29 @@ export function useMemberDirectory() {
         )
         .eq("is_public", true);
       const ids = (mps ?? []).map((m) => m.user_id);
-      const names = await profilesFor(ids);
+      const [names, biz] = await Promise.all([profilesFor(ids), communityBusinessMap()]);
       if (!active) return;
-      const real: Member[] = (mps ?? []).map((m) => ({
-        id: m.user_id,
-        name: names.get(m.user_id)?.name ?? "Member",
-        avatar: names.get(m.user_id)?.avatar ?? null,
-        headline: m.headline,
-        businessName: m.business_name,
-        industry: m.industry,
-        location: m.location,
-        batchLabel: m.batch_label,
-        status: m.status as MemberStatus,
-        skills: m.skills ?? [],
-        allowMessages: m.allow_messages,
-      }));
+      const real: Member[] = (mps ?? []).map((m) => {
+        // Business details come from the member's business profile (My Business)
+        // first, falling back to anything they typed on their network profile.
+        const b = biz.get(m.user_id);
+        return {
+          id: m.user_id,
+          name: names.get(m.user_id)?.name ?? "Member",
+          avatar: names.get(m.user_id)?.avatar ?? null,
+          headline: m.headline,
+          businessName: b?.business_name || m.business_name,
+          industry: b?.industry || m.industry,
+          location: b?.location || m.location,
+          website: b?.website ?? null,
+          usp: b?.usp ?? null,
+          logoUrl: b?.logo_url ?? null,
+          batchLabel: m.batch_label,
+          status: m.status as MemberStatus,
+          skills: m.skills ?? [],
+          allowMessages: m.allow_messages,
+        };
+      });
       // Append sample members so the directory looks alive (demo data).
       setMembers([...real, ...MOCK_MEMBERS]);
       setLoading(false);
@@ -181,20 +213,25 @@ export function useMemberProfile(userId: string) {
       return;
     }
     (async () => {
-      const [{ data: m }, names] = await Promise.all([
+      const [{ data: m }, names, biz] = await Promise.all([
         supabase.from("member_profiles").select("*").eq("user_id", userId).maybeSingle(),
         profilesFor([userId]),
+        communityBusinessMap(),
       ]);
       if (!active) return;
       const base = names.get(userId);
+      const b = biz.get(userId);
       setMember({
         id: userId,
         name: base?.name ?? "Member",
         avatar: base?.avatar ?? null,
         headline: m?.headline ?? null,
-        businessName: m?.business_name ?? null,
-        industry: m?.industry ?? null,
-        location: m?.location ?? null,
+        businessName: b?.business_name || m?.business_name || null,
+        industry: b?.industry || m?.industry || null,
+        location: b?.location || m?.location || null,
+        website: b?.website ?? null,
+        usp: b?.usp ?? null,
+        logoUrl: b?.logo_url ?? null,
         batchLabel: m?.batch_label ?? null,
         status: (m?.status as MemberStatus) ?? "active",
         skills: m?.skills ?? [],
