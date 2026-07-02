@@ -8,6 +8,8 @@ import {
   Upload,
   GraduationCap,
   Users,
+  Download,
+  FileUp,
 } from "lucide-react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/vkm/page-header";
@@ -308,6 +310,19 @@ function NewBatchDialog({
   );
 }
 
+const MEMBER_CSV_SAMPLE =
+  "Name,Email,Phone\nRavi Kumar,ravi@example.com,+91 98765 43210\nAnitha Rao,anitha@example.com,\nSuresh Reddy,suresh@example.com,+91 90000 00002\n";
+
+function downloadSample() {
+  const blob = new Blob([MEMBER_CSV_SAMPLE], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "vkm-batch-members-sample.csv";
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
 type ParsedMember = { name: string; email: string; phone?: string };
 
 function parseMembers(text: string): ParsedMember[] {
@@ -340,8 +355,22 @@ function ImportMembersDialog({
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
   const cancelled = useRef(false);
+  const fileRef = useRef<HTMLInputElement>(null);
 
   const parsed = useMemo(() => parseMembers(text), [text]);
+
+  function onFile(file: File | undefined) {
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      const content = String(reader.result ?? "");
+      // Append to anything already typed (dedupe blank lines).
+      setText((prev) => (prev.trim() ? prev.replace(/\s*$/, "") + "\n" + content : content));
+      toast.success(`Loaded ${file.name}`);
+    };
+    reader.onerror = () => toast.error("Couldn't read that file");
+    reader.readAsText(file);
+  }
 
   async function run() {
     if (parsed.length === 0 || busy) return;
@@ -381,16 +410,42 @@ function ImportMembersDialog({
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <input
+              ref={fileRef}
+              type="file"
+              accept=".csv,.txt,text/csv,text/plain"
+              className="hidden"
+              onChange={(e) => {
+                onFile(e.target.files?.[0]);
+                e.target.value = "";
+              }}
+            />
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              className="h-8 rounded-lg"
+              onClick={() => fileRef.current?.click()}
+              disabled={busy}
+            >
+              <FileUp className="h-4 w-4" /> Upload CSV
+            </Button>
+            <Button type="button" size="sm" variant="ghost" className="h-8 rounded-lg" onClick={downloadSample}>
+              <Download className="h-4 w-4" /> Download sample
+            </Button>
+          </div>
           <Textarea
             value={text}
             onChange={(e) => setText(e.target.value)}
             rows={8}
-            placeholder={"Ravi Kumar, ravi@example.com, +91 98765 43210\nAnitha Rao, anitha@example.com"}
+            placeholder={"Name, Email, Phone\nRavi Kumar, ravi@example.com, +91 98765 43210\nAnitha Rao, anitha@example.com"}
             disabled={busy}
             className="font-mono text-xs"
           />
           <p className="text-[11px] text-muted-foreground">
-            {parsed.length} valid {parsed.length === 1 ? "member" : "members"} detected
+            {parsed.length} valid {parsed.length === 1 ? "member" : "members"} detected · each gets an
+            invite email
             {progress && ` · ${progress.done}/${progress.total} processed`}
           </p>
         </div>
