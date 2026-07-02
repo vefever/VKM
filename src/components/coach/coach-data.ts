@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { type Attachment } from "@/components/chat/chat-data";
 import { profilesDisplayFor } from "@/lib/profiles-display";
+import { weekFromStart } from "@/components/participant/enrollment-data";
 
 // Program week derived from the Batch-16 start (matches the habit tracker anchor).
 const PROGRAM_START = new Date("2026-04-27T00:00:00");
@@ -517,13 +518,25 @@ export function useParticipantsOverview() {
         }
         return;
       }
-      const [display, { data: wp }, { data: ledger }, { data: bm }] = await Promise.all([
-        profilesDisplayFor(ids),
-        supabase.from("weekly_progress").select("user_id, proof_status").in("user_id", ids),
-        supabase.from("points_ledger").select("user_id, points").in("user_id", ids),
-        supabase.from("batch_members").select("user_id, batch_id").in("user_id", ids).eq("role", "participant"),
-      ]);
+      const [display, { data: wp }, { data: ledger }, { data: bm }, { data: enr }] =
+        await Promise.all([
+          profilesDisplayFor(ids),
+          supabase.from("weekly_progress").select("user_id, proof_status").in("user_id", ids),
+          supabase.from("points_ledger").select("user_id, points").in("user_id", ids),
+          supabase.from("batch_members").select("user_id, batch_id").in("user_id", ids).eq("role", "participant"),
+          supabase.from("program_enrollments").select("user_id, started_at, total_weeks").in("user_id", ids),
+        ]);
       if (!active) return;
+
+      // Each participant's OWN program week (relative to when THEY started) —
+      // never the global cohort clock, which made new/Batch-16 users look behind.
+      const enrByUser = new Map<string, { startedAt: Date | null; totalWeeks: number }>();
+      (enr ?? []).forEach((e) =>
+        enrByUser.set(e.user_id, {
+          startedAt: e.started_at ? new Date(e.started_at) : null,
+          totalWeeks: (e.total_weeks as number | null) ?? 16,
+        }),
+      );
 
       // Resolve each participant's batch (first membership) + its name.
       const userBatch = new Map<string, string>();
@@ -544,8 +557,11 @@ export function useParticipantsOverview() {
         const points = (ledger ?? [])
           .filter((l) => l.user_id === id)
           .reduce((n, l) => n + (l.points ?? 0), 0);
-        const week = currentWeekNo();
-        const atRisk = weeksDone < week - 2; // 2+ weeks behind
+        // At risk = started 3+ weeks ago AND 2+ approved weeks behind their own
+        // current week. Before week 3 nobody is flagged (they've barely begun).
+        const e = enrByUser.get(id);
+        const myWeek = weekFromStart(e?.startedAt ?? null, e?.totalWeeks ?? 16);
+        const atRisk = !!e?.startedAt && myWeek >= 3 && weeksDone < myWeek - 2;
         const prof = display.get(id);
         const batchId = userBatch.get(id) ?? null;
         return {

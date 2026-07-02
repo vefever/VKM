@@ -22,6 +22,7 @@ import {
   List as ListIcon,
   Download,
   FileSpreadsheet,
+  FileText,
   Image as ImageIcon,
 } from "lucide-react";
 import {
@@ -126,28 +127,141 @@ export function ParticipantHabitsViewer({ eyebrow = "Coach" }: { eyebrow?: strin
     }
   }
 
-  // Spreadsheet export — Name + a column per habit (Done / Not done) + total.
-  // A CSV with a UTF-8 BOM opens directly in Excel / Google Sheets. Client-side
-  // only; never stored.
-  function exportSpreadsheet() {
-    const esc = (v: string | number) => `"${String(v).replace(/"/g, '""')}"`;
-    const header = ["Name", ...HABITS.map((h) => h.name), "Completed"];
-    const body = filtered.map((p) => {
+  const fileBase = `habits-${(activeBatch?.name ?? "batch").replace(/\s+/g, "-")}-day-${selectedDay}`;
+  const rowData = () =>
+    filtered.map((p) => {
       const done = doneFor(p.id, selectedDay);
-      return [
-        p.name,
-        ...HABITS.map((h) => (done.has(h.id) ? "Done" : "Not done")),
-        `${done.size}/${HABITS.length}`,
-      ];
+      return { name: p.name, done, total: `${done.size}/${HABITS.length}` };
     });
-    const csv = [header, ...body].map((r) => r.map(esc).join(",")).join("\r\n");
-    const blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8;" });
+
+  // Styled Excel (.xlsx) — bold navy header in the platform theme, Done cells
+  // tinted green. Client-side only; never stored.
+  async function exportSpreadsheet() {
+    setExporting(true);
+    try {
+      const ExcelJS = (await import("exceljs")).default;
+      const wb = new ExcelJS.Workbook();
+      const ws = wb.addWorksheet(`Day ${selectedDay}`);
+      ws.columns = [
+        { header: "Name", key: "name", width: 26 },
+        ...HABITS.map((h) => ({ header: h.name, key: h.id, width: 15 })),
+        { header: "Completed", key: "total", width: 12 },
+      ];
+      const head = ws.getRow(1);
+      head.height = 26;
+      head.eachCell((c, col) => {
+        c.font = { bold: true, color: { argb: "FFFFFFFF" }, size: 11 };
+        c.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF0B2545" } };
+        c.alignment = { vertical: "middle", horizontal: col === 1 ? "left" : "center", wrapText: true };
+        c.border = { bottom: { style: "thin", color: { argb: "FFC9A227" } } };
+      });
+      rowData().forEach((r) => {
+        const row = ws.addRow({
+          name: r.name,
+          ...Object.fromEntries(HABITS.map((h) => [h.id, r.done.has(h.id) ? "Done" : "Not done"])),
+          total: r.total,
+        });
+        HABITS.forEach((h, i) => {
+          const cell = row.getCell(i + 2);
+          cell.alignment = { horizontal: "center" };
+          if (r.done.has(h.id)) {
+            cell.font = { color: { argb: "FF15803D" }, bold: true };
+            cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFEAF7EE" } };
+          } else {
+            cell.font = { color: { argb: "FF9AA3AF" } };
+          }
+        });
+        row.getCell(1).font = { bold: true };
+        row.getCell(HABITS.length + 2).alignment = { horizontal: "center" };
+      });
+      ws.views = [{ state: "frozen", ySplit: 1 }];
+      const buf = await wb.xlsx.writeBuffer();
+      downloadBlob(
+        new Blob([buf], {
+          type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        }),
+        `${fileBase}.xlsx`,
+      );
+      toast.success("Downloaded Excel");
+    } catch (e) {
+      toast.error("Couldn't export Excel", { description: (e as Error).message });
+    } finally {
+      setExporting(false);
+    }
+  }
+
+  // Themed PDF — navy title bar + gold accent, ✓ / ✗ per habit. (PDFs are static,
+  // so no animation — but it's styled to match the app.) Client-side only.
+  async function exportPdf() {
+    setExporting(true);
+    try {
+      const { default: jsPDF } = await import("jspdf");
+      const mod = await import("jspdf-autotable");
+      // v3 exports the fn as default AND patches jsPDF.prototype.autoTable as a
+      // side-effect; the dynamic default isn't always callable, so resolve both.
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const autoTable = (mod as any).default ?? (mod as any).autoTable;
+      const doc = new jsPDF({ orientation: "landscape", unit: "pt" });
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const runTable = (opts: any) =>
+        typeof autoTable === "function"
+          ? autoTable(doc, opts)
+          : // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            (doc as any).autoTable(opts);
+      const pageW = doc.internal.pageSize.getWidth();
+      // Title bar
+      doc.setFillColor(11, 37, 69);
+      doc.rect(0, 0, pageW, 54, "F");
+      doc.setTextColor(255, 255, 255);
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(16);
+      doc.text(`${activeBatch?.name ?? "Batch"} · Day ${selectedDay}`, 40, 28);
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(9);
+      doc.setTextColor(210, 214, 220);
+      doc.text(`Habit completions — ${filtered.length} participants`, 40, 44);
+      doc.setTextColor(201, 162, 39);
+      doc.setFont("helvetica", "bold");
+      doc.text("VK MENTORSHIP", pageW - 40, 30, { align: "right" });
+
+      runTable({
+        startY: 66,
+        head: [["Name", ...HABITS.map((h) => h.name), "Done"]],
+        body: rowData().map((r) => [
+          r.name,
+          ...HABITS.map((h) => (r.done.has(h.id) ? "✓" : "✗")),
+          r.total,
+        ]),
+        styles: { fontSize: 9, cellPadding: 6, halign: "center", valign: "middle" },
+        headStyles: { fillColor: [11, 37, 69], textColor: [255, 255, 255], fontStyle: "bold", halign: "center" },
+        columnStyles: { 0: { halign: "left", fontStyle: "bold", cellWidth: 150 } },
+        alternateRowStyles: { fillColor: [248, 246, 240] },
+        margin: { left: 40, right: 40 },
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        didParseCell: (data: any) => {
+          if (data.section === "body" && data.column.index > 0 && data.column.index <= HABITS.length) {
+            const on = data.cell.raw === "✓";
+            data.cell.styles.textColor = on ? [21, 128, 61] : [180, 185, 195];
+            data.cell.styles.fontStyle = "bold";
+            data.cell.styles.fontSize = 12;
+          }
+        },
+      });
+      doc.save(`${fileBase}.pdf`);
+      toast.success("Downloaded PDF");
+    } catch (e) {
+      toast.error("Couldn't export PDF", { description: (e as Error).message });
+    } finally {
+      setExporting(false);
+    }
+  }
+
+  function downloadBlob(blob: Blob, filename: string) {
     const a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
-    a.download = `habits-${(activeBatch?.name ?? "batch").replace(/\s+/g, "-")}-day-${selectedDay}.csv`;
+    a.download = filename;
     a.click();
-    URL.revokeObjectURL(a.href);
-    toast.success("Downloaded spreadsheet");
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
   }
 
   const filtered = useMemo(() => {
@@ -298,7 +412,10 @@ export function ParticipantHabitsViewer({ eyebrow = "Coach" }: { eyebrow?: strin
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />
                     <DropdownMenuItem onClick={exportSpreadsheet}>
-                      <FileSpreadsheet className="h-4 w-4" /> Excel · CSV
+                      <FileSpreadsheet className="h-4 w-4" /> Excel · XLSX
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={exportPdf}>
+                      <FileText className="h-4 w-4" /> PDF
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
