@@ -1,6 +1,7 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import { format } from "date-fns";
+import { supabase } from "@/integrations/supabase/client";
 import {
   Activity,
   Flame,
@@ -80,6 +81,14 @@ export function ParticipantHabitsViewer({ eyebrow = "Coach" }: { eyebrow?: strin
 
   const activeBatch = groups.find((g) => g.key === batchKey) ?? null;
   const selectedPerson = rows.find((p) => p.id === userId) ?? null;
+
+  // Per-day habit snapshot for the batch (list view "6 rounds").
+  const activeIds = useMemo(() => (activeBatch ? activeBatch.rows.map((r) => r.id) : []), [activeBatch]);
+  const { doneFor, maxDay } = useBatchDayHabits(activeIds);
+  const [selectedDay, setSelectedDay] = useState(1);
+  useEffect(() => {
+    if (maxDay > 0) setSelectedDay(maxDay); // default to the most recent day with data
+  }, [maxDay]);
 
   const filtered = useMemo(() => {
     if (!activeBatch) return [];
@@ -206,13 +215,21 @@ export function ParticipantHabitsViewer({ eyebrow = "Coach" }: { eyebrow?: strin
               ))}
             </div>
           ) : (
-            <SectionCard bodyClassName="p-0">
-              <ul className="divide-y divide-border">
-                {filtered.map((p) => (
-                  <PersonRow key={p.id} p={p} onOpen={() => setUserId(p.id)} />
-                ))}
-              </ul>
-            </SectionCard>
+            <div className="space-y-3">
+              <DayPicker maxDay={maxDay} value={selectedDay} onChange={setSelectedDay} />
+              <SectionCard bodyClassName="p-0">
+                <ul className="divide-y divide-border">
+                  {filtered.map((p) => (
+                    <PersonRow
+                      key={p.id}
+                      p={p}
+                      done={doneFor(p.id, selectedDay)}
+                      onOpen={() => setUserId(p.id)}
+                    />
+                  ))}
+                </ul>
+              </SectionCard>
+            </div>
           )}
         </div>
       )}
@@ -328,8 +345,15 @@ function PersonCard({ p, onOpen }: { p: ParticipantRow; onOpen: () => void }) {
   );
 }
 
-function PersonRow({ p, onOpen }: { p: ParticipantRow; onOpen: () => void }) {
-  const pct = Math.round((p.weeksDone / 16) * 100);
+function PersonRow({
+  p,
+  done,
+  onOpen,
+}: {
+  p: ParticipantRow;
+  done: Set<string>;
+  onOpen: () => void;
+}) {
   return (
     <li>
       <button
@@ -339,20 +363,31 @@ function PersonRow({ p, onOpen }: { p: ParticipantRow; onOpen: () => void }) {
       >
         <AvatarBadge name={p.name} src={p.avatar_url} size="lg" />
         <div className="min-w-0 flex-1">
-          <p className="truncate text-sm font-medium text-foreground">{p.name}</p>
-          <div className="mt-1.5 flex items-center gap-2">
-            <Progress value={pct} className="h-1.5 max-w-[160px] flex-1" />
-            <span className="shrink-0 text-[11px] tabular-nums text-muted-foreground">
-              {p.weeksDone}/16
+          <div className="flex items-center gap-2">
+            <p className="truncate text-sm font-medium text-foreground">{p.name}</p>
+            <span
+              className={cn(
+                "shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-bold tabular-nums",
+                done.size === HABITS.length
+                  ? "bg-[oklch(0.93_0.06_160)] text-[oklch(0.35_0.12_160)]"
+                  : done.size > 0
+                    ? "bg-gold/15 text-[oklch(0.45_0.1_85)]"
+                    : "bg-secondary text-muted-foreground",
+              )}
+            >
+              {done.size}/{HABITS.length}
             </span>
+            {p.atRisk && (
+              <span className="shrink-0 rounded-full bg-destructive/15 px-1.5 py-0.5 text-[10px] font-semibold text-destructive">
+                At risk
+              </span>
+            )}
+          </div>
+          <div className="mt-1.5">
+            <HabitRounds done={done} />
           </div>
         </div>
-        {p.atRisk && (
-          <span className="hidden shrink-0 rounded-full bg-destructive/15 px-2 py-0.5 text-[10px] font-semibold text-destructive sm:inline">
-            At risk
-          </span>
-        )}
-        <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
+        <ChevronRight className="h-4 w-4 shrink-0 self-center text-muted-foreground" />
       </button>
     </li>
   );
@@ -428,6 +463,125 @@ function HabitDetail({ userId, name }: { userId: string; name: string }) {
           )}
         </>
       )}
+    </div>
+  );
+}
+
+// One batched read of a batch's habit_logs → which habits each participant
+// completed on each day. Lets the list show a per-day 6-habit snapshot without a
+// query per row.
+function useBatchDayHabits(userIds: string[]) {
+  const [byUserDay, setByUserDay] = useState<Map<string, Map<number, Set<string>>>>(new Map());
+  const [maxDay, setMaxDay] = useState(1);
+  const [loading, setLoading] = useState(true);
+  const key = userIds.slice().sort().join(",");
+
+  useEffect(() => {
+    if (userIds.length === 0) {
+      setByUserDay(new Map());
+      setMaxDay(1);
+      setLoading(false);
+      return;
+    }
+    let active = true;
+    setLoading(true);
+    void supabase
+      .from("habit_logs")
+      .select("user_id, habit_id, day_no")
+      .in("user_id", userIds)
+      .then(({ data }) => {
+        if (!active) return;
+        const m = new Map<string, Map<number, Set<string>>>();
+        let mx = 1;
+        (data ?? []).forEach((r) => {
+          if (r.day_no > mx) mx = r.day_no;
+          let dm = m.get(r.user_id);
+          if (!dm) {
+            dm = new Map();
+            m.set(r.user_id, dm);
+          }
+          let s = dm.get(r.day_no);
+          if (!s) {
+            s = new Set();
+            dm.set(r.day_no, s);
+          }
+          s.add(r.habit_id);
+        });
+        setByUserDay(m);
+        setMaxDay(mx);
+        setLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [key]);
+
+  const doneFor = (userId: string, day: number) => byUserDay.get(userId)?.get(day) ?? EMPTY_SET;
+  return { doneFor, maxDay, loading };
+}
+const EMPTY_SET = new Set<string>();
+
+// The 6 habit "rounds" for a given day — filled with the habit's colour when
+// done, a dashed outline when not.
+function HabitRounds({ done }: { done: Set<string> }) {
+  return (
+    <div className="flex items-center gap-1.5">
+      {HABITS.map((h) => {
+        const on = done.has(h.id);
+        const Icon = h.icon;
+        return (
+          <span
+            key={h.id}
+            title={`${h.name}${on ? " ✓" : ""}`}
+            className={cn(
+              "inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full transition-colors",
+              on
+                ? "text-white shadow-vkm"
+                : "border border-dashed border-border text-muted-foreground/40",
+            )}
+            style={on ? { background: `linear-gradient(135deg, ${h.from}, ${h.to})` } : undefined}
+          >
+            <Icon className="h-3.5 w-3.5" />
+          </span>
+        );
+      })}
+    </div>
+  );
+}
+
+// Horizontal day picker (1 … maxDay).
+function DayPicker({
+  maxDay,
+  value,
+  onChange,
+}: {
+  maxDay: number;
+  value: number;
+  onChange: (d: number) => void;
+}) {
+  return (
+    <div className="flex items-center gap-2">
+      <span className="shrink-0 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+        Day
+      </span>
+      <div className="flex gap-1.5 overflow-x-auto pb-1">
+        {Array.from({ length: Math.max(1, maxDay) }, (_, i) => i + 1).map((d) => (
+          <button
+            key={d}
+            type="button"
+            onClick={() => onChange(d)}
+            className={cn(
+              "inline-flex h-8 min-w-8 shrink-0 items-center justify-center rounded-full px-2.5 text-xs font-semibold tabular-nums transition-colors",
+              d === value
+                ? "bg-gradient-navy text-primary-foreground shadow-vkm"
+                : "border border-border bg-card text-muted-foreground hover:text-foreground",
+            )}
+          >
+            {d}
+          </button>
+        ))}
+      </div>
     </div>
   );
 }
