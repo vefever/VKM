@@ -2,6 +2,8 @@
 
 export type Stage = "Operator" | "Builder" | "Starter";
 
+export type LeaderboardScope = "mine" | "all";
+
 export interface LeaderboardEntry {
   id: string;
   rank: number;
@@ -12,6 +14,8 @@ export interface LeaderboardEntry {
   points: number;
   stage: Stage;
   isCurrentUser: boolean;
+  batchId: string | null;
+  batchName: string | null;
 }
 
 export type ActivityTag = "proof" | "approved" | "omm" | "class" | "milestone";

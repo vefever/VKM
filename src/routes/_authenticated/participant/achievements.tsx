@@ -1,8 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { WireframePage } from "@/components/vkm/wireframe-page";
-import { getPageConfig } from "@/components/vkm/page-registry";
+import { PointsHistoryPage } from "@/components/participant/points-history";
 
 export const Route = createFileRoute("/_authenticated/participant/achievements")({
-  head: () => ({ meta: [{ title: "Achievements · VKM" }] }),
-  component: () => <WireframePage config={getPageConfig("/participant/achievements")} />,
+  head: () => ({ meta: [{ title: "Points History · VKM" }] }),
+  component: PointsHistoryPage,
 });

@@ -13,11 +13,12 @@ import type { LeaderboardEntry, Stage } from "@/types/leaderboard";
 const STAGES: Stage[] = ["Operator", "Builder", "Starter"];
 
 function exportCsv(rows: LeaderboardEntry[]) {
-  const header = ["Rank", "Name", "Business", "Weeks", "Points", "Stage"];
+  const header = ["Rank", "Name", "Business", "Batch", "Weeks", "Points", "Stage"];
   const body = rows.map((r) => [
     `#${r.rank}`,
     r.name,
     r.business,
+    r.batchName ?? "—",
     `${r.weeksCompleted}/${r.totalWeeks}`,
     r.points,
     r.stage,
@@ -29,7 +30,7 @@ function exportCsv(rows: LeaderboardEntry[]) {
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
-  a.download = "leaderboard-batch-16.csv";
+  a.download = "vkm-leaderboard.csv";
   a.click();
   URL.revokeObjectURL(url);
 }

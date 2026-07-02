@@ -6,6 +6,9 @@ A running log of platform updates. Newest first. Ask any time for a **PDF** of t
 
 ## 2026-07-02
 
+### New
+- **Participant Leaderboard, reworked** — coaches/mentors/admins no longer appear (participants only); a **My batch ⇄ All batches** toggle with per-scope ranking, stats and a real cohort **activity feed** (from actual points earned). "View Points History" now opens a **real Points History** page — every XP entry grouped by day, a total/stage/top-source summary, and a per-source breakdown.
+
 ### Fixed
 - **Forgot password now works** — the sign-in "Forgot password?" link previously led to a page that required being logged in. It now runs a proper flow: enter your email → receive a **6-digit code** → enter the code and a **new password**, and you're signed in.
 
