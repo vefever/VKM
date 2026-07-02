@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { Check, ChevronDown, ChevronUp, X } from "lucide-react";
 import { format } from "date-fns";
@@ -228,17 +229,17 @@ function DayDetailModal({
   const meta = STATE_LABEL[state];
   const doneHabits = HABITS.filter((h) => isDone(day, h.id));
 
-  return (
+  return createPortal(
     <div
-      className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 p-0 sm:items-center sm:p-4"
+      className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm"
       onClick={onClose}
     >
       <motion.div
-        initial={{ opacity: 0, y: 24 }}
-        animate={{ opacity: 1, y: 0 }}
-        exit={{ opacity: 0, y: 24 }}
+        initial={{ opacity: 0, scale: 0.96, y: 8 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.96, y: 8 }}
         onClick={(e) => e.stopPropagation()}
-        className="flex max-h-[85vh] w-full max-w-md flex-col overflow-hidden rounded-t-3xl bg-card shadow-vkm-float sm:rounded-3xl"
+        className="flex max-h-[85vh] w-full max-w-md flex-col overflow-hidden rounded-3xl bg-card shadow-vkm-float"
       >
         <div className="flex items-center gap-3 border-b border-border p-4">
           <div className="min-w-0 flex-1">
@@ -302,6 +303,7 @@ function DayDetailModal({
           )}
         </div>
       </motion.div>
-    </div>
+    </div>,
+    document.body,
   );
 }

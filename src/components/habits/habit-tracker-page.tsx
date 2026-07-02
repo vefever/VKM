@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { Link } from "@tanstack/react-router";
 import { addDays, format, startOfToday } from "date-fns";
@@ -905,24 +906,23 @@ function HabitProofModal({
     onClose();
   }
 
-  return (
+  // Rendered via a portal to <body> so it's a true viewport overlay — the app's
+  // route content sits inside a framer-motion transform, which would otherwise
+  // trap `position: fixed` and let the bottom nav paint over the sheet. Centered
+  // (not a bottom sheet) so it never collides with the mobile nav bar.
+  return createPortal(
     <div
-      className="fixed inset-0 z-[80] flex items-end justify-center bg-black/60 backdrop-blur-sm sm:items-center sm:p-4"
+      className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
       onClick={onClose}
     >
       <motion.div
-        initial={{ y: "100%" }}
-        animate={{ y: 0 }}
-        exit={{ y: "100%" }}
-        transition={{ type: "spring", stiffness: 380, damping: 38 }}
+        initial={{ opacity: 0, scale: 0.96, y: 8 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.96, y: 8 }}
+        transition={{ type: "spring", stiffness: 380, damping: 30 }}
         onClick={(e) => e.stopPropagation()}
-        className="flex max-h-[88dvh] w-full max-w-md flex-col overflow-hidden rounded-t-3xl bg-card shadow-vkm-float sm:max-h-[85vh] sm:rounded-3xl"
+        className="flex max-h-[85vh] w-full max-w-md flex-col overflow-hidden rounded-3xl bg-card shadow-vkm-float"
       >
-        {/* Grab handle — native bottom-sheet feel on mobile */}
-        <div className="flex shrink-0 justify-center pt-2.5 sm:hidden">
-          <span className="h-1.5 w-10 rounded-full bg-muted-foreground/25" />
-        </div>
-
         <div className="flex shrink-0 items-center gap-3 border-b border-border p-4">
           <span
             className="inline-flex h-10 w-10 items-center justify-center rounded-xl text-white"
@@ -1007,6 +1007,7 @@ function HabitProofModal({
           )}
         </div>
       </motion.div>
-    </div>
+    </div>,
+    document.body,
   );
 }
