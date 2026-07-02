@@ -25,6 +25,8 @@ import {
   AUTOMATION_DEFAULTS,
   fetchLastRun,
   fetchCronStatus,
+  setReminderSchedule,
+  timeLabel,
   runReminders,
   testReminder,
   type AutomationConfig,
@@ -60,8 +62,14 @@ export function AutomationSettingsPage() {
   async function onSave() {
     try {
       await save(form);
+      // Always reschedule the cron job to match the chosen time so the DB
+      // schedule and the saved config never drift.
+      const st = await setReminderSchedule(form.send_hour_ist, form.send_minute_ist);
+      setCron(st);
       setDirty(false);
-      toast.success("Automation settings saved");
+      toast.success("Automation settings saved", {
+        description: `Reminders run daily at ${timeLabel(form.send_hour_ist, form.send_minute_ist)} IST`,
+      });
     } catch (e) {
       toast.error("Couldn't save", { description: (e as Error).message });
     }
@@ -151,27 +159,45 @@ export function AutomationSettingsPage() {
             subtitle="Nudge every active participant who hasn't finished their 6 daily habits"
           >
             <div className="space-y-4">
-              <div className="flex flex-wrap items-center gap-2 rounded-xl border border-border bg-secondary/40 px-3.5 py-2.5 text-xs text-muted-foreground">
-                <Clock className="h-4 w-4 text-gold" />
-                <span>
-                  Runs automatically every day at <span className="font-semibold text-foreground">8:00 PM IST</span>.
-                  Only participants who are behind that day are contacted (never staff or alumni).
-                </span>
-                {cron && (
-                  <span
-                    className={`ml-auto rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${
-                      cron.scheduled && cron.active
-                        ? "bg-[oklch(0.93_0.06_160)] text-[oklch(0.35_0.12_160)]"
-                        : "bg-amber-100 text-amber-700"
-                    }`}
-                  >
-                    {cron.scheduled && cron.active ? "Schedule active" : "Schedule inactive"}
-                  </span>
-                )}
+              <div className="flex items-center justify-between gap-3 rounded-xl border border-border bg-secondary/40 px-3.5 py-3">
+                <div className="min-w-0">
+                  <p className="flex items-center gap-1.5 text-sm font-medium text-foreground">
+                    <Clock className="h-4 w-4 text-gold" /> Send time (IST)
+                  </p>
+                  <p className="text-[11px] text-muted-foreground">
+                    Runs daily at {timeLabel(form.send_hour_ist, form.send_minute_ist)} IST. Only participants behind
+                    that day are contacted — never staff or alumni.
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="time"
+                    value={`${String(form.send_hour_ist).padStart(2, "0")}:${String(form.send_minute_ist).padStart(2, "0")}`}
+                    onChange={(e) => {
+                      const [h, m] = e.target.value.split(":").map((x) => parseInt(x, 10));
+                      if (Number.isFinite(h) && Number.isFinite(m)) {
+                        set("send_hour_ist", h);
+                        set("send_minute_ist", m);
+                      }
+                    }}
+                    className="rounded-lg border border-border bg-background px-2.5 py-1.5 text-sm font-medium text-foreground"
+                  />
+                  {cron && (
+                    <span
+                      className={`rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${
+                        cron.scheduled && cron.active
+                          ? "bg-[oklch(0.93_0.06_160)] text-[oklch(0.35_0.12_160)]"
+                          : "bg-amber-100 text-amber-700"
+                      }`}
+                    >
+                      {cron.scheduled && cron.active ? "Active" : "Inactive"}
+                    </span>
+                  )}
+                </div>
               </div>
               <ToggleRow
                 label="Enable daily reminders"
-                hint="Master switch for the 8 PM job."
+                hint="Master switch for the scheduled job."
                 checked={form.daily_reminders_enabled}
                 onChange={(v) => set("daily_reminders_enabled", v)}
               />

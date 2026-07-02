@@ -8,6 +8,8 @@ export type AutomationConfig = {
   daily_reminders_enabled: boolean;
   email_enabled: boolean;
   whatsapp_enabled: boolean;
+  send_hour_ist: number;
+  send_minute_ist: number;
   email_subject: string;
   email_heading: string;
   email_intro: string;
@@ -20,6 +22,8 @@ export const AUTOMATION_DEFAULTS: AutomationConfig = {
   daily_reminders_enabled: false,
   email_enabled: true,
   whatsapp_enabled: false,
+  send_hour_ist: 20,
+  send_minute_ist: 0,
   email_subject: "Finish today's tasks ⏰",
   email_heading: "Keep your streak alive",
   email_intro:
@@ -37,10 +41,16 @@ function coerce(raw: RawConfig): AutomationConfig {
     typeof raw[k] === "boolean" ? (raw[k] as boolean) : d;
   const s = (k: keyof AutomationConfig, d: string) =>
     typeof raw[k] === "string" && raw[k] ? (raw[k] as string) : d;
+  const n = (k: keyof AutomationConfig, d: number) => {
+    const v = Number(raw[k]);
+    return Number.isFinite(v) ? v : d;
+  };
   return {
     daily_reminders_enabled: b("daily_reminders_enabled", AUTOMATION_DEFAULTS.daily_reminders_enabled),
     email_enabled: b("email_enabled", AUTOMATION_DEFAULTS.email_enabled),
     whatsapp_enabled: b("whatsapp_enabled", AUTOMATION_DEFAULTS.whatsapp_enabled),
+    send_hour_ist: n("send_hour_ist", AUTOMATION_DEFAULTS.send_hour_ist),
+    send_minute_ist: n("send_minute_ist", AUTOMATION_DEFAULTS.send_minute_ist),
     email_subject: s("email_subject", AUTOMATION_DEFAULTS.email_subject),
     email_heading: s("email_heading", AUTOMATION_DEFAULTS.email_heading),
     email_intro: s("email_intro", AUTOMATION_DEFAULTS.email_intro),
@@ -129,6 +139,23 @@ export async function fetchCronStatus(): Promise<CronStatus> {
   const { data, error } = await supabase.rpc("automation_cron_status");
   if (error || !data || !data[0]) return { scheduled: false, schedule: null, active: false };
   return data[0] as CronStatus;
+}
+
+/** Persist the admin's chosen IST send time AND reschedule the pg_cron job. */
+export async function setReminderSchedule(hour: number, minute: number): Promise<CronStatus> {
+  const { data, error } = await supabase.rpc("set_reminder_schedule", {
+    _hour: hour,
+    _minute: minute,
+  });
+  if (error) throw error;
+  return (data?.[0] as CronStatus) ?? { scheduled: false, schedule: null, active: false };
+}
+
+/** "8:00 PM" style label from a 24h IST hour+minute. */
+export function timeLabel(hour: number, minute: number): string {
+  const h12 = hour % 12 === 0 ? 12 : hour % 12;
+  const ampm = hour < 12 ? "AM" : "PM";
+  return `${h12}:${String(minute).padStart(2, "0")} ${ampm}`;
 }
 
 export const runReminders = () => invokeMessaging("run_reminders", { force: true });
