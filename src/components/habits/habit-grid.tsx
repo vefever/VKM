@@ -38,6 +38,7 @@ export function HabitGrid({
   isDone,
   proofsFor,
   anchor,
+  defaultOpen = false,
 }: {
   config: TrackerConfig;
   dayState: (day: number) => DayState;
@@ -47,8 +48,10 @@ export function HabitGrid({
   proofsFor?: (day: number, habitId: string) => Attachment[];
   // The participant's own start date, so day → calendar date is correct for them.
   anchor?: Date;
+  // Start expanded (coaches reviewing a participant want the grid open).
+  defaultOpen?: boolean;
 }) {
-  const [show, setShow] = useState(false); // hidden by default — reveal on demand
+  const [show, setShow] = useState(defaultOpen); // reveal on demand (open by default for coaches)
   const [selectedDay, setSelectedDay] = useState<number | null>(null);
   const { weeks, daysPerWeek } = config;
   const interactive = !!isDone;

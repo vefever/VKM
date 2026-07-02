@@ -384,7 +384,11 @@ function HabitDetail({ userId, name }: { userId: string; name: string }) {
             config={t.config}
             dayState={t.dayState}
             title={`${name} · Habit Tracker`}
+            subtitle="Tap any day to see that date's proofs & completions"
+            isDone={t.isDone}
+            proofsFor={t.proofsFor}
             anchor={t.startedAt ?? undefined}
+            defaultOpen
           />
           {t.waterEvents.length > 0 && (
             <SectionCard
