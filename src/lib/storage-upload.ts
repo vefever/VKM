@@ -16,10 +16,18 @@ export async function uploadToStorage(
   path: string,
   file: File | Blob,
   contentType?: string,
+  opts?: { skipCompress?: boolean },
 ): Promise<string> {
   // Compress first so the presign is requested with the FINAL content-type
-  // (R2 presigns are bound to the content-type header we'll send).
-  const compressed = await compressForUpload(file);
+  // (R2 presigns are bound to the content-type header we'll send). Some callers
+  // (e.g. a PWA app icon, which should stay a crisp PNG) opt out of compression.
+  const compressed = opts?.skipCompress
+    ? {
+        blob: file,
+        contentType: contentType || (file as File).type || "application/octet-stream",
+        ext: null as string | null,
+      }
+    : await compressForUpload(file);
   const body = compressed.blob;
   const ct = compressed.contentType || contentType || (file as File).type || "application/octet-stream";
   // If the encoding changed (e.g. jpg → webp), align the stored key's extension

@@ -14,6 +14,7 @@ import { reportError } from "../lib/error-reporting";
 import { AuthProvider } from "@/hooks/use-auth";
 import { Toaster } from "@/components/ui/sonner";
 import { PwaManager } from "@/components/vkm/pwa-manager";
+import { PwaApplier } from "@/components/vkm/pwa-applier";
 import { FlyPointsHost } from "@/components/vkm/fly-points";
 import { ChatWidget } from "@/components/vkm/chat-widget";
 import { useAppShell } from "@/hooks/use-app-shell";
@@ -159,6 +160,7 @@ function RootComponent() {
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
         <Outlet />
+        <PwaApplier />
         <PwaManager />
         <FlyPointsHost />
         <ChatWidget />

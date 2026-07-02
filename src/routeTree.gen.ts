@@ -122,6 +122,7 @@ import { Route as AuthenticatedAdminSmsRouteImport } from './routes/_authenticat
 import { Route as AuthenticatedAdminSettingsRouteImport } from './routes/_authenticated/admin/settings'
 import { Route as AuthenticatedAdminSecurityRouteImport } from './routes/_authenticated/admin/security'
 import { Route as AuthenticatedAdminReportsRouteImport } from './routes/_authenticated/admin/reports'
+import { Route as AuthenticatedAdminPwaRouteImport } from './routes/_authenticated/admin/pwa'
 import { Route as AuthenticatedAdminPushRouteImport } from './routes/_authenticated/admin/push'
 import { Route as AuthenticatedAdminProgramsRouteImport } from './routes/_authenticated/admin/programs'
 import { Route as AuthenticatedAdminProgramBuilderRouteImport } from './routes/_authenticated/admin/program-builder'
@@ -828,6 +829,11 @@ const AuthenticatedAdminReportsRoute =
     path: '/reports',
     getParentRoute: () => AuthenticatedAdminRouteRoute,
   } as any)
+const AuthenticatedAdminPwaRoute = AuthenticatedAdminPwaRouteImport.update({
+  id: '/pwa',
+  path: '/pwa',
+  getParentRoute: () => AuthenticatedAdminRouteRoute,
+} as any)
 const AuthenticatedAdminPushRoute = AuthenticatedAdminPushRouteImport.update({
   id: '/push',
   path: '/push',
@@ -1139,6 +1145,7 @@ export interface FileRoutesByFullPath {
   '/admin/program-builder': typeof AuthenticatedAdminProgramBuilderRoute
   '/admin/programs': typeof AuthenticatedAdminProgramsRoute
   '/admin/push': typeof AuthenticatedAdminPushRoute
+  '/admin/pwa': typeof AuthenticatedAdminPwaRoute
   '/admin/reports': typeof AuthenticatedAdminReportsRoute
   '/admin/security': typeof AuthenticatedAdminSecurityRoute
   '/admin/settings': typeof AuthenticatedAdminSettingsRoute
@@ -1296,6 +1303,7 @@ export interface FileRoutesByTo {
   '/admin/program-builder': typeof AuthenticatedAdminProgramBuilderRoute
   '/admin/programs': typeof AuthenticatedAdminProgramsRoute
   '/admin/push': typeof AuthenticatedAdminPushRoute
+  '/admin/pwa': typeof AuthenticatedAdminPwaRoute
   '/admin/reports': typeof AuthenticatedAdminReportsRoute
   '/admin/security': typeof AuthenticatedAdminSecurityRoute
   '/admin/settings': typeof AuthenticatedAdminSettingsRoute
@@ -1459,6 +1467,7 @@ export interface FileRoutesById {
   '/_authenticated/admin/program-builder': typeof AuthenticatedAdminProgramBuilderRoute
   '/_authenticated/admin/programs': typeof AuthenticatedAdminProgramsRoute
   '/_authenticated/admin/push': typeof AuthenticatedAdminPushRoute
+  '/_authenticated/admin/pwa': typeof AuthenticatedAdminPwaRoute
   '/_authenticated/admin/reports': typeof AuthenticatedAdminReportsRoute
   '/_authenticated/admin/security': typeof AuthenticatedAdminSecurityRoute
   '/_authenticated/admin/settings': typeof AuthenticatedAdminSettingsRoute
@@ -1622,6 +1631,7 @@ export interface FileRouteTypes {
     | '/admin/program-builder'
     | '/admin/programs'
     | '/admin/push'
+    | '/admin/pwa'
     | '/admin/reports'
     | '/admin/security'
     | '/admin/settings'
@@ -1779,6 +1789,7 @@ export interface FileRouteTypes {
     | '/admin/program-builder'
     | '/admin/programs'
     | '/admin/push'
+    | '/admin/pwa'
     | '/admin/reports'
     | '/admin/security'
     | '/admin/settings'
@@ -1941,6 +1952,7 @@ export interface FileRouteTypes {
     | '/_authenticated/admin/program-builder'
     | '/_authenticated/admin/programs'
     | '/_authenticated/admin/push'
+    | '/_authenticated/admin/pwa'
     | '/_authenticated/admin/reports'
     | '/_authenticated/admin/security'
     | '/_authenticated/admin/settings'
@@ -2869,6 +2881,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAdminReportsRouteImport
       parentRoute: typeof AuthenticatedAdminRouteRoute
     }
+    '/_authenticated/admin/pwa': {
+      id: '/_authenticated/admin/pwa'
+      path: '/pwa'
+      fullPath: '/admin/pwa'
+      preLoaderRoute: typeof AuthenticatedAdminPwaRouteImport
+      parentRoute: typeof AuthenticatedAdminRouteRoute
+    }
     '/_authenticated/admin/push': {
       id: '/_authenticated/admin/push'
       path: '/push'
@@ -3226,6 +3245,7 @@ interface AuthenticatedAdminRouteRouteChildren {
   AuthenticatedAdminProgramBuilderRoute: typeof AuthenticatedAdminProgramBuilderRoute
   AuthenticatedAdminProgramsRoute: typeof AuthenticatedAdminProgramsRoute
   AuthenticatedAdminPushRoute: typeof AuthenticatedAdminPushRoute
+  AuthenticatedAdminPwaRoute: typeof AuthenticatedAdminPwaRoute
   AuthenticatedAdminReportsRoute: typeof AuthenticatedAdminReportsRoute
   AuthenticatedAdminSecurityRoute: typeof AuthenticatedAdminSecurityRoute
   AuthenticatedAdminSettingsRoute: typeof AuthenticatedAdminSettingsRoute
@@ -3283,6 +3303,7 @@ const AuthenticatedAdminRouteRouteChildren: AuthenticatedAdminRouteRouteChildren
       AuthenticatedAdminProgramBuilderRoute,
     AuthenticatedAdminProgramsRoute: AuthenticatedAdminProgramsRoute,
     AuthenticatedAdminPushRoute: AuthenticatedAdminPushRoute,
+    AuthenticatedAdminPwaRoute: AuthenticatedAdminPwaRoute,
     AuthenticatedAdminReportsRoute: AuthenticatedAdminReportsRoute,
     AuthenticatedAdminSecurityRoute: AuthenticatedAdminSecurityRoute,
     AuthenticatedAdminSettingsRoute: AuthenticatedAdminSettingsRoute,

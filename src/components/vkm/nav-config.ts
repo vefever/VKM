@@ -76,6 +76,7 @@ import {
   ConciergeBell,
   ClipboardSignature,
   Send,
+  Smartphone,
 } from "lucide-react";
 import type { AppRole } from "@/hooks/use-auth";
 
@@ -300,6 +301,7 @@ export const ADMIN_NAV: NavGroup[] = [
       { label: "Backup", to: "/admin/backup", icon: ArrowDownToLine },
       { label: "Feature Flags", to: "/admin/feature-flags", icon: FlaskConical },
       { label: "Branding", to: "/admin/branding", icon: Sparkles },
+      { label: "Installable App", to: "/admin/pwa", icon: Smartphone },
       { label: "Exports", to: "/admin/exports", icon: FileSpreadsheet },
       { label: "Support", to: "/admin/support", icon: LifeBuoy },
       { label: "Profile", to: "/admin/profile", icon: UserCircle },
