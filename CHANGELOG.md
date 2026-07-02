@@ -7,6 +7,7 @@ A running log of platform updates. Newest first. Ask any time for a **PDF** of t
 ## 2026-07-02
 
 ### New
+- **Coach Participant Habits, reworked** — same batch-first browsing as the Participants page: pick a batch, then a **Grid ⇄ List** of participants (search, sort by name/points/progress, an **At risk** filter), and open any participant's full live habit tracker. Now scoped to the coach's assigned participants (no coaches in the list).
 - **Participant Leaderboard, reworked** — coaches/mentors/admins no longer appear (participants only); a **My batch ⇄ All batches** toggle with per-scope ranking, stats and a real cohort **activity feed** (from actual points earned). "View Points History" now opens a **real Points History** page — every XP entry grouped by day, a total/stage/top-source summary, and a per-source breakdown.
 
 ### Fixed
