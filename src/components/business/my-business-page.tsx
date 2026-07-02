@@ -41,6 +41,7 @@ import { UpdateSnapshotDrawer } from "@/components/business/update-snapshot-draw
 import { METRIC_COPY, readingFor, type Signal } from "@/components/business/metric-copy";
 import { weekByNumber } from "@/lib/vkm/program";
 import { useEnrollment } from "@/components/participant/enrollment-data";
+import { LogoUploader } from "@/components/vkm/logo-uploader";
 import { AnalyticsSection } from "@/components/business/analytics-section";
 import { TeamSection } from "@/components/business/team-section";
 
@@ -922,6 +923,23 @@ function ProfileSection({ data }: { data: Data }) {
           onOpenChange={setImportOpen}
           onApply={saveExtracted}
         />
+        <div className="mb-5 flex items-center gap-4">
+          <LogoUploader
+            logoUrl={b?.logo_url ?? null}
+            businessName={b?.business_name}
+            userId={user?.id}
+            size="xl"
+            onChange={() => void data.reload()}
+          />
+          <div className="min-w-0">
+            <p className="truncate text-lg font-bold text-foreground">
+              {b?.business_name || "Your business"}
+            </p>
+            <p className="text-xs text-muted-foreground">
+              Tap the logo to upload — it updates everywhere your business appears.
+            </p>
+          </div>
+        </div>
         {b ? (
           <dl className="grid grid-cols-2 gap-4 sm:grid-cols-3">
             <Field label="Business" value={b.business_name ?? "—"} />

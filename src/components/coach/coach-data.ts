@@ -46,6 +46,7 @@ export type BusinessBrain = {
   target_customer: string | null;
   main_competitors: string | null;
   social_handle: string | null;
+  logo_url: string | null;
 };
 export type WeekRow = {
   id: string;

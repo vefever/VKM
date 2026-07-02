@@ -24,6 +24,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { haptic, hapticsEnabled, setHapticsEnabled } from "@/lib/haptics";
 import { AvatarUploader } from "@/components/vkm/avatar-uploader";
+import { LogoUploader } from "@/components/vkm/logo-uploader";
 import { ImportDocumentDialog } from "@/components/business/import-document-dialog";
 import type { ExtractedBusiness, BusinessFieldKey } from "@/lib/vkm/business-fields";
 
@@ -60,6 +61,7 @@ type Business = {
   social_handle: string;
   top_challenges: string;
   success_definition: string;
+  logo_url: string;
 };
 
 const EMPTY_BUSINESS: Business = {
@@ -87,6 +89,7 @@ const EMPTY_BUSINESS: Business = {
   social_handle: "",
   top_challenges: "",
   success_definition: "",
+  logo_url: "",
 };
 
 const num = (s: string) => (s.trim() === "" ? null : Number(s));
@@ -167,6 +170,7 @@ export function ProfileSettings({
           social_handle: brain.social_handle ?? "",
           top_challenges: brain.top_challenges ?? "",
           success_definition: brain.success_definition ?? "",
+          logo_url: brain.logo_url ?? "",
         });
       setLoading(false);
     })();
@@ -387,6 +391,7 @@ function BusinessTab({
         social_handle: business.social_handle.trim() || null,
         top_challenges: business.top_challenges.trim() || null,
         success_definition: business.success_definition.trim() || null,
+        logo_url: business.logo_url.trim() || null,
       },
       { onConflict: "user_id" },
     );
@@ -425,6 +430,21 @@ function BusinessTab({
       />
 
       <SectionCard title="Business profile" subtitle="Powers your AI Advisor & coach insights">
+        <div className="mb-5 flex items-center gap-4">
+          <LogoUploader
+            logoUrl={business.logo_url || null}
+            businessName={business.business_name}
+            userId={userId}
+            size="lg"
+            onChange={(url) => set("logo_url", url)}
+          />
+          <div className="min-w-0">
+            <p className="text-sm font-semibold text-foreground">Business logo</p>
+            <p className="text-xs text-muted-foreground">
+              Shown across your business profile & My Business page. Square PNG works best.
+            </p>
+          </div>
+        </div>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <Field label="Business name">
             <Input

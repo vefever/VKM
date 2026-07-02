@@ -76,7 +76,7 @@ export function useBusinessData() {
       supabase
         .from("business_brains")
         .select(
-          "business_name, industry, location, years_running, current_mrr_inr, target_mrr_inr, team_size, top_products, lead_sources, monthly_leads, closing_rate_pct, avg_deal_inr, top_challenges, success_definition, website, legal_structure, business_model, founded_year, num_customers, pricing_model, usp, target_customer, main_competitors, social_handle",
+          "business_name, industry, location, years_running, current_mrr_inr, target_mrr_inr, team_size, top_products, lead_sources, monthly_leads, closing_rate_pct, avg_deal_inr, top_challenges, success_definition, website, legal_structure, business_model, founded_year, num_customers, pricing_model, usp, target_customer, main_competitors, social_handle, logo_url",
         )
         .eq("user_id", user.id)
         .maybeSingle(),
