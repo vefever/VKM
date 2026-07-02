@@ -21,6 +21,7 @@ import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
+import { invokeMessaging } from "@/components/admin/messaging-data";
 import { useAuth } from "@/hooks/use-auth";
 import { haptic, hapticsEnabled, setHapticsEnabled } from "@/lib/haptics";
 import { AvatarUploader } from "@/components/vkm/avatar-uploader";
@@ -665,14 +666,19 @@ function BusinessTab({
 }
 
 // ---------------------------------------------------------------------------
+const PW_OTP_LEN = 6;
+
 function AccountTab({ email }: { email: string }) {
   const [pw, setPw] = useState("");
   const [pw2, setPw2] = useState("");
+  const [code, setCode] = useState("");
+  const [stage, setStage] = useState<"form" | "code">("form");
   const [busy, setBusy] = useState(false);
   const [haptics, setHaptics] = useState(true);
   useEffect(() => setHaptics(hapticsEnabled()), []);
 
-  async function changePassword() {
+  // Step 1 — validate the new password, then email a 6-digit verification code.
+  async function sendCode() {
     if (pw.length < 8) {
       toast.error("Password must be at least 8 characters.");
       return;
@@ -682,13 +688,46 @@ function AccountTab({ email }: { email: string }) {
       return;
     }
     setBusy(true);
-    const { error } = await supabase.auth.updateUser({ password: pw });
-    setBusy(false);
-    if (error) toast.error("Could not update password", { description: error.message });
-    else {
+    try {
+      const { data, error } = await supabase.functions.invoke("messaging", {
+        body: { action: "request_otp", email },
+      });
+      if (error) throw error;
+      if (data && data.ok === false) throw new Error(data.error || "Couldn't send the code");
+      toast.success("Verification code sent", { description: `Check ${email} for your 6-digit code.` });
+      setStage("code");
+    } catch (e) {
+      toast.error("Couldn't send the code", { description: (e as Error).message });
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  // Step 2 — verify the emailed code, then set the new password.
+  async function verifyAndUpdate() {
+    if (code.trim().length !== PW_OTP_LEN) {
+      toast.error(`Enter the full ${PW_OTP_LEN}-digit code`);
+      return;
+    }
+    setBusy(true);
+    try {
+      const { error: vErr } = await supabase.auth.verifyOtp({
+        email,
+        token: code.trim(),
+        type: "email",
+      });
+      if (vErr) throw new Error("That code is wrong or expired. Send a new one.");
+      const { error: uErr } = await supabase.auth.updateUser({ password: pw });
+      if (uErr) throw uErr;
       toast.success("Password updated");
       setPw("");
       setPw2("");
+      setCode("");
+      setStage("form");
+    } catch (e) {
+      toast.error("Could not update password", { description: (e as Error).message });
+    } finally {
+      setBusy(false);
     }
   }
 
@@ -703,7 +742,10 @@ function AccountTab({ email }: { email: string }) {
         </Field>
       </SectionCard>
 
-      <SectionCard title="Change password" subtitle="Use 8+ characters">
+      <SectionCard
+        title="Change password"
+        subtitle="Use 8+ characters — we email a code to confirm it's you"
+      >
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <Field label="New password" icon={KeyRound}>
             <Input
@@ -711,6 +753,7 @@ function AccountTab({ email }: { email: string }) {
               value={pw}
               onChange={(e) => setPw(e.target.value)}
               placeholder="••••••••"
+              disabled={stage === "code"}
               className="h-11 rounded-xl"
             />
           </Field>
@@ -720,18 +763,49 @@ function AccountTab({ email }: { email: string }) {
               value={pw2}
               onChange={(e) => setPw2(e.target.value)}
               placeholder="••••••••"
+              disabled={stage === "code"}
               className="h-11 rounded-xl"
             />
           </Field>
         </div>
-        <div className="mt-4 flex justify-end">
+
+        {stage === "code" && (
+          <div className="mt-4">
+            <Field label={`Enter the ${PW_OTP_LEN}-digit code sent to ${email}`} icon={Mail}>
+              <Input
+                inputMode="numeric"
+                autoComplete="one-time-code"
+                value={code}
+                onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, PW_OTP_LEN))}
+                maxLength={PW_OTP_LEN}
+                placeholder={"•".repeat(PW_OTP_LEN)}
+                className="h-11 rounded-xl text-center text-lg tracking-[0.5em] sm:max-w-xs"
+              />
+            </Field>
+          </div>
+        )}
+
+        <div className="mt-4 flex items-center justify-end gap-2">
+          {stage === "code" && (
+            <Button
+              variant="ghost"
+              className="rounded-xl"
+              disabled={busy}
+              onClick={() => {
+                setStage("form");
+                setCode("");
+              }}
+            >
+              Back
+            </Button>
+          )}
           <Button
-            onClick={changePassword}
+            onClick={stage === "form" ? sendCode : verifyAndUpdate}
             disabled={busy}
             className="rounded-xl bg-gradient-navy shadow-vkm"
           >
             {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <KeyRound className="h-4 w-4" />}
-            Update password
+            {stage === "form" ? "Send verification code" : "Verify & update password"}
           </Button>
         </div>
       </SectionCard>

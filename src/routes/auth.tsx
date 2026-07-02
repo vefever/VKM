@@ -207,6 +207,7 @@ function SignInForm() {
   const [busy, setBusy] = useState(false);
   const [otpAvailable, setOtpAvailable] = useState(false);
   const [otpMode, setOtpMode] = useState(false);
+  const [forgotMode, setForgotMode] = useState(false);
 
   // Is email-OTP login switched on by the admin? (Pre-auth public RPC.)
   useEffect(() => {
@@ -219,6 +220,7 @@ function SignInForm() {
     };
   }, []);
 
+  if (forgotMode) return <ForgotPassword initialEmail={email} onBack={() => setForgotMode(false)} />;
   if (otpMode) return <OtpSignIn initialEmail={email} onBack={() => setOtpMode(false)} />;
 
   return (
@@ -269,12 +271,13 @@ function SignInForm() {
         </div>
       </div>
       <div className="-mt-1 flex justify-end">
-        <Link
-          to="/reset-password"
+        <button
+          type="button"
+          onClick={() => setForgotMode(true)}
           className="text-xs text-muted-foreground hover:text-foreground transition-colors"
         >
           Forgot password?
-        </Link>
+        </button>
       </div>
       <ShimmerButton type="submit" disabled={busy} className="w-full">
         {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <span>Sign in</span>}
@@ -387,6 +390,155 @@ function OtpSignIn({ initialEmail, onBack }: { initialEmail: string; onBack: () 
           ← Back to password
         </button>
         {stage === "code" && (
+          <button type="button" onClick={() => setStage("email")} className="hover:text-foreground">
+            Use a different email
+          </button>
+        )}
+      </div>
+    </form>
+  );
+}
+
+// Forgot-password: email a one-time code, verify it (which signs the user in),
+// then set a brand-new password. Reuses the same OTP mechanism as code sign-in.
+function ForgotPassword({ initialEmail, onBack }: { initialEmail: string; onBack: () => void }) {
+  const navigate = useNavigate();
+  const [email, setEmail] = useState(initialEmail);
+  const [code, setCode] = useState("");
+  const [pw, setPw] = useState("");
+  const [pw2, setPw2] = useState("");
+  const [show, setShow] = useState(false);
+  const [stage, setStage] = useState<"email" | "reset">("email");
+  const [busy, setBusy] = useState(false);
+
+  async function requestCode(e: React.FormEvent) {
+    e.preventDefault();
+    if (!email.trim()) return;
+    setBusy(true);
+    try {
+      await invokeMessaging("request_otp", { email: email.trim() });
+      toast.success("Reset code sent", { description: `Check ${email} for your 6-digit code.` });
+      setStage("reset");
+    } catch (err) {
+      toast.error("Couldn't send the code", { description: (err as Error).message });
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function reset(e: React.FormEvent) {
+    e.preventDefault();
+    if (code.trim().length !== EMAIL_OTP_LENGTH)
+      return toast.error(`Enter the full ${EMAIL_OTP_LENGTH}-digit code`);
+    if (pw.length < 8) return toast.error("Password must be at least 8 characters");
+    if (pw !== pw2) return toast.error("Passwords don't match");
+    setBusy(true);
+    try {
+      // Verify the code → this creates a session for the account…
+      const { error: vErr } = await supabase.auth.verifyOtp({
+        email: email.trim(),
+        token: code.trim(),
+        type: "email",
+      });
+      if (vErr) throw new Error("That code is wrong or expired. Request a new one.");
+      // …then set the new password on the now-authenticated user.
+      const { error: uErr } = await supabase.auth.updateUser({ password: pw });
+      if (uErr) throw uErr;
+      toast.success("Password reset", { description: "You're signed in with your new password." });
+      navigate({ to: "/app" });
+    } catch (err) {
+      toast.error("Couldn't reset your password", { description: (err as Error).message });
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <form onSubmit={stage === "email" ? requestCode : reset} className="space-y-4">
+      <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
+        <KeyRound className="h-4 w-4 text-gold" /> Reset your password
+      </div>
+      <div className="space-y-1.5">
+        <Label htmlFor="fp-email">Email</Label>
+        <Input
+          id="fp-email"
+          type="email"
+          required
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          disabled={busy || stage === "reset"}
+          className="h-11 rounded-xl bg-card"
+        />
+      </div>
+
+      {stage === "reset" && (
+        <>
+          <div className="space-y-1.5">
+            <Label htmlFor="fp-code">{EMAIL_OTP_LENGTH}-digit code</Label>
+            <Input
+              id="fp-code"
+              inputMode="numeric"
+              autoComplete="one-time-code"
+              required
+              value={code}
+              onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, EMAIL_OTP_LENGTH))}
+              maxLength={EMAIL_OTP_LENGTH}
+              placeholder={"•".repeat(EMAIL_OTP_LENGTH)}
+              disabled={busy}
+              className="h-11 rounded-xl bg-card text-center text-lg tracking-[0.5em]"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="fp-pw">New password</Label>
+            <div className="relative">
+              <Input
+                id="fp-pw"
+                type={show ? "text" : "password"}
+                minLength={8}
+                required
+                value={pw}
+                onChange={(e) => setPw(e.target.value)}
+                disabled={busy}
+                className="h-11 rounded-xl bg-card pr-10"
+              />
+              <button
+                type="button"
+                onClick={() => setShow(!show)}
+                aria-label={show ? "Hide password" : "Show password"}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground transition-colors hover:text-foreground"
+              >
+                {show ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </button>
+            </div>
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="fp-pw2">Confirm new password</Label>
+            <Input
+              id="fp-pw2"
+              type={show ? "text" : "password"}
+              required
+              value={pw2}
+              onChange={(e) => setPw2(e.target.value)}
+              disabled={busy}
+              className="h-11 rounded-xl bg-card"
+            />
+          </div>
+        </>
+      )}
+
+      <ShimmerButton type="submit" disabled={busy} className="w-full">
+        {busy ? (
+          <Loader2 className="h-4 w-4 animate-spin" />
+        ) : (
+          <span>{stage === "email" ? "Send reset code" : "Reset password"}</span>
+        )}
+      </ShimmerButton>
+
+      <div className="flex items-center justify-between text-xs text-muted-foreground">
+        <button type="button" onClick={onBack} className="hover:text-foreground">
+          ← Back to sign in
+        </button>
+        {stage === "reset" && (
           <button type="button" onClick={() => setStage("email")} className="hover:text-foreground">
             Use a different email
           </button>

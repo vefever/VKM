@@ -6,6 +6,12 @@ A running log of platform updates. Newest first. Ask any time for a **PDF** of t
 
 ## 2026-07-02
 
+### Fixed
+- **Forgot password now works** — the sign-in "Forgot password?" link previously led to a page that required being logged in. It now runs a proper flow: enter your email → receive a **6-digit code** → enter the code and a **new password**, and you're signed in.
+
+### Improved
+- **Profile password change** now verifies it's you first — enter a new password, receive an email **code**, confirm it, then the password updates.
+
 ### New
 - **Batch-wise program content** — class videos and per-week **downloads/resources** are now scoped to a batch's program. Admin/mentor pick a batch in **Program Design**, **Program Builder**, and **Class Videos**, then add that batch's videos and files (upload or link) per week. Participants automatically see only **their** batch's content, so a future Batch 17 can have different videos/resources from Batch 16 (which stays unchanged).
 - **Installable App (PWA) settings** — a new Admin page (**Admin → Installable App**) to control the installed app's **name, short name, iOS title, description, icon, and theme/splash colors**, with a live home-screen + splash preview. Defaults match the current app, so nothing changes until edited.
