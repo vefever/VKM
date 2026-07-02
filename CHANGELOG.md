@@ -6,6 +6,12 @@ A running log of platform updates. Newest first. Ask any time for a **PDF** of t
 
 ## 2026-07-02
 
+### New
+- **Habit lists export to Excel & PDF** — in Coach → Participant Habits (list view), the Export menu now downloads a **styled Excel (.xlsx)** — bold navy header in the platform theme with a gold accent, and "Done" cells tinted green — and a **themed PDF** with a navy title bar, gold branding and per-habit ✓/✗ marks. (Alongside the existing PNG/JPG image export.) All downloads are generated in your browser — nothing is stored.
+
+### Fixed
+- **"At risk" no longer flags everyone** — the at-risk badge was comparing each participant against the wrong program week. It now uses each participant's own enrollment week and only flags someone from week 3 onwards when their completed weeks fall meaningfully behind.
+
 ### Improved
 - **Community shows real business details** — the Member Network now auto-pulls each member's business name, industry, location, website, USP and logo straight from their **My Business / business profile** (only public, non-financial fields), instead of a separately typed copy. Member profiles show a richer Business card.
 
