@@ -11,6 +11,8 @@ import {
   Lock,
   Globe,
   Sparkles,
+  Mail,
+  Phone,
 } from "lucide-react";
 import { SectionCard } from "@/components/vkm/section-card";
 import { Button } from "@/components/ui/button";
@@ -86,19 +88,36 @@ export function MemberProfileView({ memberId }: { memberId: string }) {
             )}
           </div>
         </div>
-        {canMessage && (
-          <Button
-            className="mt-4 w-full rounded-xl bg-white text-navy hover:bg-white/90 sm:w-auto"
-            onClick={() => setDmOpen(true)}
-          >
-            <MessageCircle className="h-4 w-4" /> Message {member.name.split(" ")[0]}
-          </Button>
-        )}
-        {!isMe && !member.allowMessages && (
-          <p className="mt-4 inline-flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1.5 text-xs text-white/70">
-            <Lock className="h-3.5 w-3.5" /> Not accepting messages
-          </p>
-        )}
+        {/* Actions + contact — wraps to its own line on mobile. */}
+        <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
+          {canMessage && (
+            <Button
+              className="w-full rounded-xl bg-white text-navy hover:bg-white/90 sm:w-auto"
+              onClick={() => setDmOpen(true)}
+            >
+              <MessageCircle className="h-4 w-4" /> Message {member.name.split(" ")[0]}
+            </Button>
+          )}
+          {!isMe && !member.allowMessages && (
+            <p className="inline-flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1.5 text-xs text-white/70">
+              <Lock className="h-3.5 w-3.5" /> Not accepting messages
+            </p>
+          )}
+          {member.email && (
+            <ContactChip
+              icon={Mail}
+              href={`mailto:${member.email}`}
+              label={member.email}
+            />
+          )}
+          {member.phone && (
+            <ContactChip
+              icon={Phone}
+              href={`tel:${member.phone.replace(/\s+/g, "")}`}
+              label={member.phone}
+            />
+          )}
+        </div>
       </div>
 
       {/* about */}
@@ -197,6 +216,26 @@ export function MemberProfileView({ memberId }: { memberId: string }) {
 
       <DmDialog open={dmOpen} onOpenChange={setDmOpen} member={member} />
     </motion.div>
+  );
+}
+
+function ContactChip({
+  icon: Icon,
+  href,
+  label,
+}: {
+  icon: typeof Mail;
+  href: string;
+  label: string;
+}) {
+  return (
+    <a
+      href={href}
+      className="inline-flex min-w-0 max-w-full items-center gap-1.5 rounded-xl bg-white/10 px-3 py-2 text-sm text-white ring-1 ring-white/15 transition-colors hover:bg-white/20"
+    >
+      <Icon className="h-4 w-4 shrink-0" />
+      <span className="truncate">{label}</span>
+    </a>
   );
 }
 

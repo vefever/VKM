@@ -18,6 +18,8 @@ export type Member = {
   website?: string | null;
   usp?: string | null;
   logoUrl?: string | null;
+  email?: string | null;
+  phone?: string | null;
   batchLabel: string | null;
   status: MemberStatus;
   skills: string[];
@@ -42,6 +44,18 @@ async function communityBusinessMap(): Promise<Map<string, CommunityBusiness>> {
   const { data } = await (supabase.rpc as any)("get_community_business");
   ((data ?? []) as (CommunityBusiness & { user_id: string })[]).forEach((r) =>
     m.set(r.user_id, r),
+  );
+  return m;
+}
+
+// Public contact details (email + phone) for members who opted their profile
+// public, so peers can reach out.
+async function communityContactMap(): Promise<Map<string, { email: string | null; phone: string | null }>> {
+  const m = new Map<string, { email: string | null; phone: string | null }>();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data } = await (supabase.rpc as any)("get_community_contact");
+  ((data ?? []) as { user_id: string; email: string | null; phone: string | null }[]).forEach((r) =>
+    m.set(r.user_id, { email: r.email, phone: r.phone }),
   );
   return m;
 }
@@ -213,14 +227,16 @@ export function useMemberProfile(userId: string) {
       return;
     }
     (async () => {
-      const [{ data: m }, names, biz] = await Promise.all([
+      const [{ data: m }, names, biz, contacts] = await Promise.all([
         supabase.from("member_profiles").select("*").eq("user_id", userId).maybeSingle(),
         profilesFor([userId]),
         communityBusinessMap(),
+        communityContactMap(),
       ]);
       if (!active) return;
       const base = names.get(userId);
       const b = biz.get(userId);
+      const c = contacts.get(userId);
       setMember({
         id: userId,
         name: base?.name ?? "Member",
@@ -232,6 +248,8 @@ export function useMemberProfile(userId: string) {
         website: b?.website ?? null,
         usp: b?.usp ?? null,
         logoUrl: b?.logo_url ?? null,
+        email: c?.email ?? null,
+        phone: c?.phone ?? null,
         batchLabel: m?.batch_label ?? null,
         status: (m?.status as MemberStatus) ?? "active",
         skills: m?.skills ?? [],
