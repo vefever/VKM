@@ -58,6 +58,7 @@
     "framer-motion": "^12.40.0",
     "heic2any": "^0.0.4",
     "hls.js": "^1.6.16",
+    "html-to-image": "^1.11.13",
     "input-otp": "^1.4.2",
     "lucide-react": "^0.575.0",
     "pdfjs-dist": "^4.10.38",

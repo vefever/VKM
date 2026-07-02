@@ -1,6 +1,8 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import { format } from "date-fns";
+import { toPng, toJpeg } from "html-to-image";
+import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import {
   Activity,
@@ -18,7 +20,14 @@ import {
   Search,
   LayoutGrid,
   List as ListIcon,
+  Download,
 } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { PageHeader } from "@/components/vkm/page-header";
 import { SectionCard } from "@/components/vkm/section-card";
 import { AvatarBadge } from "@/components/vkm/avatar-badge";
@@ -89,6 +98,30 @@ export function ParticipantHabitsViewer({ eyebrow = "Coach" }: { eyebrow?: strin
   useEffect(() => {
     if (maxDay > 0) setSelectedDay(maxDay); // default to the most recent day with data
   }, [maxDay]);
+
+  // Export the day's habit list as a downloaded image — client-side only, never
+  // stored anywhere (html-to-image → data URL → download).
+  const exportRef = useRef<HTMLDivElement>(null);
+  const [exporting, setExporting] = useState(false);
+  async function exportImage(fmt: "png" | "jpg") {
+    const node = exportRef.current;
+    if (!node) return;
+    setExporting(true);
+    try {
+      const opts = { backgroundColor: "#ffffff", pixelRatio: 2, cacheBust: true };
+      const dataUrl =
+        fmt === "jpg" ? await toJpeg(node, { ...opts, quality: 0.95 }) : await toPng(node, opts);
+      const a = document.createElement("a");
+      a.href = dataUrl;
+      a.download = `habits-${(activeBatch?.name ?? "batch").replace(/\s+/g, "-")}-day-${selectedDay}.${fmt}`;
+      a.click();
+      toast.success(`Downloaded ${fmt.toUpperCase()}`);
+    } catch (e) {
+      toast.error("Couldn't export image", { description: (e as Error).message });
+    } finally {
+      setExporting(false);
+    }
+  }
 
   const filtered = useMemo(() => {
     if (!activeBatch) return [];
@@ -216,8 +249,45 @@ export function ParticipantHabitsViewer({ eyebrow = "Coach" }: { eyebrow?: strin
             </div>
           ) : (
             <div className="space-y-3">
-              <DayPicker maxDay={maxDay} value={selectedDay} onChange={setSelectedDay} />
-              <SectionCard bodyClassName="p-0">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <DayPicker maxDay={maxDay} value={selectedDay} onChange={setSelectedDay} />
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" size="sm" className="h-9 shrink-0 rounded-full" disabled={exporting}>
+                      {exporting ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Download className="h-4 w-4" />
+                      )}
+                      Export
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem onClick={() => exportImage("png")}>
+                      Download PNG
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => exportImage("jpg")}>
+                      Download JPG
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
+
+              {/* Captured area for image export (header gives the export context). */}
+              <div ref={exportRef} className="overflow-hidden rounded-2xl border border-border bg-white">
+                <div className="flex items-center justify-between gap-2 border-b border-border bg-secondary/40 px-4 py-2.5">
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-foreground">
+                      {activeBatch.name} · Day {selectedDay}
+                    </p>
+                    <p className="text-[11px] text-muted-foreground">
+                      Habit completions — {filtered.length} participants
+                    </p>
+                  </div>
+                  <p className="shrink-0 text-[11px] font-semibold uppercase tracking-wide text-gold">
+                    VK Mentorship
+                  </p>
+                </div>
                 <ul className="divide-y divide-border">
                   {filtered.map((p) => (
                     <PersonRow
@@ -228,7 +298,7 @@ export function ParticipantHabitsViewer({ eyebrow = "Coach" }: { eyebrow?: strin
                     />
                   ))}
                 </ul>
-              </SectionCard>
+              </div>
             </div>
           )}
         </div>
@@ -533,16 +603,16 @@ function HabitRounds({ done }: { done: Set<string> }) {
         return (
           <span
             key={h.id}
-            title={`${h.name}${on ? " ✓" : ""}`}
+            title={`${h.name} — ${on ? "done" : "missed"}`}
             className={cn(
-              "inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full transition-colors",
+              "inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full transition-colors",
               on
                 ? "text-white shadow-vkm"
-                : "border border-dashed border-border text-muted-foreground/40",
+                : "border-2 border-[#ef4444] text-[#ef4444]", // missed → red round
             )}
             style={on ? { background: `linear-gradient(135deg, ${h.from}, ${h.to})` } : undefined}
           >
-            <Icon className="h-3.5 w-3.5" />
+            <Icon className="h-4 w-4" />
           </span>
         );
       })}
