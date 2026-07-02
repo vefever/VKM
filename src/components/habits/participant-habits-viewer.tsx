@@ -21,11 +21,14 @@ import {
   LayoutGrid,
   List as ListIcon,
   Download,
+  FileSpreadsheet,
+  Image as ImageIcon,
 } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { PageHeader } from "@/components/vkm/page-header";
@@ -121,6 +124,30 @@ export function ParticipantHabitsViewer({ eyebrow = "Coach" }: { eyebrow?: strin
     } finally {
       setExporting(false);
     }
+  }
+
+  // Spreadsheet export — Name + a column per habit (Done / Not done) + total.
+  // A CSV with a UTF-8 BOM opens directly in Excel / Google Sheets. Client-side
+  // only; never stored.
+  function exportSpreadsheet() {
+    const esc = (v: string | number) => `"${String(v).replace(/"/g, '""')}"`;
+    const header = ["Name", ...HABITS.map((h) => h.name), "Completed"];
+    const body = filtered.map((p) => {
+      const done = doneFor(p.id, selectedDay);
+      return [
+        p.name,
+        ...HABITS.map((h) => (done.has(h.id) ? "Done" : "Not done")),
+        `${done.size}/${HABITS.length}`,
+      ];
+    });
+    const csv = [header, ...body].map((r) => r.map(esc).join(",")).join("\r\n");
+    const blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8;" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = `habits-${(activeBatch?.name ?? "batch").replace(/\s+/g, "-")}-day-${selectedDay}.csv`;
+    a.click();
+    URL.revokeObjectURL(a.href);
+    toast.success("Downloaded spreadsheet");
   }
 
   const filtered = useMemo(() => {
@@ -264,10 +291,14 @@ export function ParticipantHabitsViewer({ eyebrow = "Coach" }: { eyebrow?: strin
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
                     <DropdownMenuItem onClick={() => exportImage("png")}>
-                      Download PNG
+                      <ImageIcon className="h-4 w-4" /> Image · PNG
                     </DropdownMenuItem>
                     <DropdownMenuItem onClick={() => exportImage("jpg")}>
-                      Download JPG
+                      <ImageIcon className="h-4 w-4" /> Image · JPG
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={exportSpreadsheet}>
+                      <FileSpreadsheet className="h-4 w-4" /> Excel · CSV
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
