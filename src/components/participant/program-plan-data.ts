@@ -1,5 +1,7 @@
 import { createContext, createElement, useCallback, useContext, useEffect, useState, type ReactNode } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/use-auth";
+import { resolveMyProgramId, defaultProgramId } from "@/lib/vkm/program-scope";
 import { VKM_WEEKS, type ProgramWeek, type Phase } from "@/lib/vkm/program";
 
 // DB-backed, variable-length program plan. The active program's program_weeks
@@ -32,6 +34,7 @@ function phasesFrom(weeks: ProgramWeek[]): ProgramPhaseGroup[] {
 }
 
 export function useProgramPlan(): ProgramPlan {
+  const { user } = useAuth();
   const [weeks, setWeeks] = useState<ProgramWeek[]>(VKM_WEEKS);
   const [programId, setProgramId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -39,23 +42,19 @@ export function useProgramPlan(): ProgramPlan {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const { data: prog } = await supabase
-        .from("programs")
-        .select("id")
-        .eq("status", "active")
-        .order("created_at", { ascending: true })
-        .limit(1)
-        .maybeSingle();
-      if (!prog) {
+      // The participant's program comes from THEIR batch (falls back to the
+      // default active program), so different batches can run different content.
+      const pid = user ? await resolveMyProgramId(user.id) : await defaultProgramId();
+      if (!pid) {
         setProgramId(null);
         setWeeks(VKM_WEEKS);
         return;
       }
-      setProgramId(prog.id);
+      setProgramId(pid);
       const { data: rows } = await supabase
         .from("program_weeks")
         .select("week_no, phase, topic, mode, why, task, proof")
-        .eq("program_id", prog.id)
+        .eq("program_id", pid)
         .order("week_no", { ascending: true });
       if (rows && rows.length > 0) {
         setWeeks(
@@ -77,7 +76,7 @@ export function useProgramPlan(): ProgramPlan {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [user]);
 
   useEffect(() => {
     void load();

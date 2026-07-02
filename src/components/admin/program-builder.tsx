@@ -13,6 +13,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { VKM_WEEKS, type Phase } from "@/lib/vkm/program";
+import { useProgramOptions } from "@/lib/vkm/program-scope";
+import { BatchProgramPicker } from "@/components/admin/batch-program-picker";
 
 const PHASES: Phase[] = ["Foundation", "Systems", "Sell", "Review"];
 const PHASE_COLOR: Record<Phase, string> = {
@@ -47,7 +49,8 @@ type Draft = {
 const SELECT = "id, week_no, phase, topic, mode, why, task, proof";
 
 export function ProgramBuilder() {
-  const [programId, setProgramId] = useState<string | null>(null);
+  const { options, selected, setSelected, loading: optLoading } = useProgramOptions();
+  const programId = selected;
   const [rows, setRows] = useState<WeekRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [working, setWorking] = useState(false);
@@ -55,28 +58,20 @@ export function ProgramBuilder() {
   const [saving, setSaving] = useState(false);
 
   const load = useCallback(async () => {
-    setLoading(true);
-    const { data: prog } = await supabase
-      .from("programs")
-      .select("id")
-      .eq("status", "active")
-      .order("created_at", { ascending: true })
-      .limit(1)
-      .maybeSingle();
-    const pid = prog?.id ?? null;
-    setProgramId(pid);
-    if (pid) {
-      const { data } = await supabase
-        .from("program_weeks")
-        .select(SELECT)
-        .eq("program_id", pid)
-        .order("week_no", { ascending: true });
-      setRows((data ?? []) as WeekRow[]);
-    } else {
+    if (!programId) {
       setRows([]);
+      setLoading(false);
+      return;
     }
+    setLoading(true);
+    const { data } = await supabase
+      .from("program_weeks")
+      .select(SELECT)
+      .eq("program_id", programId)
+      .order("week_no", { ascending: true });
+    setRows((data ?? []) as WeekRow[]);
     setLoading(false);
-  }, []);
+  }, [programId]);
 
   useEffect(() => { void load(); }, [load]);
 
@@ -88,7 +83,7 @@ export function ProgramBuilder() {
       .select("id")
       .single();
     if (error) { toast.error("Could not create program", { description: error.message }); return null; }
-    setProgramId(data.id);
+    setSelected(data.id);
     return data.id;
   }
 
@@ -176,10 +171,18 @@ export function ProgramBuilder() {
         }
       />
 
+      <BatchProgramPicker
+        options={options}
+        selected={selected}
+        onSelect={setSelected}
+        loading={optLoading}
+        hint="Weeks you edit apply to this batch's program."
+      />
+
       <SectionCard>
         <div className="flex flex-wrap items-center justify-between gap-3">
           <p className="text-sm text-muted-foreground">
-            <span className="font-semibold text-foreground">{rows.length}</span> weeks in the active program plan.
+            <span className="font-semibold text-foreground">{rows.length}</span> weeks in this batch's program plan.
           </p>
           {rows.length > 0 && (
             <span className="text-xs text-muted-foreground">Editing here updates what every participant sees in Program Progress.</span>

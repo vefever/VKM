@@ -53,7 +53,9 @@ import { TaskResources } from "@/components/participant/task-resources";
 import {
   useWeekVideos,
   videoMapFromRows,
+  useWeekResources,
   type WeekVideoOverride,
+  type WeekResource,
 } from "@/components/admin/class-videos-data";
 
 // Local, per-week "did I engage" state (watched video / assignment done).
@@ -346,9 +348,10 @@ function ProgramProgressInner() {
     return m;
   }, [weeks]);
 
-  // Admin-managed class videos (override the sample where set).
-  const { rows: videoRows } = useWeekVideos();
+  // Admin-managed class videos + resources for THIS participant's program.
+  const { rows: videoRows } = useWeekVideos(plan.programId);
   const videoByWeek = useMemo(() => videoMapFromRows(videoRows), [videoRows]);
+  const { byWeek: resourceByWeek } = useWeekResources(plan.programId);
 
   // Local engagement state (watched / assignment done), persisted.
   const [activity, setActivity] = useState<ActivityMap>(() => loadActivity());
@@ -524,6 +527,7 @@ function ProgramProgressInner() {
             activity={activity}
             markStep={markStep}
             videoByWeek={videoByWeek}
+            resourceByWeek={resourceByWeek}
           />
         )}
         {tab === "journey" && (
@@ -545,6 +549,7 @@ function WeeklyTasks({
   activity,
   markStep,
   videoByWeek,
+  resourceByWeek,
 }: {
   statusOf: (n: number) => WeekStatus;
   currentWeek: number;
@@ -552,6 +557,7 @@ function WeeklyTasks({
   activity: ActivityMap;
   markStep: (weekNo: number, key: keyof WeekActivity, value: boolean) => void;
   videoByWeek: Map<number, WeekVideoOverride>;
+  resourceByWeek: Map<number, WeekResource[]>;
 }) {
   const plan = usePlan();
   const [q, setQ] = useState("");
@@ -679,6 +685,7 @@ function WeeklyTasks({
             activity={activity[w.week]}
             markStep={markStep}
             videoOverride={videoByWeek.get(w.week)}
+            resources={resourceByWeek.get(w.week) ?? []}
           />
         ))}
         {list.length === 0 && (
@@ -867,6 +874,7 @@ function TaskCard({
   activity,
   markStep,
   videoOverride,
+  resources,
 }: {
   wk: ProgramWeek;
   currentWeek: number;
@@ -877,6 +885,7 @@ function TaskCard({
   activity?: WeekActivity;
   markStep: (weekNo: number, key: keyof WeekActivity, value: boolean) => void;
   videoOverride?: WeekVideoOverride;
+  resources: WeekResource[];
 }) {
   const meta = STATUS_META[status];
   const locked = status === "upcoming";
@@ -996,6 +1005,7 @@ function TaskCard({
                 onWatched={() => markStep(wk.week, "watched", true)}
                 onToggleAssignment={(v) => markStep(wk.week, "assignmentDone", v)}
                 videoOverride={videoOverride}
+                resources={resources}
               />
 
               {/* submission */}

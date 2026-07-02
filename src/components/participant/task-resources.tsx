@@ -17,12 +17,20 @@ import { VideoPlayer } from "@/components/vkm/video-player";
 import { cn } from "@/lib/utils";
 import { posterFor, type VideoKind } from "@/lib/video-source";
 import type { ProgramWeek } from "@/lib/vkm/program";
+import type { WeekResource } from "@/components/admin/class-videos-data";
 import {
   getWeekResources,
   type DownloadType,
   type WeekDownload,
   type WeekResources,
 } from "@/lib/vkm/week-resources";
+
+function fmtBytes(bytes: number | null) {
+  if (!bytes) return "";
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
 
 const DL_ICON: Record<DownloadType, typeof FileText> = {
   pdf: FileText,
@@ -60,6 +68,7 @@ export function TaskResources({
   onWatched,
   onToggleAssignment,
   videoOverride,
+  resources = [],
 }: {
   wk: ProgramWeek;
   currentWeek: number;
@@ -70,6 +79,7 @@ export function TaskResources({
   onWatched: () => void;
   onToggleAssignment: (v: boolean) => void;
   videoOverride?: { url: string; provider?: VideoKind; title?: string | null };
+  resources?: WeekResource[];
 }) {
   const res: WeekResources = useMemo(
     () => getWeekResources(wk, currentWeek, videoOverride),
@@ -93,7 +103,56 @@ export function TaskResources({
         submitted={submitted}
         onToggle={onToggleAssignment}
       />
+      <ResourceBlock resources={resources} locked={locked} weekNo={wk.week} />
       <DownloadBlock downloads={res.downloads} locked={locked} weekNo={wk.week} />
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Resources — real files/links added by staff for this program week
+// ---------------------------------------------------------------------------
+function ResourceBlock({
+  resources,
+  locked,
+  weekNo,
+}: {
+  resources: WeekResource[];
+  locked: boolean;
+  weekNo: number;
+}) {
+  if (!locked && resources.length === 0) return null; // stay quiet when there's nothing
+  return (
+    <div>
+      <SectionHead icon={FileText} label="Resources" count={locked ? 0 : resources.length} />
+      {locked ? (
+        <LockedNote weekNo={weekNo} />
+      ) : (
+        <div className="space-y-2">
+          {resources.map((r) => (
+            <div
+              key={r.id}
+              className="flex items-center gap-3 rounded-lg border border-border bg-card p-2.5"
+            >
+              <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-secondary text-navy">
+                <FileText className="h-4 w-4" />
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-medium text-foreground">{r.title}</p>
+                <p className="truncate text-[11px] text-muted-foreground">
+                  {r.kind === "link" ? "External link" : r.file_name || "File"}
+                  {r.size ? ` · ${fmtBytes(r.size)}` : ""}
+                </p>
+              </div>
+              <Button size="sm" variant="outline" className="h-8 shrink-0 rounded-lg" asChild>
+                <a href={r.url} target="_blank" rel="noreferrer" download={r.kind === "file" ? r.file_name || true : undefined}>
+                  <Download className="h-4 w-4" /> {r.kind === "link" ? "Open" : "Download"}
+                </a>
+              </Button>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

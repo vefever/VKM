@@ -33,11 +33,14 @@ import {
   detectProvider,
   type WeekVideoRow,
 } from "@/components/admin/class-videos-data";
+import { useProgramOptions } from "@/lib/vkm/program-scope";
+import { BatchProgramPicker } from "@/components/admin/batch-program-picker";
 
 const PROVIDER_LABEL = { youtube: "YouTube", vimeo: "Vimeo", file: "File / Upload" } as const;
 
 export function ClassVideosManager() {
-  const { rows, loading, reload } = useWeekVideos();
+  const { options, selected, setSelected, loading: optLoading } = useProgramOptions();
+  const { rows, loading, reload } = useWeekVideos(selected);
   const byWeek = new Map(rows.map((r) => [r.week_no, r]));
   const setCount = rows.filter((r) => r.url).length;
 
@@ -51,8 +54,16 @@ export function ClassVideosManager() {
       <PageHeader
         eyebrow="Admin · LMS"
         title="Class Videos"
-        description="Attach a recording to each week — paste a YouTube / Vimeo / .mp4 link or upload a file. Participants see it inside that week's task."
+        description="Attach a recording to each week — paste a YouTube / Vimeo / .mp4 link or upload a file. Participants in the selected batch see it inside that week's task."
         icon={Video}
+      />
+
+      <BatchProgramPicker
+        options={options}
+        selected={selected}
+        onSelect={setSelected}
+        loading={optLoading}
+        hint="Videos apply to this batch's participants only."
       />
 
       <SectionCard>
@@ -81,6 +92,7 @@ export function ClassVideosManager() {
               </div>
               <WeekVideoField
                 className="mt-3"
+                programId={selected}
                 weekNo={wk.week}
                 topic={wk.topic}
                 initial={row}
@@ -117,6 +129,7 @@ function SetBadge({ has }: { has: boolean }) {
  * context (number/topic); this renders only the editable controls.
  */
 export function WeekVideoField({
+  programId,
   weekNo,
   topic,
   initial,
@@ -124,6 +137,7 @@ export function WeekVideoField({
   onSaved,
   className,
 }: {
+  programId: string | null;
   weekNo: number;
   topic: string;
   initial?: WeekVideoRow;
@@ -165,10 +179,14 @@ export function WeekVideoField({
   }
 
   async function save(clear = false) {
+    if (!programId) {
+      toast.error("Pick a batch first");
+      return;
+    }
     setSaving(true);
     try {
       const u = clear ? "" : trimmed;
-      await saveWeekVideo(weekNo, {
+      await saveWeekVideo(programId, weekNo, {
         url: u || null,
         provider: u ? detectProvider(u) : null,
         title: null,
