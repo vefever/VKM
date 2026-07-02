@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import {
   Upload,
@@ -55,6 +55,13 @@ export function ProofSubmit() {
   const [note, setNote] = useState("");
   const [staged, setStaged] = useState<Staged[]>([]);
   const [busy, setBusy] = useState(false);
+
+  // Revoke any still-staged blob URLs if the user navigates away without
+  // submitting (otherwise the underlying File objects — often multi-MB photos —
+  // stay pinned in memory until a full reload).
+  const stagedRef = useRef<Staged[]>([]);
+  stagedRef.current = staged;
+  useEffect(() => () => stagedRef.current.forEach((s) => URL.revokeObjectURL(s.url)), []);
 
   const w = weekByNumber(week);
   const byWeek = useMemo(() => {

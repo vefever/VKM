@@ -65,6 +65,25 @@ async function isSuperAdmin(userId: string): Promise<boolean> {
   const { data } = await admin.from("user_roles").select("role").eq("user_id", userId).eq("role", "super_admin");
   return (data?.length ?? 0) > 0;
 }
+// mentor/super_admin manage shared content (class videos, branding, PWA/SEO
+// assets) that isn't namespaced under a user id.
+async function isContentManager(userId: string): Promise<boolean> {
+  const { data } = await admin
+    .from("user_roles")
+    .select("role")
+    .eq("user_id", userId)
+    .in("role", ["super_admin", "mentor"]);
+  return (data?.length ?? 0) > 0;
+}
+
+// Reject path-traversal / malformed keys. A valid key is one or more non-empty
+// segments of [\w.-], separated by single "/", no leading/trailing slash.
+function isSafeKey(key: string): boolean {
+  if (!key || key.length > 512) return false;
+  if (key.startsWith("/") || key.endsWith("/") || key.includes("//")) return false;
+  if (key.includes("..") || key.includes("\\")) return false;
+  return key.split("/").every((seg) => seg.length > 0 && /^[\w.\-]+$/.test(seg));
+}
 
 // --- S3 SigV4 query-string presign (PUT) for R2 -----------------------------
 async function sha256hex(data: string): Promise<string> {
@@ -128,6 +147,16 @@ Deno.serve(async (req) => {
       const { provider, enabled, c } = await loadStorage();
       const key = String(p.key || "");
       if (!key) return json({ ok: false, error: "key required" }, 400, cors);
+      // Access control: without this any authed user could presign a PUT to ANY
+      // object in the bucket (overwrite others' files / host content on the
+      // trusted asset domain). Every user upload is namespaced under the user's
+      // id (`<uid>/…` or `logo/<uid>/…`); shared-content keys (class-videos,
+      // pwa/, seo/, branding/) are written only by content managers.
+      if (!isSafeKey(key)) return json({ ok: false, error: "Invalid key" }, 400, cors);
+      const ownsKey = key.split("/").includes(user.id);
+      if (!ownsKey && !(await isContentManager(user.id))) {
+        return json({ ok: false, error: "Forbidden" }, 403, cors);
+      }
       if (provider === "r2" && enabled && c.accountId && c.accessKeyId && c.secretAccessKey && c.bucket && c.publicBaseUrl) {
         const uploadUrl = await presignR2(c, key);
         const publicUrl = `${c.publicBaseUrl.replace(/\/$/, "")}/${encKey(key)}`;

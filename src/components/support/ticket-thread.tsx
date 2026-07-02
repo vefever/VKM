@@ -32,6 +32,11 @@ export function TicketThread({ ticketId, readOnly }: { ticketId: string; readOnl
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
   }, [messages, loading]);
 
+  // Revoke still-staged blob URLs on unmount (abandoned attachments).
+  const stagedRef = useRef<Staged[]>([]);
+  stagedRef.current = staged;
+  useEffect(() => () => stagedRef.current.forEach((s) => URL.revokeObjectURL(s.url)), []);
+
   function onFiles(list: FileList | null) {
     if (!list) return;
     setStaged((s) => [

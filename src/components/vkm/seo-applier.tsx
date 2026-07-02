@@ -42,8 +42,9 @@ export function SeoApplier() {
 
       if (cfg.canonical_url) setCanonical(cfg.canonical_url);
 
-      if (cfg.ga_enabled && /^G-[A-Z0-9]+$/i.test(cfg.ga_measurement_id.trim())) {
-        loadGoogleAnalytics(cfg.ga_measurement_id.trim());
+      const gaId = (cfg.ga_measurement_id || "").trim();
+      if (cfg.ga_enabled && /^G-[A-Z0-9]+$/i.test(gaId)) {
+        loadGoogleAnalytics(gaId);
       }
     })();
 

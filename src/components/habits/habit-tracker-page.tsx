@@ -849,6 +849,13 @@ function HabitProofModal({
   const [staged, setStaged] = useState<StagedFile[]>([]);
   const [busy, setBusy] = useState(false);
 
+  // Revoke still-staged blob URLs when the habit sheet closes without submitting
+  // (this is a daily-use surface, so abandoned photo/video proofs would otherwise
+  // accumulate in memory across a PWA session).
+  const stagedRef = useRef<StagedFile[]>([]);
+  stagedRef.current = staged;
+  useEffect(() => () => stagedRef.current.forEach((s) => URL.revokeObjectURL(s.url)), []);
+
   function onFiles(files: FileList | null) {
     if (!files) return;
     const add = Array.from(files).map((f) => ({

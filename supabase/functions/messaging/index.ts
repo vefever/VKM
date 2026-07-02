@@ -104,6 +104,36 @@ async function checkStaff(req: Request): Promise<{ ok: boolean; userId?: string 
   }
 }
 
+// Throttle the pre-auth OTP endpoint. Returns a reason string when the request
+// should be blocked, or null to allow. Records each allowed attempt. Fails OPEN
+// (returns null) on any DB error so an outage can't lock everyone out of login.
+async function otpRateLimited(email: string, ip: string): Promise<string | null> {
+  const now = Date.now();
+  const emailBucket = `email:${email}`;
+  const ipBucket = `ip:${ip}`;
+  const hourAgo = new Date(now - 3_600_000).toISOString();
+  const win45s = new Date(now - 45_000).toISOString();
+  const countSince = async (bucket: string, since: string) => {
+    const { count } = await admin
+      .from("otp_requests")
+      .select("*", { count: "exact", head: true })
+      .eq("bucket", bucket)
+      .gte("created_at", since);
+    return count ?? 0;
+  };
+  try {
+    if ((await countSince(emailBucket, win45s)) >= 1) return "email-45s";
+    if ((await countSince(emailBucket, hourAgo)) >= 6) return "email-hour";
+    if (ip !== "unknown" && (await countSince(ipBucket, hourAgo)) >= 30) return "ip-hour";
+    await admin.from("otp_requests").insert([{ bucket: emailBucket }, { bucket: ipBucket }]);
+    await admin.from("otp_requests").delete().lt("created_at", hourAgo); // opportunistic GC
+    return null;
+  } catch (e) {
+    console.error("otpRateLimited error:", (e as Error).message);
+    return null; // fail open
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Email providers
 // ---------------------------------------------------------------------------
@@ -366,6 +396,20 @@ Deno.serve(async (req) => {
         .trim()
         .toLowerCase();
       if (!email) return json({ ok: false, error: "Email required" }, 400, cors);
+
+      // Rate limit (anti-abuse): throttle per-email and per-IP. Return ok on a
+      // block so account existence / throttle state can't be probed — we just
+      // skip the send. Windows: ≤1 email/45s, ≤6 email/hour, ≤30 per IP/hour.
+      const ip =
+        req.headers.get("cf-connecting-ip") ||
+        req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
+        "unknown";
+      const rl = await otpRateLimited(email, ip);
+      if (rl) {
+        console.warn(`request_otp throttled (${rl})`);
+        return json({ ok: true }, 200, cors);
+      }
+
       // Generate Supabase's own OTP (valid for client verifyOtp), email it ourselves.
       const { data, error } = await admin.auth.admin.generateLink({ type: "magiclink", email });
       // Don't leak whether the account exists.
@@ -401,9 +445,26 @@ Deno.serve(async (req) => {
       }
       const staff = await checkStaff(req);
       if (!staff.ok) return json({ ok: false, error: "Staff only." }, 200, cors);
-      const recipients: string[] = Array.isArray(p.recipients)
+      let recipients: string[] = Array.isArray(p.recipients)
         ? [...new Set(p.recipients.filter((x: unknown) => typeof x === "string" && x))]
         : [];
+      // Anti-abuse: send_bulk is meant for meeting invites to platform members.
+      // Restrict recipients to known member emails so a compromised staff account
+      // can't fan arbitrary HTML out to arbitrary external addresses (phishing /
+      // spam from the verified VKM domain). Also cap the batch size.
+      {
+        const { data: members } = await admin.from("profiles").select("email");
+        const allowed = new Set(
+          (members ?? [])
+            .map((m) => String((m as { email?: string }).email || "").trim().toLowerCase())
+            .filter(Boolean),
+        );
+        const before = recipients.length;
+        recipients = recipients.filter((r) => allowed.has(r.trim().toLowerCase())).slice(0, 2000);
+        if (recipients.length < before) {
+          console.warn(`send_bulk: dropped ${before - recipients.length} non-member recipient(s)`);
+        }
+      }
       const subject = String(p.subject || "VK Mentorship");
       const html = String(p.html || "");
       const text = p.text ? String(p.text) : undefined;
