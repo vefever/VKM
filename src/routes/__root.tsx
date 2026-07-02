@@ -15,6 +15,7 @@ import { AuthProvider } from "@/hooks/use-auth";
 import { Toaster } from "@/components/ui/sonner";
 import { PwaManager } from "@/components/vkm/pwa-manager";
 import { PwaApplier } from "@/components/vkm/pwa-applier";
+import { SeoApplier } from "@/components/vkm/seo-applier";
 import { FlyPointsHost } from "@/components/vkm/fly-points";
 import { ChatWidget } from "@/components/vkm/chat-widget";
 import { useAppShell } from "@/hooks/use-app-shell";
@@ -161,6 +162,7 @@ function RootComponent() {
       <AuthProvider>
         <Outlet />
         <PwaApplier />
+        <SeoApplier />
         <PwaManager />
         <FlyPointsHost />
         <ChatWidget />

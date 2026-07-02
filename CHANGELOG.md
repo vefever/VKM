@@ -7,6 +7,7 @@ A running log of platform updates. Newest first. Ask any time for a **PDF** of t
 ## 2026-07-02
 
 ### New
+- **SEO & Analytics admin page** — a new **Admin → SEO & Analytics** page to control how the platform appears in search and on social. Edit the **site title, meta description, keywords, canonical URL**, and toggle **search-engine indexing**; set the **social share card** (Open Graph/Twitter title, description and image) with live **Google search** and **social card** previews; and connect **Google Analytics (GA4)** by entering a Measurement ID and flipping it on. Everything is seeded with the current values, so nothing changes until edited. Analytics only loads when enabled with a valid ID.
 - **Habit lists export to Excel & PDF** — in Coach → Participant Habits (list view), the Export menu now downloads a **styled Excel (.xlsx)** — bold navy header in the platform theme with a gold accent, and "Done" cells tinted green — and a **themed PDF** with a navy title bar, gold branding and per-habit ✓/✗ marks. (Alongside the existing PNG/JPG image export.) All downloads are generated in your browser — nothing is stored.
 
 ### Fixed

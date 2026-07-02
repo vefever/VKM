@@ -120,6 +120,7 @@ import { Route as AuthenticatedAdminSupportRouteImport } from './routes/_authent
 import { Route as AuthenticatedAdminStorageRouteImport } from './routes/_authenticated/admin/storage'
 import { Route as AuthenticatedAdminSmsRouteImport } from './routes/_authenticated/admin/sms'
 import { Route as AuthenticatedAdminSettingsRouteImport } from './routes/_authenticated/admin/settings'
+import { Route as AuthenticatedAdminSeoRouteImport } from './routes/_authenticated/admin/seo'
 import { Route as AuthenticatedAdminSecurityRouteImport } from './routes/_authenticated/admin/security'
 import { Route as AuthenticatedAdminReportsRouteImport } from './routes/_authenticated/admin/reports'
 import { Route as AuthenticatedAdminPwaRouteImport } from './routes/_authenticated/admin/pwa'
@@ -817,6 +818,11 @@ const AuthenticatedAdminSettingsRoute =
     path: '/settings',
     getParentRoute: () => AuthenticatedAdminRouteRoute,
   } as any)
+const AuthenticatedAdminSeoRoute = AuthenticatedAdminSeoRouteImport.update({
+  id: '/seo',
+  path: '/seo',
+  getParentRoute: () => AuthenticatedAdminRouteRoute,
+} as any)
 const AuthenticatedAdminSecurityRoute =
   AuthenticatedAdminSecurityRouteImport.update({
     id: '/security',
@@ -1148,6 +1154,7 @@ export interface FileRoutesByFullPath {
   '/admin/pwa': typeof AuthenticatedAdminPwaRoute
   '/admin/reports': typeof AuthenticatedAdminReportsRoute
   '/admin/security': typeof AuthenticatedAdminSecurityRoute
+  '/admin/seo': typeof AuthenticatedAdminSeoRoute
   '/admin/settings': typeof AuthenticatedAdminSettingsRoute
   '/admin/sms': typeof AuthenticatedAdminSmsRoute
   '/admin/storage': typeof AuthenticatedAdminStorageRoute
@@ -1306,6 +1313,7 @@ export interface FileRoutesByTo {
   '/admin/pwa': typeof AuthenticatedAdminPwaRoute
   '/admin/reports': typeof AuthenticatedAdminReportsRoute
   '/admin/security': typeof AuthenticatedAdminSecurityRoute
+  '/admin/seo': typeof AuthenticatedAdminSeoRoute
   '/admin/settings': typeof AuthenticatedAdminSettingsRoute
   '/admin/sms': typeof AuthenticatedAdminSmsRoute
   '/admin/storage': typeof AuthenticatedAdminStorageRoute
@@ -1470,6 +1478,7 @@ export interface FileRoutesById {
   '/_authenticated/admin/pwa': typeof AuthenticatedAdminPwaRoute
   '/_authenticated/admin/reports': typeof AuthenticatedAdminReportsRoute
   '/_authenticated/admin/security': typeof AuthenticatedAdminSecurityRoute
+  '/_authenticated/admin/seo': typeof AuthenticatedAdminSeoRoute
   '/_authenticated/admin/settings': typeof AuthenticatedAdminSettingsRoute
   '/_authenticated/admin/sms': typeof AuthenticatedAdminSmsRoute
   '/_authenticated/admin/storage': typeof AuthenticatedAdminStorageRoute
@@ -1634,6 +1643,7 @@ export interface FileRouteTypes {
     | '/admin/pwa'
     | '/admin/reports'
     | '/admin/security'
+    | '/admin/seo'
     | '/admin/settings'
     | '/admin/sms'
     | '/admin/storage'
@@ -1792,6 +1802,7 @@ export interface FileRouteTypes {
     | '/admin/pwa'
     | '/admin/reports'
     | '/admin/security'
+    | '/admin/seo'
     | '/admin/settings'
     | '/admin/sms'
     | '/admin/storage'
@@ -1955,6 +1966,7 @@ export interface FileRouteTypes {
     | '/_authenticated/admin/pwa'
     | '/_authenticated/admin/reports'
     | '/_authenticated/admin/security'
+    | '/_authenticated/admin/seo'
     | '/_authenticated/admin/settings'
     | '/_authenticated/admin/sms'
     | '/_authenticated/admin/storage'
@@ -2867,6 +2879,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAdminSettingsRouteImport
       parentRoute: typeof AuthenticatedAdminRouteRoute
     }
+    '/_authenticated/admin/seo': {
+      id: '/_authenticated/admin/seo'
+      path: '/seo'
+      fullPath: '/admin/seo'
+      preLoaderRoute: typeof AuthenticatedAdminSeoRouteImport
+      parentRoute: typeof AuthenticatedAdminRouteRoute
+    }
     '/_authenticated/admin/security': {
       id: '/_authenticated/admin/security'
       path: '/security'
@@ -3248,6 +3267,7 @@ interface AuthenticatedAdminRouteRouteChildren {
   AuthenticatedAdminPwaRoute: typeof AuthenticatedAdminPwaRoute
   AuthenticatedAdminReportsRoute: typeof AuthenticatedAdminReportsRoute
   AuthenticatedAdminSecurityRoute: typeof AuthenticatedAdminSecurityRoute
+  AuthenticatedAdminSeoRoute: typeof AuthenticatedAdminSeoRoute
   AuthenticatedAdminSettingsRoute: typeof AuthenticatedAdminSettingsRoute
   AuthenticatedAdminSmsRoute: typeof AuthenticatedAdminSmsRoute
   AuthenticatedAdminStorageRoute: typeof AuthenticatedAdminStorageRoute
@@ -3306,6 +3326,7 @@ const AuthenticatedAdminRouteRouteChildren: AuthenticatedAdminRouteRouteChildren
     AuthenticatedAdminPwaRoute: AuthenticatedAdminPwaRoute,
     AuthenticatedAdminReportsRoute: AuthenticatedAdminReportsRoute,
     AuthenticatedAdminSecurityRoute: AuthenticatedAdminSecurityRoute,
+    AuthenticatedAdminSeoRoute: AuthenticatedAdminSeoRoute,
     AuthenticatedAdminSettingsRoute: AuthenticatedAdminSettingsRoute,
     AuthenticatedAdminSmsRoute: AuthenticatedAdminSmsRoute,
     AuthenticatedAdminStorageRoute: AuthenticatedAdminStorageRoute,
