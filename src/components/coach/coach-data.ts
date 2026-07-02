@@ -494,6 +494,8 @@ export type ParticipantRow = {
   points: number;
   pending: number;
   atRisk: boolean;
+  batchId: string | null;
+  batchName: string | null;
 };
 
 export function useParticipantsOverview() {
@@ -515,12 +517,26 @@ export function useParticipantsOverview() {
         }
         return;
       }
-      const [display, { data: wp }, { data: ledger }] = await Promise.all([
+      const [display, { data: wp }, { data: ledger }, { data: bm }] = await Promise.all([
         profilesDisplayFor(ids),
         supabase.from("weekly_progress").select("user_id, proof_status").in("user_id", ids),
         supabase.from("points_ledger").select("user_id, points").in("user_id", ids),
+        supabase.from("batch_members").select("user_id, batch_id").in("user_id", ids).eq("role", "participant"),
       ]);
       if (!active) return;
+
+      // Resolve each participant's batch (first membership) + its name.
+      const userBatch = new Map<string, string>();
+      (bm ?? []).forEach((r) => {
+        if (r.batch_id && !userBatch.has(r.user_id)) userBatch.set(r.user_id, r.batch_id);
+      });
+      const batchIds = [...new Set([...userBatch.values()])];
+      const batchName = new Map<string, string>();
+      if (batchIds.length > 0) {
+        const { data: batches } = await supabase.from("batches").select("id, name").in("id", batchIds);
+        if (!active) return;
+        (batches ?? []).forEach((b) => batchName.set(b.id, b.name));
+      }
       const out = ids.map((id) => {
         const weeks = (wp ?? []).filter((w) => w.user_id === id);
         const weeksDone = weeks.filter((w) => w.proof_status === "approved").length;
@@ -531,6 +547,7 @@ export function useParticipantsOverview() {
         const week = currentWeekNo();
         const atRisk = weeksDone < week - 2; // 2+ weeks behind
         const prof = display.get(id);
+        const batchId = userBatch.get(id) ?? null;
         return {
           id,
           name: prof?.name ?? "Participant",
@@ -539,6 +556,8 @@ export function useParticipantsOverview() {
           points,
           pending,
           atRisk,
+          batchId,
+          batchName: batchId ? (batchName.get(batchId) ?? null) : null,
         };
       });
       out.sort((a, b) => b.points - a.points);
