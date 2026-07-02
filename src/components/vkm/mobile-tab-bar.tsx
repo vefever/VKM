@@ -17,17 +17,31 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from "@/components/ui/drawer";
-import { NAV_BY_ROLE, ROLE_BASE } from "@/components/vkm/nav-config";
+import { NAV_BY_ROLE, ROLE_BASE, navGroupsForTier } from "@/components/vkm/nav-config";
 import type { AppRole } from "@/hooks/use-auth";
+import { useAccessTier } from "@/hooks/use-access-tier";
+import { MessagesSquare, Briefcase, LifeBuoy } from "lucide-react";
+import type { AccessTier } from "@/lib/vkm/access";
 import { cn } from "@/lib/utils";
 import { haptic } from "@/lib/haptics";
 
 type Tab = { label: string; to: string; icon: LucideIcon };
 
 // #27 — fixed tabs; everything else lives in the "More" bottom sheet.
-function tabsFor(role: AppRole): Tab[] {
+function tabsFor(role: AppRole, tier: AccessTier): Tab[] {
   const base = ROLE_BASE[role];
   if (role === "participant") {
+    // Restricted tiers get tabs only for pages they can open.
+    if (tier === "community") {
+      return [{ label: "Community", to: `${base}/community`, icon: MessagesSquare }];
+    }
+    if (tier === "alumni") {
+      return [
+        { label: "Community", to: `${base}/community`, icon: MessagesSquare },
+        { label: "Business", to: `${base}/business`, icon: Briefcase },
+        { label: "Support", to: `${base}/support`, icon: LifeBuoy },
+      ];
+    }
     return [
       { label: "Home", to: base, icon: LayoutDashboard },
       { label: "Habits", to: `${base}/habits`, icon: Activity },
@@ -59,14 +73,17 @@ function tabsFor(role: AppRole): Tab[] {
 }
 
 // #31 — the prominent raised center action (participants submit proof most often).
-function centerFor(role: AppRole): Tab | null {
-  if (role === "participant") return { label: "Submit", to: "/participant/proof", icon: Upload };
+// Only full-access participants submit proofs.
+function centerFor(role: AppRole, tier: AccessTier): Tab | null {
+  if (role === "participant" && tier === "full")
+    return { label: "Submit", to: "/participant/proof", icon: Upload };
   return null;
 }
 
 export function MobileTabBar({ role }: { role: AppRole }) {
-  const tabs = tabsFor(role);
-  const center = centerFor(role);
+  const { tier } = useAccessTier();
+  const tabs = tabsFor(role, tier);
+  const center = centerFor(role, tier);
   const [moreOpen, setMoreOpen] = useState(false);
 
   return (
@@ -94,7 +111,7 @@ export function MobileTabBar({ role }: { role: AppRole }) {
         )}
       </div>
 
-      <MoreSheet role={role} open={moreOpen} onOpenChange={setMoreOpen} />
+      <MoreSheet role={role} tier={tier} open={moreOpen} onOpenChange={setMoreOpen} />
     </nav>
   );
 }
@@ -163,15 +180,17 @@ function MoreButton({ onClick }: { onClick: () => void }) {
 // #27 / #28 — overflow navigation as a slide-up bottom sheet (drag handle + snap via vaul).
 function MoreSheet({
   role,
+  tier,
   open,
   onOpenChange,
 }: {
   role: AppRole;
+  tier: AccessTier;
   open: boolean;
   onOpenChange: (o: boolean) => void;
 }) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
-  const groups = NAV_BY_ROLE[role];
+  const groups = role === "participant" ? navGroupsForTier(NAV_BY_ROLE[role], tier) : NAV_BY_ROLE[role];
 
   return (
     <Drawer open={open} onOpenChange={onOpenChange}>

@@ -79,9 +79,18 @@ import {
   Smartphone,
 } from "lucide-react";
 import type { AppRole } from "@/hooks/use-auth";
+import { isPathAllowed, type AccessTier } from "@/lib/vkm/access";
 
 export type NavItem = { label: string; to: string; icon: LucideIcon };
 export type NavGroup = { label: string; items: NavItem[] };
+
+/** Keep only the nav groups/items a participant's access tier may open. */
+export function navGroupsForTier(groups: NavGroup[], tier: AccessTier): NavGroup[] {
+  if (tier === "full") return groups;
+  return groups
+    .map((g) => ({ ...g, items: g.items.filter((i) => isPathAllowed(tier, i.to)) }))
+    .filter((g) => g.items.length > 0);
+}
 
 export const PROFILE_PATH: Record<AppRole, string> = {
   participant: "/participant/profile",

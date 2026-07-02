@@ -35,7 +35,8 @@ import { Input } from "@/components/ui/input";
 import { LogOut, Search, ChevronsUpDown, ChevronDown, Command as CmdIcon, UserCircle } from "lucide-react";
 import { useAuth, type AppRole } from "@/hooks/use-auth";
 import { NotificationBell } from "@/components/notifications/notification-bell";
-import { NAV_BY_ROLE, PROFILE_PATH, ROLE_BASE, ROLE_LABEL } from "@/components/vkm/nav-config";
+import { NAV_BY_ROLE, PROFILE_PATH, ROLE_BASE, ROLE_LABEL, navGroupsForTier } from "@/components/vkm/nav-config";
+import { useAccessTier } from "@/hooks/use-access-tier";
 import { VKMLogo } from "@/components/vkm/logo";
 import { cn } from "@/lib/utils";
 import { CommandMenu } from "@/components/vkm/command-menu";
@@ -45,7 +46,8 @@ function VKMSidebar({ role }: { role: AppRole }) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const { state } = useSidebar();
   const collapsed = state === "collapsed";
-  const groups = NAV_BY_ROLE[role];
+  const { tier } = useAccessTier();
+  const groups = role === "participant" ? navGroupsForTier(NAV_BY_ROLE[role], tier) : NAV_BY_ROLE[role];
   // #5 — remember which sidebar sections the user collapsed (per device).
   const [closedGroups, setClosedGroups] = useState<Record<string, boolean>>(() => {
     if (typeof window === "undefined") return {};
