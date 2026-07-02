@@ -90,12 +90,22 @@ export function PwaManager() {
       .register("/sw.js")
       .then((registration) => {
         reg = registration;
+        // A new build was already downloaded on a previous session and is
+        // waiting. This is app launch (a cold, safe point — not mid-session), so
+        // apply it now: users are never more than one launch behind, without the
+        // deploy-time force-reload that caused logouts. The boot session-refresh
+        // (use-auth) recovers if the ensuing reload interrupts a token refresh.
+        if (registration.waiting && navigator.serviceWorker.controller) {
+          registration.waiting.postMessage("SKIP_WAITING");
+        }
+        // Nudge the browser to check for a newer worker on every launch.
+        void registration.update().catch(() => {});
         registration.addEventListener("updatefound", () => {
           const sw = registration.installing;
           if (!sw) return;
           sw.addEventListener("statechange", () => {
             if (sw.state === "installed" && navigator.serviceWorker.controller) {
-              setUpdateReady(sw); // a new version is waiting
+              setUpdateReady(sw); // found during THIS session → offer an Update toast
             }
           });
         });

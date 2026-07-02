@@ -118,7 +118,7 @@ function ParticipantDashboard() {
 
       {/* Progress hero */}
       <section className="grid gap-4 lg:grid-cols-3">
-        <div className="lg:col-span-2 overflow-hidden rounded-3xl bg-gradient-navy p-7 text-primary-foreground shadow-vkm-float">
+        <div className="lg:col-span-2 overflow-hidden rounded-3xl bg-gradient-navy p-5 text-primary-foreground shadow-vkm-float sm:p-7">
           <div className="flex items-center justify-between gap-4">
             <div className="min-w-0 flex-1">
               <p className="text-xs font-medium uppercase tracking-[0.18em] text-primary-foreground/70">
