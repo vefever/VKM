@@ -24,7 +24,7 @@ export function UserProfilePanel({ user }: { user: LeaderboardEntry | undefined 
       initial={{ opacity: 0, x: 30 }}
       animate={{ opacity: 1, x: 0 }}
       transition={{ duration: 0.5, delay: 0.4 }}
-      className="relative overflow-hidden rounded-2xl bg-gradient-navy p-5 text-center text-primary-foreground shadow-vkm-float"
+      className="relative overflow-hidden rounded-2xl bg-gradient-navy px-5 pb-6 pt-8 text-center text-primary-foreground shadow-vkm-float"
     >
       {STARS.map((s, i) => (
         <span
