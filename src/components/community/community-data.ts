@@ -2,7 +2,6 @@ import { useCallback, useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import type { Attachment } from "@/components/chat/chat-data";
-import { MOCK_MEMBERS, MOCK_BY_ID } from "@/components/community/mock-members";
 import { profilesDisplayFor } from "@/lib/profiles-display";
 
 export type MemberStatus = "active" | "alumni";
@@ -24,7 +23,6 @@ export type Member = {
   status: MemberStatus;
   skills: string[];
   allowMessages: boolean;
-  mock?: boolean;
 };
 
 export type CommunityBusiness = {
@@ -140,8 +138,7 @@ export function useMemberDirectory() {
           allowMessages: m.allow_messages,
         };
       });
-      // Append sample members so the directory looks alive (demo data).
-      setMembers([...real, ...MOCK_MEMBERS]);
+      setMembers(real);
       setLoading(false);
     })();
     return () => {
@@ -218,14 +215,6 @@ export function useMemberProfile(userId: string) {
 
   useEffect(() => {
     let active = true;
-    // Sample member → serve from mock data, skip the DB.
-    const mock = MOCK_BY_ID.get(userId);
-    if (mock) {
-      setMember(mock);
-      setBio(mock.bio);
-      setLoading(false);
-      return;
-    }
     (async () => {
       const [{ data: m }, names, biz, contacts] = await Promise.all([
         supabase.from("member_profiles").select("*").eq("user_id", userId).maybeSingle(),

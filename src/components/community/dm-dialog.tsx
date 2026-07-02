@@ -15,12 +15,10 @@ export function DmDialog({
 }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
-  member: Pick<Member, "id" | "name" | "avatar" | "allowMessages" | "mock"> | null;
+  member: Pick<Member, "id" | "name" | "avatar" | "allowMessages"> | null;
 }) {
   const { user } = useAuth();
-  const { messages, send, loading } = useDmThread(
-    open && member && !member.mock ? member.id : null,
-  );
+  const { messages, send, loading } = useDmThread(open && member ? member.id : null);
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
   const endRef = useRef<HTMLDivElement>(null);
@@ -38,7 +36,7 @@ export function DmDialog({
     setBusy(false);
   }
 
-  const blocked = member && (!member.allowMessages || member.mock);
+  const blocked = member && !member.allowMessages;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -51,13 +49,9 @@ export function DmDialog({
         {blocked ? (
           <div className="flex flex-1 flex-col items-center justify-center gap-2 p-6 text-center">
             <Lock className="h-6 w-6 text-muted-foreground" />
-            <p className="text-sm font-medium text-foreground">
-              {member?.mock ? "Sample member" : "Messages are off"}
-            </p>
+            <p className="text-sm font-medium text-foreground">Messages are off</p>
             <p className="max-w-xs text-xs text-muted-foreground">
-              {member?.mock
-                ? "This is demo data — 1:1 chat works with real members in the directory."
-                : "This member isn't accepting direct messages right now."}
+              This member isn't accepting direct messages right now.
             </p>
           </div>
         ) : (
