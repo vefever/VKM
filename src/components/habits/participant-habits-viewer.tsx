@@ -56,7 +56,7 @@ export function ParticipantHabitsViewer({ eyebrow = "Coach" }: { eyebrow?: strin
   const [batchKey, setBatchKey] = useState<string | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
   const [view, setView] = useState<"grid" | "list">(() =>
-    typeof window === "undefined" ? "grid" : (localStorage.getItem(VIEW_KEY) as "grid" | "list") || "grid",
+    typeof window === "undefined" ? "list" : (localStorage.getItem(VIEW_KEY) as "grid" | "list") || "list",
   );
   const [q, setQ] = useState("");
   const [sort, setSort] = useState<Sort>("name");
@@ -437,12 +437,10 @@ function PersonRow({
             <p className="truncate text-sm font-medium text-foreground">{p.name}</p>
             <span
               className={cn(
-                "shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-bold tabular-nums",
+                "shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold tabular-nums",
                 done.size === HABITS.length
                   ? "bg-[oklch(0.93_0.06_160)] text-[oklch(0.35_0.12_160)]"
-                  : done.size > 0
-                    ? "bg-gold/15 text-[oklch(0.45_0.1_85)]"
-                    : "bg-secondary text-muted-foreground",
+                  : "bg-secondary text-muted-foreground",
               )}
             >
               {done.size}/{HABITS.length}
@@ -603,16 +601,16 @@ function HabitRounds({ done }: { done: Set<string> }) {
         return (
           <span
             key={h.id}
-            title={`${h.name} — ${on ? "done" : "missed"}`}
+            title={`${h.name} — ${on ? "done" : "not done"}`}
             className={cn(
               "inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full transition-colors",
               on
-                ? "text-white shadow-vkm"
-                : "border-2 border-[#ef4444] text-[#ef4444]", // missed → red round
+                ? "text-white ring-1 ring-black/5"
+                : "border border-border bg-secondary/50 text-muted-foreground/45",
             )}
             style={on ? { background: `linear-gradient(135deg, ${h.from}, ${h.to})` } : undefined}
           >
-            <Icon className="h-4 w-4" />
+            <Icon className="h-[15px] w-[15px]" />
           </span>
         );
       })}
