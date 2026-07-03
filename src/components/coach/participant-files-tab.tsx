@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { useServerFn } from "@tanstack/react-start";
 import {
   Loader2,
   FolderOpen,
@@ -17,6 +18,7 @@ import { type Attachment } from "@/components/chat/chat-data";
 import { type WeekRow } from "@/components/coach/coach-data";
 import { useParticipantHabits, HABITS } from "@/components/habits/habit-tracker";
 import { useVisionFor } from "@/components/participant/vision-data";
+import { proxyFetchFile } from "@/lib/vkm/file-proxy.functions";
 
 type ZipEntry = { folder: string; file: Attachment };
 
@@ -33,6 +35,7 @@ export function ParticipantFilesTab({
   habits: ReturnType<typeof useParticipantHabits>;
 }) {
   const { statement, loading: visionLoading } = useVisionFor(userId);
+  const fetchFile = useServerFn(proxyFetchFile);
   const [openDay, setOpenDay] = useState<number | null>(null);
   const [zipping, setZipping] = useState(false);
   const [zipProgress, setZipProgress] = useState<{ done: number; total: number } | null>(null);
@@ -114,8 +117,10 @@ export function ParticipantFilesTab({
 
       for (const entry of plan) {
         try {
-          const res = await fetch(entry.file.url);
-          if (!res.ok) throw new Error(String(res.status));
+          // Fetched server-side (not a direct browser fetch) so the zip never
+          // depends on the client's own cross-origin visibility into storage.
+          const res = await fetchFile({ data: { url: entry.file.url } });
+          if (!(res instanceof Response) || !res.ok) throw new Error("fetch failed");
           const blob = await res.blob();
           const key = `${entry.folder}/${entry.file.name}`;
           const n = usedNames.get(key) ?? 0;
