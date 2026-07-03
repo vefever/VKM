@@ -7,6 +7,7 @@ A running log of platform updates. Newest first. Ask any time for a **PDF** of t
 ## 2026-07-03
 
 ### New
+- **Platform Analytics, for real** — Admin → Analytics is now a live dashboard built entirely from real platform data (no more placeholder numbers): KPIs (participants, coaches, mentors, active batches, active-in-last-15-min, new signups, at-risk, open tickets), 30-day signup / 14-day habit-completion / 30-day points trends, per-coach caseload & performance, per-batch health, per-mentor oversight activity, and a **live activity feed** that pushes new events (habit completions, points awarded) the instant they happen. Auto-refreshes in the background without ever flashing a loading skeleton.
 - **AI model picker** — Admin → AI Configurations now has a **dropdown of the models available on your gateway plan** (Claude Opus/Sonnet/Haiku, GPT-4.1, GPT-5/GPT-5 Mini/GPT-4.1 Mini/o4-mini, North Code), grouped with their capabilities, plus a **Custom** option for any other model id. Models not currently entitled on the plan are shown disabled with a clear warning instead of silently failing.
 
 ### Fixed
