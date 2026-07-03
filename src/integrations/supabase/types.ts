@@ -1962,6 +1962,18 @@ export type Database = {
         }[]
       }
       admin_analytics_overview: { Args: never; Returns: Json }
+      admin_batch_file_counts: {
+        Args: { _batch_id: string }
+        Returns: {
+          avatar_url: string
+          full_name: string
+          habit_file_count: number
+          total_file_count: number
+          user_id: string
+          vision_file_count: number
+          weekly_file_count: number
+        }[]
+      }
       admin_bulk_add_coach: {
         Args: { _coach_id: string; _emails: string[] }
         Returns: number
@@ -1992,6 +2004,7 @@ export type Database = {
           participant_count: number
         }[]
       }
+      admin_participant_files: { Args: { _user_id: string }; Returns: Json }
       admin_people_search: {
         Args: { _limit?: number; _q?: string }
         Returns: {
