@@ -1,8 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { WireframePage } from "@/components/vkm/wireframe-page";
-import { getPageConfig } from "@/components/vkm/page-registry";
+import { ReportsPage } from "@/components/admin/reports-page";
 
 export const Route = createFileRoute("/_authenticated/admin/reports")({
   head: () => ({ meta: [{ title: "Reports · VKM" }] }),
-  component: () => <WireframePage config={getPageConfig("/admin/reports")} />,
+  component: ReportsPage,
 });

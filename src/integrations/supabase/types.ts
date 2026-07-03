@@ -1971,6 +1971,31 @@ export type Database = {
           participant_count: number
         }[]
       }
+      admin_people_search: {
+        Args: { _limit?: number; _q?: string }
+        Returns: {
+          avatar_url: string
+          full_name: string
+          roles: string[]
+          user_id: string
+        }[]
+      }
+      admin_report_batch: {
+        Args: { _batch_id: string; _from: string; _to: string }
+        Returns: Json
+      }
+      admin_report_coach: {
+        Args: { _coach_id: string; _from: string; _to: string }
+        Returns: Json
+      }
+      admin_report_individual: {
+        Args: { _from: string; _to: string; _user_id: string }
+        Returns: Json
+      }
+      admin_report_mentor: {
+        Args: { _from: string; _mentor_id: string; _to: string }
+        Returns: Json
+      }
       admin_resolve_user_id: { Args: { _email: string }; Returns: string }
       admin_set_alumni: {
         Args: { _user_id: string; _value: boolean }
