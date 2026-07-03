@@ -374,6 +374,8 @@ export function PlatformAnalyticsPage() {
                   <img
                     src={row.avatar_url || "/icon-512.png"}
                     alt=""
+                    loading="lazy"
+                    decoding="async"
                     className="h-8 w-8 shrink-0 rounded-full border border-border object-cover"
                   />
                   <div className="min-w-0 flex-1">

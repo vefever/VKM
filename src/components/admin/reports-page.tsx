@@ -292,6 +292,8 @@ export function ReportsPage() {
                       <img
                         src={p.avatar_url || "/icon-512.png"}
                         alt=""
+                        loading="lazy"
+                        decoding="async"
                         className="h-6 w-6 shrink-0 rounded-full border border-border object-cover"
                       />
                       <span className="min-w-0 flex-1 truncate text-foreground">{p.full_name ?? "—"}</span>

@@ -6,6 +6,9 @@ A running log of platform updates. Newest first. Ask any time for a **PDF** of t
 
 ## 2026-07-03
 
+### Improved
+- **Faster, snappier UI platform-wide** — hashed JS/CSS assets are now cached by the browser for a year instead of re-validating over the network on every single load (the biggest single win — repeat visits and navigations now load already-fetched code instantly, offline-capable). Hover-prefetching now actually gets used (was expiring instantly before you could click). Cached data (program enrollment, dashboard points/milestones) no longer re-fetches from scratch on every page visit — revisiting a page you've already loaded is now instant. Avatar images lazy-load so long member/leaderboard lists don't fire dozens of image requests upfront.
+
 ### New
 - **Reports — one-on-one, batch, coach & mentor** — Admin → Reports is now a full report builder: pick **Individual** (search any participant/coach/mentor by name), **Batch**, **Coach**, or **Mentor**, choose a date range (7d/30d/90d presets or custom), and get KPIs, a trend chart, and a drillable table — click any participant row in a Batch or Coach report to jump straight into their **Individual** report. Every report **exports to a styled Excel (.xlsx) or PDF** in the platform's navy/gold theme. Loads on demand only (never polls), so it adds no background database load.
 - **Platform Analytics, for real** — Admin → Analytics is now a live dashboard built entirely from real platform data (no more placeholder numbers): KPIs (participants, coaches, mentors, active batches, active-in-last-15-min, new signups, at-risk, open tickets), 30-day signup / 14-day habit-completion / 30-day points trends, per-coach caseload & performance, per-batch health, per-mentor oversight activity, and a **live activity feed** that pushes new events (habit completions, points awarded) the instant they happen. Auto-refreshes in the background without ever flashing a loading skeleton.

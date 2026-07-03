@@ -13,7 +13,15 @@ export function LbAvatar({
   className?: string;
 }) {
   if (avatar) {
-    return <img src={avatar} alt={name} className={cn("shrink-0 object-cover", className)} />;
+    return (
+      <img
+        src={avatar}
+        alt={name}
+        loading="lazy"
+        decoding="async"
+        className={cn("shrink-0 object-cover", className)}
+      />
+    );
   }
   return <span className={className}>{initialsOf(name)}</span>;
 }

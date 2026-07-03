@@ -1,0 +1,22 @@
+# Cloudflare Workers Assets header rules (same syntax as Cloudflare Pages).
+#
+# Vite's build hashes every file under /assets/* by content (a new build that
+# changes a file gets a new filename), so those responses are safe to cache
+# forever — the browser never needs to re-validate an already-fetched hash.
+# Without this, every asset was served `max-age=0, must-revalidate`, forcing a
+# network round-trip on every single load even for a chunk already on disk.
+# This is the main reason a Next.js build "feels instant" on repeat visits and
+# this app didn't.
+/assets/*
+  Cache-Control: public, max-age=31536000, immutable
+
+# The service worker file itself must NEVER be cached — the browser (and our
+# own update flow) needs to see a fresh sw.js on every check, or app updates
+# never reach installed users.
+/sw.js
+  Cache-Control: no-cache
+
+# The web manifest changes rarely but isn't content-hashed — a short cache is
+# safe and still avoids re-fetching it on every load.
+/manifest.webmanifest
+  Cache-Control: public, max-age=3600

@@ -16,6 +16,8 @@ export function MemberAvatar({
       <img
         src={src}
         alt={name}
+        loading="lazy"
+        decoding="async"
         style={{ width: size, height: size }}
         className={cn("shrink-0 rounded-full object-cover", className)}
       />
