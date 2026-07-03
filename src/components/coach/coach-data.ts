@@ -85,7 +85,7 @@ export function useParticipantProfile(userId: string | null) {
         supabase
           .from("business_brains")
           .select(
-            "business_name, industry, location, years_running, current_mrr_inr, target_mrr_inr, team_size, top_products, lead_sources, monthly_leads, closing_rate_pct, avg_deal_inr, top_challenges, success_definition",
+            "business_name, industry, location, years_running, current_mrr_inr, target_mrr_inr, team_size, top_products, lead_sources, monthly_leads, closing_rate_pct, avg_deal_inr, top_challenges, success_definition, website, legal_structure, business_model, founded_year, num_customers, pricing_model, usp, target_customer, main_competitors, social_handle, logo_url",
           )
           .eq("user_id", userId)
           .maybeSingle(),
@@ -151,6 +151,76 @@ export function useParticipantProfile(userId: string | null) {
   );
 
   return { profile, brain, weeks, points, milestones, loading, reviewWeek };
+}
+
+// ---------------------------------------------------------------------------
+// STAFF — a participant's monthly business-snapshot history (read-only; the
+// review/approve flow lives in snapshot-review.tsx's staff queue, not here).
+// Type mirrors business-data.ts's BusinessSnapshot verbatim — defined locally
+// (not imported) since business-data.ts already imports BusinessBrain FROM
+// this file, and importing back would create a circular module dependency.
+// ---------------------------------------------------------------------------
+export type BusinessSnapshot = {
+  id: string;
+  month: string;
+  revenue_inr: number | null;
+  mrr_inr: number | null;
+  leads: number | null;
+  deals: number | null;
+  pipeline_inr: number | null;
+  avg_deal_inr: number | null;
+  closing_rate_pct: number | null;
+  followup_pct: number | null;
+  nps: number | null;
+  note: string | null;
+  reflection_win: string | null;
+  reflection_blocker: string | null;
+  status: "pending" | "approved" | "rejected";
+  coach_note: string | null;
+  reviewed_by: string | null;
+  reviewed_at: string | null;
+  created_at: string;
+};
+
+const SNAPSHOT_SELECT =
+  "id, month, revenue_inr, mrr_inr, leads, deals, pipeline_inr, avg_deal_inr, closing_rate_pct, followup_pct, nps, note, reflection_win, reflection_blocker, status, coach_note, reviewed_by, reviewed_at, created_at";
+
+export function useParticipantSnapshots(userId: string | null) {
+  const [snapshots, setSnapshots] = useState<BusinessSnapshot[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const load = useCallback(async () => {
+    if (!userId) return;
+    const { data } = await supabase
+      .from("business_snapshots")
+      .select(SNAPSHOT_SELECT)
+      .eq("user_id", userId)
+      .order("month", { ascending: true });
+    setSnapshots((data ?? []) as BusinessSnapshot[]);
+    setLoading(false);
+  }, [userId]);
+
+  useEffect(() => {
+    if (!userId) {
+      setLoading(false);
+      return;
+    }
+    setLoading(true);
+    load();
+    const ch = supabase
+      .channel(`ps_snap:${userId}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "business_snapshots", filter: `user_id=eq.${userId}` },
+        () => load(),
+      )
+      .subscribe();
+    return () => {
+      supabase.removeChannel(ch);
+    };
+  }, [userId, load]);
+
+  return { snapshots, loading };
 }
 
 // ---------------------------------------------------------------------------

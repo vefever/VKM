@@ -22,7 +22,6 @@ import {
   Check,
   X,
   ExternalLink,
-  Flag,
   Plus,
   Trash2,
   NotebookPen,
@@ -32,6 +31,12 @@ import {
   LogIn,
   ShieldAlert,
   Copy,
+  LayoutDashboard,
+  Activity,
+  Compass,
+  FolderOpen,
+  FileSpreadsheet,
+  FileText,
   type LucideIcon,
 } from "lucide-react";
 import { SectionCard } from "@/components/vkm/section-card";
@@ -40,6 +45,13 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { useAuth } from "@/hooks/use-auth";
 import { addCoachTask, notifyParticipant } from "@/components/coach/coach-tasks-data";
 import { cn } from "@/lib/utils";
@@ -53,17 +65,15 @@ import {
 } from "@/lib/vkm/program";
 import { useParticipantProfile, useParticipantTeam, type WeekRow } from "@/components/coach/coach-data";
 import { staffLoginAsParticipant } from "@/lib/vkm/admin-users.functions";
-import {
-  useParticipantHabits,
-  HABITS,
-  TRACKER_HABITS,
-  dateForDay,
-} from "@/components/habits/habit-tracker";
+import { useParticipantHabits, HABITS, TRACKER_HABITS, dateForDay } from "@/components/habits/habit-tracker";
 import { HabitGrid } from "@/components/habits/habit-grid";
 import { ProofAttachments } from "@/components/participant/proof-attachments";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { goalProgress, PILLAR_COLOR, type Pillar } from "@/components/participant/vision-data";
+import { ParticipantBusinessTab } from "@/components/coach/participant-business-tab";
+import { ParticipantVisionTab } from "@/components/coach/participant-vision-tab";
+import { ParticipantFilesTab } from "@/components/coach/participant-files-tab";
+import { exportReportPdf, exportReportExcel, type ReportExportSpec } from "@/lib/vkm/report-export";
 
 const inr = (n: number | null | undefined) =>
   n == null ? "—" : `₹${Number(n).toLocaleString("en-IN")}`;
@@ -74,6 +84,88 @@ const STATUS: Record<string, string> = {
   rejected: "bg-[oklch(0.93_0.06_25)] text-[oklch(0.45_0.16_25)]",
   none: "bg-muted text-muted-foreground",
 };
+
+// Builds the full export spec on demand (not kept eagerly in state) — the
+// business-snapshot and vision-goal history live in their own lazily-mounted
+// tabs, so a one-off fetch here keeps the export complete without forcing
+// those tables to load just because the profile page opened.
+async function buildExportSpec(args: {
+  name: string;
+  profile: { phone: string | null; created_at: string | null } | null;
+  brain: { business_name: string | null } | null;
+  weeks: WeekRow[];
+  points: number;
+  stage: string;
+  weeksDone: number;
+  attended: number;
+  userId: string;
+}): Promise<ReportExportSpec> {
+  const { name, profile, brain, weeks, points, stage, weeksDone, attended, userId } = args;
+
+  const [{ data: snaps }, { data: goals }] = await Promise.all([
+    supabase
+      .from("business_snapshots")
+      .select("month, revenue_inr, mrr_inr, leads, deals, closing_rate_pct, status")
+      .eq("user_id", userId)
+      .order("month", { ascending: true }),
+    supabase
+      .from("vision_goals")
+      .select("year, title, category, status")
+      .eq("user_id", userId)
+      .order("year")
+      .order("sort_order"),
+  ]);
+
+  return {
+    title: `Participant Profile — ${name}`,
+    subtitle: brain?.business_name ? `${brain.business_name} · Batch 16` : "Batch 16",
+    meta: [
+      {
+        label: "Joined",
+        value: profile?.created_at ? format(new Date(profile.created_at), "d MMM yyyy") : "—",
+      },
+      { label: "Generated", value: new Date().toLocaleString() },
+    ],
+    kpis: [
+      { label: "Weeks approved", value: `${weeksDone}/16` },
+      { label: "Attendance", value: `${attended}/16` },
+      { label: "Total points", value: points },
+      { label: "Stage", value: stage },
+    ],
+    tables: [
+      {
+        title: "Weekly Progress",
+        columns: ["Week", "Status", "Points", "Reviewed"],
+        rows: [...weeks]
+          .sort((a, b) => a.week_no - b.week_no)
+          .map((w) => [
+            w.week_no,
+            w.proof_status,
+            w.points,
+            w.reviewed_at ? format(new Date(w.reviewed_at), "d MMM yyyy") : "—",
+          ]),
+      },
+      {
+        title: "Business Snapshots",
+        columns: ["Month", "Revenue", "MRR", "Leads", "Deals", "Closing %", "Status"],
+        rows: (snaps ?? []).map((s) => [
+          format(new Date(`${s.month}T00:00:00`), "MMM yyyy"),
+          inr(s.revenue_inr),
+          inr(s.mrr_inr),
+          s.leads ?? "—",
+          s.deals ?? "—",
+          s.closing_rate_pct != null ? `${s.closing_rate_pct}%` : "—",
+          s.status,
+        ]),
+      },
+      {
+        title: "Vision Goals",
+        columns: ["Year", "Goal", "Category", "Status"],
+        rows: (goals ?? []).map((g) => [g.year, g.title, g.category, g.status]),
+      },
+    ],
+  };
+}
 
 // Staff "log in as participant" — mints a one-time link (coach: assigned only;
 // mentor / admin: any participant) and opens it in a new / private window.
@@ -251,6 +343,7 @@ export function ParticipantDetail({
   const { profile, brain, weeks, points, milestones, loading, reviewWeek } =
     useParticipantProfile(userId);
   const habits = useParticipantHabits(userId);
+  const [exporting, setExporting] = useState<"pdf" | "excel" | null>(null);
 
   const name = profile?.full_name ?? "Participant";
   const weeksDone = weeks.filter((w) => w.proof_status === "approved").length;
@@ -259,6 +352,21 @@ export function ParticipantDetail({
   const pct = Math.round((weeksDone / 16) * 100);
   const byWeek = new Map(weeks.map((w) => [w.week_no, w]));
 
+  async function onExport(kind: "pdf" | "excel") {
+    setExporting(kind);
+    try {
+      const spec = await buildExportSpec({ name, profile, brain, weeks, points, stage, weeksDone, attended, userId });
+      const filename = `${name.replace(/[^\w.-]+/g, "_")}_profile`;
+      if (kind === "pdf") await exportReportPdf(spec, filename);
+      else await exportReportExcel(spec, filename);
+      toast.success(`Exported ${kind === "pdf" ? "PDF" : "Excel"}`);
+    } catch (e) {
+      toast.error("Export failed", { description: (e as Error).message });
+    } finally {
+      setExporting(null);
+    }
+  }
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 8 }}
@@ -266,8 +374,8 @@ export function ParticipantDetail({
       transition={{ duration: 0.4 }}
       className="space-y-5"
     >
-      {/* Toolbar (not printed) */}
-      <div className="no-print flex flex-wrap items-center justify-between gap-3">
+      {/* Toolbar */}
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <Button variant="ghost" className="rounded-full" asChild>
           <Link to={backTo}>
             <ChevronLeft className="h-4 w-4" /> Participants
@@ -275,16 +383,25 @@ export function ParticipantDetail({
         </Button>
         <div className="flex items-center gap-2">
           <LoginAsParticipant participantId={userId} name={name} />
-          <Button
-            className="rounded-full bg-gradient-navy shadow-vkm"
-            onClick={() => window.print()}
-          >
-            <Download className="h-4 w-4" /> Download report
-          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button className="rounded-full bg-gradient-navy shadow-vkm" disabled={exporting !== null}>
+                {exporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />} Export
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => onExport("excel")}>
+                <FileSpreadsheet className="h-4 w-4" /> Excel · XLSX
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => onExport("pdf")}>
+                <FileText className="h-4 w-4" /> PDF
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
 
-      <div data-print-report className="space-y-5">
+      <div className="space-y-5">
         {/* Header / progress card */}
         <div className="overflow-hidden rounded-3xl bg-gradient-navy p-6 text-primary-foreground shadow-vkm-float">
           <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-primary-foreground/70">
@@ -348,191 +465,165 @@ export function ParticipantDetail({
             <Loader2 className="h-4 w-4 animate-spin" /> Loading record…
           </div>
         ) : (
-          <>
-            {/* Coach actions — set a reminder or notify this participant */}
-            <CoachActions userId={userId} name={name} />
+          <Tabs defaultValue="overview">
+            <TabsList className="no-print flex h-auto flex-wrap gap-1 bg-transparent p-0">
+              <TabsTrigger value="overview" className="gap-1.5 rounded-full border border-border bg-card px-3.5 py-1.5 data-[state=active]:border-transparent data-[state=active]:bg-gradient-navy data-[state=active]:text-primary-foreground data-[state=active]:shadow-vkm">
+                <LayoutDashboard className="h-3.5 w-3.5" /> Overview
+              </TabsTrigger>
+              <TabsTrigger value="program" className="gap-1.5 rounded-full border border-border bg-card px-3.5 py-1.5 data-[state=active]:border-transparent data-[state=active]:bg-gradient-navy data-[state=active]:text-primary-foreground data-[state=active]:shadow-vkm">
+                <Activity className="h-3.5 w-3.5" /> Program &amp; Habits
+              </TabsTrigger>
+              <TabsTrigger value="business" className="gap-1.5 rounded-full border border-border bg-card px-3.5 py-1.5 data-[state=active]:border-transparent data-[state=active]:bg-gradient-navy data-[state=active]:text-primary-foreground data-[state=active]:shadow-vkm">
+                <Briefcase className="h-3.5 w-3.5" /> Business
+              </TabsTrigger>
+              <TabsTrigger value="vision" className="gap-1.5 rounded-full border border-border bg-card px-3.5 py-1.5 data-[state=active]:border-transparent data-[state=active]:bg-gradient-navy data-[state=active]:text-primary-foreground data-[state=active]:shadow-vkm">
+                <Compass className="h-3.5 w-3.5" /> Vision Board
+              </TabsTrigger>
+              <TabsTrigger value="files" className="gap-1.5 rounded-full border border-border bg-card px-3.5 py-1.5 data-[state=active]:border-transparent data-[state=active]:bg-gradient-navy data-[state=active]:text-primary-foreground data-[state=active]:shadow-vkm">
+                <FolderOpen className="h-3.5 w-3.5" /> Files
+              </TabsTrigger>
+            </TabsList>
 
-            {/* Personal */}
-            <SectionCard title="Personal information">
-              <dl className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-                <Field icon={Phone} label="Phone" value={profile?.phone ?? "—"} />
-                <Field
-                  icon={CalendarDays}
-                  label="Joined"
-                  value={
-                    profile?.created_at ? format(new Date(profile.created_at), "d MMM yyyy") : "—"
-                  }
-                />
-                <Field icon={Trophy} label="Current stage" value={stage} />
-              </dl>
-            </SectionCard>
+            <TabsContent value="overview" className="space-y-5">
+              {/* Coach actions — set a reminder or notify this participant */}
+              <CoachActions userId={userId} name={name} />
 
-            {/* Business Brain */}
-            <SectionCard
-              title="Business Brain"
-              subtitle="Captured during onboarding — powers the AI Advisor"
-            >
-              {brain ? (
+              {/* Personal */}
+              <SectionCard title="Personal information">
                 <dl className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-                  <Field icon={Briefcase} label="Business" value={brain.business_name ?? "—"} />
-                  <Field label="Industry" value={brain.industry ?? "—"} />
-                  <Field label="Location" value={brain.location ?? "—"} />
+                  <Field icon={Phone} label="Phone" value={profile?.phone ?? "—"} />
                   <Field
-                    label="Years running"
-                    value={brain.years_running != null ? String(brain.years_running) : "—"}
+                    icon={CalendarDays}
+                    label="Joined"
+                    value={
+                      profile?.created_at ? format(new Date(profile.created_at), "d MMM yyyy") : "—"
+                    }
                   />
-                  <Field label="Current MRR" value={inr(brain.current_mrr_inr)} />
-                  <Field label="Target MRR" value={inr(brain.target_mrr_inr)} />
-                  <Field
-                    label="Team size"
-                    value={brain.team_size != null ? String(brain.team_size) : "—"}
-                  />
-                  <Field
-                    label="Monthly leads"
-                    value={brain.monthly_leads != null ? String(brain.monthly_leads) : "—"}
-                  />
-                  <Field
-                    label="Closing rate"
-                    value={brain.closing_rate_pct != null ? `${brain.closing_rate_pct}%` : "—"}
-                  />
-                  <Field label="Avg deal" value={inr(brain.avg_deal_inr)} />
-                  <Field
-                    className="sm:col-span-3"
-                    label="Top products / services"
-                    value={brain.top_products ?? "—"}
-                  />
-                  <Field
-                    className="sm:col-span-3"
-                    label="Lead sources"
-                    value={brain.lead_sources ?? "—"}
-                  />
-                  <Field
-                    className="sm:col-span-3"
-                    label="Biggest challenges"
-                    value={brain.top_challenges ?? "—"}
-                  />
-                  <Field
-                    className="sm:col-span-3"
-                    label="Success in 4 months"
-                    value={brain.success_definition ?? "—"}
-                  />
+                  <Field icon={Trophy} label="Current stage" value={stage} />
                 </dl>
-              ) : (
-                <p className="py-2 text-sm text-muted-foreground">
-                  Business Brain not captured yet.
-                </p>
-              )}
-            </SectionCard>
+              </SectionCard>
 
-            {/* Team roster — read-only view of the participant's own team */}
-            <TeamCard userId={userId} reportedSize={brain?.team_size ?? null} />
+              {/* Team roster — read-only view of the participant's own team */}
+              <TeamCard userId={userId} reportedSize={brain?.team_size ?? null} />
 
-            {/* 16-week program — expandable per-week proof review */}
-            <SectionCard
-              title="16-Week Program"
-              subtitle={`${weeksDone} of 16 approved · tap a week to see the proof & decide`}
-            >
-              <div className="space-y-1.5">
-                {VKM_WEEKS.map((wk) => (
-                  <WeekReviewRow
-                    key={wk.week}
-                    wk={wk}
-                    row={byWeek.get(wk.week)}
-                    onReview={reviewWeek}
-                  />
-                ))}
-              </div>
-            </SectionCard>
+              {/* Today's engagement (Focus) */}
+              <ParticipantToday userId={userId} />
 
-            {/* Habits & activity */}
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-5 sm:gap-4">
-              <MiniStat
-                icon={CheckCircle2}
-                color="#10b981"
-                label="Habits today"
-                value={`${habits.todayDone}/${HABITS.length}`}
-              />
-              <MiniStat icon={Flame} color="#f59e0b" label="Streak" value={`${habits.streak}d`} />
-              <MiniStat
-                icon={Footprints}
-                color="#10b981"
-                label="Steps"
-                value={String(habits.steps)}
-              />
-              <MiniStat
-                icon={Droplets}
-                color="#0ea5e9"
-                label="Water"
-                value={`${(habits.waterMl / 1000).toFixed(1)}L`}
-              />
-              <MiniStat
-                icon={Dumbbell}
-                color="#ef4444"
-                label="Workout"
-                value={`${habits.workoutMinutes}m`}
-              />
-            </div>
-            {!habits.loading && (
-              <HabitGrid
-                config={habits.config}
-                dayState={habits.dayState}
-                title="Habit tracker"
-                isDone={habits.isDone}
-                proofsFor={habits.proofsFor}
-              />
-            )}
+              {/* Coaching log (1:1 notes — staff only) */}
+              <CoachingLog userId={userId} />
 
-            {/* Daily habit proofs — pick any day, includes tracker habits (water/steps) */}
-            {!habits.loading && <DailyHabitProofs habits={habits} />}
-
-            {/* Today's engagement (Focus) */}
-            <ParticipantToday userId={userId} />
-
-            {/* Vision & goals */}
-            <ParticipantVision userId={userId} />
-
-            {/* Coaching log (1:1 notes — staff only) */}
-            <CoachingLog userId={userId} />
-
-            {/* Milestones */}
-            <SectionCard title="Milestones" subtitle="Goal Setter → Growth Champion">
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-                {VKM_MILESTONES.map((m) => {
-                  const unlocked = milestones.includes(m.code);
-                  return (
-                    <div
-                      key={m.code}
-                      className={cn(
-                        "flex items-center gap-3 rounded-2xl border p-3",
-                        unlocked ? "border-gold/40 bg-gold/[0.06]" : "border-border bg-card",
-                      )}
-                    >
-                      <span
+              {/* Milestones */}
+              <SectionCard title="Milestones" subtitle="Goal Setter → Growth Champion">
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                  {VKM_MILESTONES.map((m) => {
+                    const unlocked = milestones.includes(m.code);
+                    return (
+                      <div
+                        key={m.code}
                         className={cn(
-                          "inline-flex h-10 w-10 items-center justify-center rounded-xl",
-                          unlocked
-                            ? "bg-gradient-gold text-navy"
-                            : "bg-muted text-muted-foreground",
+                          "flex items-center gap-3 rounded-2xl border p-3",
+                          unlocked ? "border-gold/40 bg-gold/[0.06]" : "border-border bg-card",
                         )}
                       >
-                        <Star className="h-5 w-5" />
-                      </span>
-                      <div className="min-w-0">
-                        <p className="truncate text-sm font-medium text-foreground">{m.name}</p>
-                        <p className="text-xs text-muted-foreground">Week {m.unlockWeek}</p>
+                        <span
+                          className={cn(
+                            "inline-flex h-10 w-10 items-center justify-center rounded-xl",
+                            unlocked
+                              ? "bg-gradient-gold text-navy"
+                              : "bg-muted text-muted-foreground",
+                          )}
+                        >
+                          <Star className="h-5 w-5" />
+                        </span>
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-medium text-foreground">{m.name}</p>
+                          <p className="text-xs text-muted-foreground">Week {m.unlockWeek}</p>
+                        </div>
+                        <Badge
+                          variant={unlocked ? "default" : "outline"}
+                          className="ml-auto rounded-full"
+                        >
+                          {unlocked ? "Unlocked" : "Locked"}
+                        </Badge>
                       </div>
-                      <Badge
-                        variant={unlocked ? "default" : "outline"}
-                        className="ml-auto rounded-full"
-                      >
-                        {unlocked ? "Unlocked" : "Locked"}
-                      </Badge>
-                    </div>
-                  );
-                })}
+                    );
+                  })}
+                </div>
+              </SectionCard>
+            </TabsContent>
+
+            <TabsContent value="program" className="space-y-5">
+              {/* 16-week program — expandable per-week proof review */}
+              <SectionCard
+                title="16-Week Program"
+                subtitle={`${weeksDone} of 16 approved · tap a week to see the proof & decide`}
+              >
+                <div className="space-y-1.5">
+                  {VKM_WEEKS.map((wk) => (
+                    <WeekReviewRow
+                      key={wk.week}
+                      wk={wk}
+                      row={byWeek.get(wk.week)}
+                      onReview={reviewWeek}
+                    />
+                  ))}
+                </div>
+              </SectionCard>
+
+              {/* Habits & activity */}
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-5 sm:gap-4">
+                <MiniStat
+                  icon={CheckCircle2}
+                  color="#10b981"
+                  label="Habits today"
+                  value={`${habits.todayDone}/${HABITS.length}`}
+                />
+                <MiniStat icon={Flame} color="#f59e0b" label="Streak" value={`${habits.streak}d`} />
+                <MiniStat
+                  icon={Footprints}
+                  color="#10b981"
+                  label="Steps"
+                  value={String(habits.steps)}
+                />
+                <MiniStat
+                  icon={Droplets}
+                  color="#0ea5e9"
+                  label="Water"
+                  value={`${(habits.waterMl / 1000).toFixed(1)}L`}
+                />
+                <MiniStat
+                  icon={Dumbbell}
+                  color="#ef4444"
+                  label="Workout"
+                  value={`${habits.workoutMinutes}m`}
+                />
               </div>
-            </SectionCard>
-          </>
+              {!habits.loading && (
+                <HabitGrid
+                  config={habits.config}
+                  dayState={habits.dayState}
+                  title="Habit tracker"
+                  isDone={habits.isDone}
+                  proofsFor={habits.proofsFor}
+                />
+              )}
+
+              {/* Daily habit proofs — pick any day, includes tracker habits (water/steps) */}
+              {!habits.loading && <DailyHabitProofs habits={habits} />}
+            </TabsContent>
+
+            <TabsContent value="business">
+              <ParticipantBusinessTab userId={userId} brain={brain} brainLoading={loading} />
+            </TabsContent>
+
+            <TabsContent value="vision">
+              <ParticipantVisionTab userId={userId} />
+            </TabsContent>
+
+            <TabsContent value="files">
+              <ParticipantFilesTab userId={userId} weeks={weeks} habits={habits} />
+            </TabsContent>
+          </Tabs>
         )}
       </div>
     </motion.div>
@@ -896,107 +987,9 @@ function ParticipantToday({ userId }: { userId: string }) {
   );
 }
 
-// The participant's Vision — surfaced to the coach (vision_* has staff-read RLS).
-function ParticipantVision({ userId }: { userId: string }) {
-  const [data, setData] = useState<{
-    primary: string | null;
-    oneYr: string | null;
-    goals: {
-      id: string;
-      title: string;
-      category: string;
-      target_value: number | null;
-      current_value: number | null;
-      status: string;
-    }[];
-  } | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    let active = true;
-    void (async () => {
-      const [{ data: s }, { data: g }] = await Promise.all([
-        supabase
-          .from("vision_statements")
-          .select("primary_goal, statement_1yr")
-          .eq("user_id", userId)
-          .maybeSingle(),
-        supabase
-          .from("vision_goals")
-          .select("id, title, category, target_value, current_value, status")
-          .eq("user_id", userId)
-          .eq("year", 1)
-          .order("sort_order"),
-      ]);
-      if (!active) return;
-      setData({
-        primary: s?.primary_goal ?? null,
-        oneYr: s?.statement_1yr ?? null,
-        goals: g ?? [],
-      });
-      setLoading(false);
-    })();
-    return () => {
-      active = false;
-    };
-  }, [userId]);
-
-  return (
-    <SectionCard title="Vision & Goals" subtitle="Their #1 goal and this year's plan">
-      {loading ? (
-        <div className="flex justify-center py-6">
-          <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-        </div>
-      ) : (
-        <div className="space-y-3">
-          {data?.primary ? (
-            <div className="rounded-xl border border-gold/40 bg-gold/[0.06] p-3">
-              <p className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-gold">
-                <Flag className="h-3.5 w-3.5" /> #1 goal this year
-              </p>
-              <p className="mt-0.5 text-sm font-semibold text-foreground">{data.primary}</p>
-            </div>
-          ) : (
-            <p className="text-sm text-muted-foreground">No #1 goal set yet.</p>
-          )}
-          {data?.oneYr && <p className="text-xs italic text-muted-foreground">“{data.oneYr}”</p>}
-          {data && data.goals.length > 0 ? (
-            <div className="space-y-1.5">
-              {data.goals.map((goal) => {
-                const pct = goalProgress(goal);
-                const color = PILLAR_COLOR[goal.category as Pillar] ?? "#888";
-                return (
-                  <div
-                    key={goal.id}
-                    className="flex items-center gap-2.5 rounded-lg border border-border bg-card px-3 py-2"
-                  >
-                    <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: color }} />
-                    <span className="min-w-0 flex-1 truncate text-sm text-foreground">
-                      {goal.title}
-                    </span>
-                    {goal.target_value != null && (
-                      <div className="hidden h-1.5 w-16 overflow-hidden rounded-full bg-secondary sm:block">
-                        <div
-                          className="h-full rounded-full"
-                          style={{ width: `${pct}%`, background: color }}
-                        />
-                      </div>
-                    )}
-                    <span className="shrink-0 text-xs font-semibold tabular-nums text-muted-foreground">
-                      {pct}%
-                    </span>
-                  </div>
-                );
-              })}
-            </div>
-          ) : (
-            <p className="text-xs text-muted-foreground">No goals set for this year yet.</p>
-          )}
-        </div>
-      )}
-    </SectionCard>
-  );
-}
+// Full vision board detail now lives in its own tab (ParticipantVisionTab,
+// backed by useVisionFor) — the old inline mini-widget was removed in favor
+// of that dedicated, more complete view.
 
 function HeroStat({ label, value }: { label: string; value: string }) {
   return (

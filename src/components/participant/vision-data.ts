@@ -258,6 +258,70 @@ export function useVision() {
   };
 }
 
+// ---------------------------------------------------------------------------
+// STAFF — read-only vision board for an arbitrary participant (coach/mentor/
+// admin viewing someone else's profile). No mutations; RLS already permits
+// coaches_participant()-scoped staff to read vision_statements/vision_goals.
+// ---------------------------------------------------------------------------
+export function useVisionFor(userId: string | null) {
+  const [statement, setStatement] = useState<VisionStatement>(EMPTY_STATEMENT);
+  const [goals, setGoals] = useState<VisionGoal[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!userId) {
+      setStatement(EMPTY_STATEMENT);
+      setGoals([]);
+      setLoading(false);
+      return;
+    }
+    let active = true;
+    setLoading(true);
+    (async () => {
+      const [{ data: s }, { data: g }] = await Promise.all([
+        supabase
+          .from("vision_statements")
+          .select(
+            "statement, statement_1yr, primary_goal, target_revenue_inr, target_team_size, lifestyle_goal, images",
+          )
+          .eq("user_id", userId)
+          .maybeSingle(),
+        supabase
+          .from("vision_goals")
+          .select(
+            "id, year, title, category, target_value, current_value, unit, target_date, status, why, sort_order",
+          )
+          .eq("user_id", userId)
+          .order("year")
+          .order("sort_order"),
+      ]);
+      if (!active) return;
+      setStatement(
+        s
+          ? {
+              statement: s.statement,
+              statement_1yr: s.statement_1yr,
+              primary_goal: s.primary_goal,
+              target_revenue_inr: s.target_revenue_inr,
+              target_team_size: s.target_team_size,
+              lifestyle_goal: s.lifestyle_goal,
+              images: (s.images as VisionImage[] | null) ?? [],
+            }
+          : EMPTY_STATEMENT,
+      );
+      setGoals((g ?? []).map(rowToGoal));
+      setLoading(false);
+    })().catch(() => {
+      if (active) setLoading(false);
+    });
+    return () => {
+      active = false;
+    };
+  }, [userId]);
+
+  return { statement, goals, loading };
+}
+
 /** Headline goal + this-year progress rollup — for the dashboard banner. */
 export function usePrimaryGoal() {
   const { user } = useAuth();
