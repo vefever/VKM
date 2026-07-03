@@ -132,7 +132,26 @@ export function useMyMfaFactors() {
 // ---------------------------------------------------------------------------
 
 export async function enrollTotp() {
-  const { data, error } = await supabase.auth.mfa.enroll({ factorType: "totp", issuer: "VK Mentorship" });
+  // Supabase enforces a unique friendly_name per user, including among
+  // UNVERIFIED factors — an abandoned previous attempt (closed the tab
+  // before scanning/verifying) leaves a stale factor with the same default
+  // ("") name and every later enroll() call fails with "A factor with the
+  // friendly name ... already exists". Clean up any stale unverified
+  // factors first (safe — unverified factors don't require aal2 to
+  // remove), then enroll with a unique name so this can never collide.
+  // supabase-js types data.totp as verified-only; unverified factors only
+  // show up in data.all, so that's what we scan for stale attempts.
+  const { data: existing } = await supabase.auth.mfa.listFactors();
+  const stale = existing?.all?.filter((f) => f.factor_type === "totp" && f.status === "unverified") ?? [];
+  for (const f of stale) {
+    await supabase.auth.mfa.unenroll({ factorId: f.id }).catch(() => {});
+  }
+
+  const { data, error } = await supabase.auth.mfa.enroll({
+    factorType: "totp",
+    issuer: "VK Mentorship",
+    friendlyName: `authenticator-${Date.now()}`,
+  });
   if (error) throw error;
   return data; // { id, totp: { qr_code, secret, uri }, ... }
 }
