@@ -3,6 +3,7 @@
 //
 // Actions (POST JSON { action, ... }):
 //   request_otp { email }                       — pre-auth; emails a login code
+//   request_mfa_email_otp {}                    — staff-only; emails a 2FA code to the caller
 //   send_email  { to, subject, html, text }     — super_admin
 //   send_sms    { to, body }                     — super_admin
 //   send_whatsapp { to, body }                   — super_admin
@@ -169,6 +170,35 @@ async function otpRateLimited(email: string, ip: string): Promise<string | null>
     return null;
   } catch (e) {
     console.error("otpRateLimited error:", (e as Error).message);
+    return null; // fail open
+  }
+}
+
+// Throttle the post-auth "email me a 2FA code" endpoint, bucketed by the
+// caller's own user id (already authenticated via checkStaff, so no IP
+// bucket is needed here — one bucket per account is sufficient). Same
+// fail-open philosophy as otpRateLimited: a DB hiccup must never lock a
+// staff member out of their own account.
+async function mfaEmailRateLimited(userId: string): Promise<string | null> {
+  const now = Date.now();
+  const bucket = `mfa:${userId}`;
+  const hourAgo = new Date(now - 3_600_000).toISOString();
+  const win45s = new Date(now - 45_000).toISOString();
+  const countSince = async (since: string) => {
+    const { count } = await admin
+      .from("otp_requests")
+      .select("*", { count: "exact", head: true })
+      .eq("bucket", bucket)
+      .gte("created_at", since);
+    return count ?? 0;
+  };
+  try {
+    if ((await countSince(win45s)) >= 1) return "45s";
+    if ((await countSince(hourAgo)) >= 6) return "hour";
+    await admin.from("otp_requests").insert([{ bucket }]);
+    return null;
+  } catch (e) {
+    console.error("mfaEmailRateLimited error:", (e as Error).message);
     return null; // fail open
   }
 }
@@ -608,6 +638,49 @@ Deno.serve(async (req) => {
         }
       }
       // Always return ok so account existence + provider state can't be probed.
+      return json({ ok: true }, 200, cors);
+    }
+
+    // Email code as a SECOND factor (post-password, aal1 session already
+    // exists) — distinct from request_otp above, which is a first-factor
+    // passwordless login. Only a signed-in staff member can trigger this,
+    // and it always acts on their OWN identity (never an email parameter).
+    if (action === "request_mfa_email_otp") {
+      const staff = await checkStaff(req);
+      if (!staff.ok || !staff.userId) {
+        return json({ ok: false, error: "Sign in required" }, 401, cors);
+      }
+
+      const rl = await mfaEmailRateLimited(staff.userId);
+      if (rl) {
+        return json({ ok: false, error: "Please wait before requesting another code." }, 429, cors);
+      }
+
+      const { data: userData, error: userErr } = await admin.auth.admin.getUserById(staff.userId);
+      const email = userData?.user?.email;
+      if (userErr || !email) {
+        return json({ ok: false, error: "Could not find your account email." }, 500, cors);
+      }
+
+      const { data: code, error: codeErr } = await admin.rpc("admin_generate_mfa_email_code", {
+        _user_id: staff.userId,
+      });
+      if (codeErr || !code) {
+        console.error("admin_generate_mfa_email_code failed:", codeErr?.message);
+        return json({ ok: false, error: "Could not generate a code. Try again." }, 500, cors);
+      }
+
+      const html = `<div style="font-family:system-ui,sans-serif;max-width:480px">
+        <h2 style="color:#0B2545">Your VK Mentorship security code</h2>
+        <p>Enter this code to finish signing in. It expires in 10 minutes.</p>
+        <p style="font-size:32px;font-weight:700;letter-spacing:6px;color:#0B2545">${code}</p>
+        <p style="color:#667">If you didn't request this, someone may have your password — consider changing it.</p></div>`;
+      try {
+        await sendEmail(email, "Your VKM security code", html, `Your VKM security code: ${code}`);
+      } catch (e) {
+        console.error("request_mfa_email_otp sendEmail failed:", (e as Error).message);
+        return json({ ok: false, error: "Could not send the code. Try again later." }, 500, cors);
+      }
       return json({ ok: true }, 200, cors);
     }
 

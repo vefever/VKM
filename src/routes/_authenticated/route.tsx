@@ -2,6 +2,7 @@ import { createFileRoute, Outlet, useNavigate, useLocation } from "@tanstack/rea
 import { useEffect, useState } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { supabase } from "@/integrations/supabase/client";
+import { computeMfaGateMode } from "@/components/admin/security-data";
 
 export const Route = createFileRoute("/_authenticated")({
   ssr: false,
@@ -9,10 +10,11 @@ export const Route = createFileRoute("/_authenticated")({
 });
 
 function AuthenticatedLayout() {
-  const { user, loading } = useAuth();
+  const { user, roles, loading } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const [checkedReset, setCheckedReset] = useState(false);
+  const [checkedMfa, setCheckedMfa] = useState(false);
 
   useEffect(() => {
     if (!loading && !user) navigate({ to: "/auth", replace: true });
@@ -70,7 +72,37 @@ function AuthenticatedLayout() {
     };
   }, [user, location.pathname, navigate]);
 
-  if (loading || !user || !checkedReset) {
+  // Second-factor gate — runs only after the password-reset gate above has
+  // resolved (so a forced password reset always completes before a 2FA
+  // prompt), and only for staff roles (computeMfaGateMode returns "none"
+  // immediately for participants). Re-evaluated on every navigation, same as
+  // the reset-password check above, so a setting toggled mid-session by
+  // another super admin takes effect on this admin's very next navigation.
+  useEffect(() => {
+    let cancelled = false;
+    if (!user) {
+      setCheckedMfa(false);
+      return;
+    }
+    if (!checkedReset) return;
+    if (location.pathname === "/reset-password" || location.pathname === "/verify-2fa") {
+      setCheckedMfa(true);
+      return;
+    }
+    void computeMfaGateMode(user.id, roles).then((mode) => {
+      if (cancelled) return;
+      if (mode === "none") {
+        setCheckedMfa(true);
+      } else {
+        navigate({ to: "/verify-2fa", replace: true });
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [user, roles, checkedReset, location.pathname, navigate]);
+
+  if (loading || !user || !checkedReset || !checkedMfa) {
     return <AppLoadingSkeleton />;
   }
 

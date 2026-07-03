@@ -14,6 +14,7 @@ import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as InviteTokenRouteImport } from './routes/invite.$token'
+import { Route as AuthenticatedVerify2faRouteImport } from './routes/_authenticated/verify-2fa'
 import { Route as AuthenticatedResetPasswordRouteImport } from './routes/_authenticated/reset-password'
 import { Route as AuthenticatedAppRouteImport } from './routes/_authenticated/app'
 import { Route as AuthenticatedParticipantRouteRouteImport } from './routes/_authenticated/participant/route'
@@ -196,6 +197,11 @@ const InviteTokenRoute = InviteTokenRouteImport.update({
   id: '/invite/$token',
   path: '/invite/$token',
   getParentRoute: () => rootRouteImport,
+} as any)
+const AuthenticatedVerify2faRoute = AuthenticatedVerify2faRouteImport.update({
+  id: '/verify-2fa',
+  path: '/verify-2fa',
+  getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedResetPasswordRoute =
   AuthenticatedResetPasswordRouteImport.update({
@@ -1133,6 +1139,7 @@ export interface FileRoutesByFullPath {
   '/participant': typeof AuthenticatedParticipantRouteRouteWithChildren
   '/app': typeof AuthenticatedAppRoute
   '/reset-password': typeof AuthenticatedResetPasswordRoute
+  '/verify-2fa': typeof AuthenticatedVerify2faRoute
   '/invite/$token': typeof InviteTokenRoute
   '/admin/ai': typeof AuthenticatedAdminAiRoute
   '/admin/analytics': typeof AuthenticatedAdminAnalyticsRoute
@@ -1293,6 +1300,7 @@ export interface FileRoutesByTo {
   '/unauthorized': typeof UnauthorizedRoute
   '/app': typeof AuthenticatedAppRoute
   '/reset-password': typeof AuthenticatedResetPasswordRoute
+  '/verify-2fa': typeof AuthenticatedVerify2faRoute
   '/invite/$token': typeof InviteTokenRoute
   '/admin/ai': typeof AuthenticatedAdminAiRoute
   '/admin/analytics': typeof AuthenticatedAdminAnalyticsRoute
@@ -1459,6 +1467,7 @@ export interface FileRoutesById {
   '/_authenticated/participant': typeof AuthenticatedParticipantRouteRouteWithChildren
   '/_authenticated/app': typeof AuthenticatedAppRoute
   '/_authenticated/reset-password': typeof AuthenticatedResetPasswordRoute
+  '/_authenticated/verify-2fa': typeof AuthenticatedVerify2faRoute
   '/invite/$token': typeof InviteTokenRoute
   '/_authenticated/admin/ai': typeof AuthenticatedAdminAiRoute
   '/_authenticated/admin/analytics': typeof AuthenticatedAdminAnalyticsRoute
@@ -1625,6 +1634,7 @@ export interface FileRouteTypes {
     | '/participant'
     | '/app'
     | '/reset-password'
+    | '/verify-2fa'
     | '/invite/$token'
     | '/admin/ai'
     | '/admin/analytics'
@@ -1785,6 +1795,7 @@ export interface FileRouteTypes {
     | '/unauthorized'
     | '/app'
     | '/reset-password'
+    | '/verify-2fa'
     | '/invite/$token'
     | '/admin/ai'
     | '/admin/analytics'
@@ -1950,6 +1961,7 @@ export interface FileRouteTypes {
     | '/_authenticated/participant'
     | '/_authenticated/app'
     | '/_authenticated/reset-password'
+    | '/_authenticated/verify-2fa'
     | '/invite/$token'
     | '/_authenticated/admin/ai'
     | '/_authenticated/admin/analytics'
@@ -2149,6 +2161,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/invite/$token'
       preLoaderRoute: typeof InviteTokenRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/_authenticated/verify-2fa': {
+      id: '/_authenticated/verify-2fa'
+      path: '/verify-2fa'
+      fullPath: '/verify-2fa'
+      preLoaderRoute: typeof AuthenticatedVerify2faRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/reset-password': {
       id: '/_authenticated/reset-password'
@@ -3668,6 +3687,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedParticipantRouteRoute: typeof AuthenticatedParticipantRouteRouteWithChildren
   AuthenticatedAppRoute: typeof AuthenticatedAppRoute
   AuthenticatedResetPasswordRoute: typeof AuthenticatedResetPasswordRoute
+  AuthenticatedVerify2faRoute: typeof AuthenticatedVerify2faRoute
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
@@ -3678,6 +3698,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
     AuthenticatedParticipantRouteRouteWithChildren,
   AuthenticatedAppRoute: AuthenticatedAppRoute,
   AuthenticatedResetPasswordRoute: AuthenticatedResetPasswordRoute,
+  AuthenticatedVerify2faRoute: AuthenticatedVerify2faRoute,
 }
 
 const AuthenticatedRouteRouteWithChildren =

@@ -68,6 +68,11 @@ export const requireSupabaseAuth = createMiddleware({ type: 'function' }).server
       throw new Error('Unauthorized: No user ID found in token');
     }
 
+    // `claims.aal` ('aal1' | 'aal2') is the caller's authenticator assurance
+    // level — a particularly sensitive server function can require 2FA by
+    // checking `context.claims.aal === 'aal2'` (see the Security page's
+    // platform-wide TOTP toggle, src/components/admin/security-settings.tsx).
+    // Not enforced here globally — this is opt-in per function.
     return next({
       context: {
         supabase,

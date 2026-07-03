@@ -918,6 +918,30 @@ export type Database = {
         }
         Relationships: []
       }
+      mfa_email_challenges: {
+        Row: {
+          attempts: number
+          code_hash: string
+          created_at: string
+          expires_at: string
+          user_id: string
+        }
+        Insert: {
+          attempts?: number
+          code_hash: string
+          created_at?: string
+          expires_at: string
+          user_id: string
+        }
+        Update: {
+          attempts?: number
+          code_hash?: string
+          created_at?: string
+          expires_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       milestone_awards: {
         Row: {
           awarded_at: string
@@ -1442,6 +1466,27 @@ export type Database = {
           status?: string
           target_date?: string
           user_id?: string | null
+        }
+        Relationships: []
+      }
+      security_settings: {
+        Row: {
+          email_otp_2fa_enabled: boolean
+          id: boolean
+          totp_enabled: boolean
+          updated_at: string
+        }
+        Insert: {
+          email_otp_2fa_enabled?: boolean
+          id?: boolean
+          totp_enabled?: boolean
+          updated_at?: string
+        }
+        Update: {
+          email_otp_2fa_enabled?: boolean
+          id?: boolean
+          totp_enabled?: boolean
+          updated_at?: string
         }
         Relationships: []
       }
@@ -1995,6 +2040,10 @@ export type Database = {
         Args: { _program_id: string; _week_no: number }
         Returns: number
       }
+      admin_generate_mfa_email_code: {
+        Args: { _user_id: string }
+        Returns: string
+      }
       admin_list_coaches: {
         Args: never
         Returns: {
@@ -2240,6 +2289,7 @@ export type Database = {
         }[]
       }
       support_link_for: { Args: { _uid: string }; Returns: string }
+      verify_mfa_email_otp: { Args: { _code: string }; Returns: boolean }
     }
     Enums: {
       app_role: "participant" | "coach" | "mentor" | "super_admin"
