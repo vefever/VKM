@@ -89,6 +89,7 @@ export function WaterTracker({
 
   return (
     <SectionCard
+      className="h-full"
       title="Hydration"
       subtitle={`${(ml / 1000).toFixed(2)} L of ${(goalMl / 1000).toFixed(0)} L · one glass at a time`}
       action={

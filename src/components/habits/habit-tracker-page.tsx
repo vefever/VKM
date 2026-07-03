@@ -17,7 +17,6 @@ import {
   Loader2,
   Play,
   Square,
-  Apple,
   Activity,
   X,
   Rocket,
@@ -121,7 +120,7 @@ export function HabitTrackerPage() {
       <SummaryHeader t={t} />
 
       {/* Today's action zone — Steps + Hydration side-by-side on desktop. */}
-      <div className="grid gap-5 lg:grid-cols-2">
+      <div className="grid items-stretch gap-5 lg:grid-cols-2">
         <StepsCard
           steps={steps.steps}
           goal={steps.goal}
@@ -284,7 +283,7 @@ function StepsCard({
 }) {
   const pct = Math.min(Math.round((steps / goal) * 100), 100);
   return (
-    <div className="overflow-hidden rounded-2xl border border-border bg-card p-5 shadow-vkm">
+    <div className="flex h-full flex-col overflow-hidden rounded-2xl border border-border bg-card p-5 shadow-vkm">
       <div className="flex items-center gap-5">
         <div className="relative h-[112px] w-[112px] shrink-0">
           <Ring value={steps} max={goal} color="#10b981">
@@ -401,58 +400,7 @@ function StepsCard({
         )}
       </div>
 
-      {/* Connect health apps */}
-      <div className="mt-3 border-t border-border pt-3">
-        <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-          Connect a health app
-        </p>
-        <div className="flex flex-wrap gap-2">
-          <HealthConnectButton
-            icon={<Apple className="h-4 w-4" />}
-            label="Apple Health"
-            onClick={() =>
-              toast("Apple Health sync is coming via the VKM mobile app", {
-                description: "On the web, your live in-app step tracker is the active source.",
-              })
-            }
-          />
-          <HealthConnectButton
-            icon={<Activity className="h-4 w-4" />}
-            label="Google Fit"
-            onClick={() =>
-              toast("Google Fit sync is coming via the VKM mobile app", {
-                description: "Google retired the Fit web API; in-app step tracking works now.",
-              })
-            }
-          />
-        </div>
-        <p className="mt-2 text-[11px] text-muted-foreground">
-          Live tracking (PWA) uses advanced accelerometer analysis (peak+valley + cadence filter)
-          similar to fitness apps. Best results when phone is in pocket or armband. Use +50 for
-          corrections. Data syncs live to coach.
-        </p>
-      </div>
     </div>
-  );
-}
-
-function HealthConnectButton({
-  icon,
-  label,
-  onClick,
-}: {
-  icon: ReactNode;
-  label: string;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="inline-flex items-center gap-2 rounded-xl border border-border bg-card px-3 py-2 text-sm font-medium text-foreground transition-colors hover:bg-secondary/60"
-    >
-      {icon} {label}
-    </button>
   );
 }
 

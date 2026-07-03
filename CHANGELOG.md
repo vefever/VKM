@@ -4,6 +4,14 @@ A running log of platform updates. Newest first. Ask any time for a **PDF** of t
 
 ---
 
+## 2026-07-04
+
+### Removed
+- **"Connect a health app" section** removed from Daily Habits (Steps card) — Apple Health / Google Fit were never actually wired up; in-app live step tracking remains the active source.
+
+### Fixed
+- **Steps & Hydration cards now line up** — after removing the health-app section the Steps card was shorter than the Hydration card next to it on desktop; both now stretch to match height.
+
 ## 2026-07-03
 
 ### Improved
