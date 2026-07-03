@@ -1184,6 +1184,8 @@ export type Database = {
           full_name: string | null
           id: string
           is_alumni: boolean
+          mfa_email_otp_opt_in: boolean
+          mfa_totp_opt_in: boolean
           must_reset_password: boolean
           phone: string | null
           updated_at: string
@@ -1194,6 +1196,8 @@ export type Database = {
           full_name?: string | null
           id: string
           is_alumni?: boolean
+          mfa_email_otp_opt_in?: boolean
+          mfa_totp_opt_in?: boolean
           must_reset_password?: boolean
           phone?: string | null
           updated_at?: string
@@ -1204,6 +1208,8 @@ export type Database = {
           full_name?: string | null
           id?: string
           is_alumni?: boolean
+          mfa_email_otp_opt_in?: boolean
+          mfa_totp_opt_in?: boolean
           must_reset_password?: boolean
           phone?: string | null
           updated_at?: string

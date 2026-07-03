@@ -28,6 +28,7 @@ import { AvatarUploader } from "@/components/vkm/avatar-uploader";
 import { LogoUploader } from "@/components/vkm/logo-uploader";
 import { ImportDocumentDialog } from "@/components/business/import-document-dialog";
 import type { ExtractedBusiness, BusinessFieldKey } from "@/lib/vkm/business-fields";
+import { MyTwoFactorSection } from "@/components/admin/my-2fa-section";
 
 type TabId = "personal" | "business" | "account";
 const TABS: { id: TabId; label: string; icon: LucideIcon }[] = [
@@ -261,7 +262,7 @@ export function ProfileSettings({
           autoImport={autoImport}
         />
       ) : (
-        <AccountTab email={user?.email ?? ""} />
+        <AccountTab email={user?.email ?? ""} userId={user?.id} isStaff={roleLabel === "Coach" || roleLabel === "Mentor"} />
       )}
     </motion.div>
   );
@@ -668,7 +669,7 @@ function BusinessTab({
 // ---------------------------------------------------------------------------
 const PW_OTP_LEN = 6;
 
-function AccountTab({ email }: { email: string }) {
+function AccountTab({ email, userId, isStaff }: { email: string; userId?: string; isStaff: boolean }) {
   const [pw, setPw] = useState("");
   const [pw2, setPw2] = useState("");
   const [code, setCode] = useState("");
@@ -809,6 +810,8 @@ function AccountTab({ email }: { email: string }) {
           </Button>
         </div>
       </SectionCard>
+
+      {isStaff && userId && <MyTwoFactorSection userId={userId} />}
 
       <SectionCard title="Preferences" subtitle="App behaviour on this device">
         <label className="flex items-center justify-between gap-4">

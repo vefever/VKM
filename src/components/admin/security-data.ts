@@ -55,6 +55,58 @@ export function useSecuritySettings() {
   return { settings, loading, saving, save, reload: load };
 }
 
+// ---------------------------------------------------------------------------
+// Personal opt-in — independent of the platform-wide toggles above. Any
+// coach or mentor (or super admin) can require a second factor on their OWN
+// account from their profile settings page, regardless of what the
+// platform-wide setting is. computeMfaGateMode() below ORs these with the
+// platform-wide flags.
+// ---------------------------------------------------------------------------
+export type MyMfaPrefs = { mfa_totp_opt_in: boolean; mfa_email_otp_opt_in: boolean };
+
+export async function fetchMyMfaPrefs(userId: string): Promise<MyMfaPrefs> {
+  const { data } = await supabase
+    .from("profiles")
+    .select("mfa_totp_opt_in, mfa_email_otp_opt_in")
+    .eq("id", userId)
+    .maybeSingle();
+  return {
+    mfa_totp_opt_in: data?.mfa_totp_opt_in ?? false,
+    mfa_email_otp_opt_in: data?.mfa_email_otp_opt_in ?? false,
+  };
+}
+
+export function useMyMfaPrefs(userId: string | null) {
+  const [prefs, setPrefs] = useState<MyMfaPrefs>({ mfa_totp_opt_in: false, mfa_email_otp_opt_in: false });
+  const [loading, setLoading] = useState(true);
+
+  const load = useCallback(async () => {
+    if (!userId) {
+      setLoading(false);
+      return;
+    }
+    setLoading(true);
+    setPrefs(await fetchMyMfaPrefs(userId));
+    setLoading(false);
+  }, [userId]);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  const save = useCallback(
+    async (patch: Partial<MyMfaPrefs>) => {
+      if (!userId) return;
+      const { error } = await supabase.from("profiles").update(patch).eq("id", userId);
+      if (error) throw error;
+      await load();
+    },
+    [userId, load],
+  );
+
+  return { prefs, loading, save, reload: load };
+}
+
 export type TotpFactor = { id: string; friendly_name: string | null; status: "verified" | "unverified"; created_at: string };
 
 export function useMyMfaFactors() {
@@ -151,9 +203,13 @@ const STAFF_ROLES = new Set(["super_admin", "mentor", "coach"]);
 export async function computeMfaGateMode(userId: string, roles: string[]): Promise<MfaGateMode> {
   if (!roles.some((r) => STAFF_ROLES.has(r))) return "none";
 
-  const settings = await fetchSecuritySettings();
-  const wantsTotp = settings.totp_enabled;
-  const wantsEmail = settings.email_otp_2fa_enabled;
+  const [settings, myPrefs] = await Promise.all([fetchSecuritySettings(), fetchMyMfaPrefs(userId)]);
+  // Either the platform-wide toggle OR this individual's own opt-in can
+  // require a method for them — a coach/mentor can turn this on for
+  // themselves from their profile settings even if the super admin hasn't
+  // made it platform-wide.
+  const wantsTotp = settings.totp_enabled || myPrefs.mfa_totp_opt_in;
+  const wantsEmail = settings.email_otp_2fa_enabled || myPrefs.mfa_email_otp_opt_in;
   if (!wantsTotp && !wantsEmail) return "none";
 
   let hasVerifiedTotp = false;
