@@ -6,6 +6,9 @@ A running log of platform updates. Newest first. Ask any time for a **PDF** of t
 
 ## 2026-07-04
 
+### New
+- **AI Assistant (floating chat, every role)** — the floating chat bubble is now an instant AI help assistant, answering questions about how to use the platform (navigation, habits, proof submission, points, batches, community, support — role-aware, so a coach and a participant get different answers). Powered by the same AI provider already configured in **Admin → AI Configurations**. Available to every signed-in role, not just participants.
+
 ### Removed
 - **"Connect a health app" section** removed from Daily Habits (Steps card) — Apple Health / Google Fit were never actually wired up; in-app live step tracking remains the active source.
 
