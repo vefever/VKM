@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
-import { motion } from "framer-motion";
-import { MessageCircle, Search, Loader2, GraduationCap } from "lucide-react";
+import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
+import { MessageCircle, Search, Loader2, GraduationCap, X } from "lucide-react";
 import { format } from "date-fns";
 import { PageHeader } from "@/components/vkm/page-header";
 import { cn } from "@/lib/utils";
@@ -28,6 +28,7 @@ export function ChatPage() {
   const { items, loading } = useInbox();
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
   const [q, setQ] = useState("");
+  const reduceMotion = useReducedMotion();
 
   // Auto-open the coaching thread on desktop only; mobile starts on the list.
   useEffect(() => {
@@ -63,7 +64,7 @@ export function ChatPage() {
         {/* Conversation list */}
         <div
           className={cn(
-            "flex min-h-0 flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-vkm",
+            "glass flex min-h-0 flex-col overflow-hidden rounded-2xl border border-border shadow-vkm-float",
             selected && "hidden lg:flex",
           )}
         >
@@ -74,8 +75,18 @@ export function ChatPage() {
                 value={q}
                 onChange={(e) => setQ(e.target.value)}
                 placeholder="Search conversations…"
-                className="h-10 w-full rounded-xl border border-input bg-background pl-9 pr-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                className="h-10 w-full rounded-xl border border-input bg-background pl-9 pr-8 text-sm outline-none transition-shadow focus-visible:ring-2 focus-visible:ring-ring"
               />
+              {q && (
+                <button
+                  type="button"
+                  onClick={() => setQ("")}
+                  aria-label="Clear search"
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              )}
             </div>
           </div>
           <div className="min-h-0 flex-1 overflow-y-auto p-1.5">
@@ -86,11 +97,13 @@ export function ChatPage() {
             ) : filtered.length === 0 ? (
               <p className="py-10 text-center text-sm text-muted-foreground">No conversations.</p>
             ) : (
-              filtered.map((item) => (
+              filtered.map((item, i) => (
                 <InboxRow
                   key={item.key}
                   item={item}
+                  index={i}
                   active={item.key === selectedKey}
+                  reduceMotion={!!reduceMotion}
                   onClick={() => setSelectedKey(item.key)}
                 />
               ))
@@ -100,22 +113,38 @@ export function ChatPage() {
 
         {/* Active thread */}
         <div className={cn("min-h-0", !selected && "hidden lg:block")}>
-          {selected ? (
-            selected.kind === "coach" ? (
-              <CoachConversation convId={selected.convId} onBack={() => setSelectedKey(null)} />
+          <AnimatePresence mode="wait">
+            {selected ? (
+              <motion.div
+                key={selected.key}
+                initial={reduceMotion ? false : { opacity: 0, x: 16 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.22, ease: "easeOut" }}
+                className="h-full"
+              >
+                {selected.kind === "coach" ? (
+                  <CoachConversation convId={selected.convId} onBack={() => setSelectedKey(null)} />
+                ) : (
+                  <MemberConversation
+                    otherId={selected.otherId as string}
+                    name={selected.name}
+                    avatar={selected.avatar}
+                    onBack={() => setSelectedKey(null)}
+                  />
+                )}
+              </motion.div>
             ) : (
-              <MemberConversation
-                otherId={selected.otherId as string}
-                name={selected.name}
-                avatar={selected.avatar}
-                onBack={() => setSelectedKey(null)}
-              />
-            )
-          ) : (
-            <div className="flex h-full min-h-[420px] items-center justify-center rounded-2xl border border-dashed border-border bg-card/50 text-sm text-muted-foreground">
-              Select a conversation to start chatting.
-            </div>
-          )}
+              <motion.div
+                key="empty"
+                initial={reduceMotion ? false : { opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className="flex h-full min-h-[420px] items-center justify-center rounded-2xl border border-dashed border-border bg-card/50 text-sm text-muted-foreground"
+              >
+                Select a conversation to start chatting.
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
       </div>
     </motion.div>
@@ -124,44 +153,66 @@ export function ChatPage() {
 
 function InboxRow({
   item,
+  index,
   active,
+  reduceMotion,
   onClick,
 }: {
   item: InboxItem;
+  index: number;
   active: boolean;
+  reduceMotion: boolean;
   onClick: () => void;
 }) {
   return (
-    <button
+    <motion.button
       type="button"
       onClick={onClick}
+      initial={reduceMotion ? false : { opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.25, delay: Math.min(index * 0.04, 0.3) }}
       className={cn(
         "app-press flex w-full items-center gap-3 rounded-xl p-2.5 text-left transition-colors",
         active ? "bg-secondary" : "hover:bg-secondary/50",
       )}
     >
-      {item.kind === "coach" ? (
-        <span className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-gradient-navy text-primary-foreground">
-          <GraduationCap className="h-5 w-5" />
-        </span>
-      ) : (
-        <AvatarBadge name={item.name} src={item.avatar} size="lg" className="h-11 w-11 text-sm" />
-      )}
+      <span className="relative shrink-0">
+        {item.kind === "coach" ? (
+          <span className="inline-flex h-11 w-11 items-center justify-center rounded-full bg-gradient-navy text-primary-foreground">
+            <GraduationCap className="h-5 w-5" />
+          </span>
+        ) : (
+          <AvatarBadge name={item.name} src={item.avatar} size="lg" className="h-11 w-11 text-sm" />
+        )}
+        {item.unread && (
+          <motion.span
+            initial={reduceMotion ? false : { scale: 0 }}
+            animate={{ scale: 1 }}
+            transition={{ type: "spring", stiffness: 400, damping: 16 }}
+            className="absolute -right-0.5 -top-0.5 h-3 w-3 rounded-full border-2 border-card bg-gold"
+          />
+        )}
+      </span>
       <div className="min-w-0 flex-1">
         <div className="flex items-center justify-between gap-2">
-          <span className="truncate text-sm font-semibold text-foreground">{item.name}</span>
-          <span className="shrink-0 text-[10px] text-muted-foreground">
+          <span className={cn("truncate text-sm text-foreground", item.unread ? "font-bold" : "font-semibold")}>
+            {item.name}
+          </span>
+          <span className={cn("shrink-0 text-[10px]", item.unread ? "font-semibold text-gold" : "text-muted-foreground")}>
             {shortTime(item.lastAt)}
           </span>
         </div>
-        <p className="truncate text-xs text-muted-foreground">{item.preview}</p>
+        <p className={cn("truncate text-xs", item.unread ? "font-medium text-foreground" : "text-muted-foreground")}>
+          {item.preview}
+        </p>
       </div>
-    </button>
+    </motion.button>
   );
 }
 
 function CoachConversation({ convId, onBack }: { convId: string | null; onBack: () => void }) {
-  const { messages, names, loading, send, meId } = useThread(convId);
+  const { messages, names, loading, send, meId, typingOther, otherOnline, otherLastReadAt, sendTyping } =
+    useThread(convId);
   return (
     <ConversationView
       loading={loading}
@@ -171,6 +222,10 @@ function CoachConversation({ convId, onBack }: { convId: string | null; onBack: 
       send={send}
       header={{ name: "Coaching Team", subtitle: "Your coaches & mentors" }}
       callRoom={convId ? `vkm-${convId}` : null}
+      typingOther={typingOther}
+      otherOnline={otherOnline}
+      otherLastReadAt={otherLastReadAt}
+      sendTyping={sendTyping}
       onBack={onBack}
     />
   );
@@ -188,7 +243,8 @@ function MemberConversation({
   onBack: () => void;
 }) {
   const { user } = useAuth();
-  const { messages, send, loading } = useDmThread(otherId);
+  const { messages, send, loading, typingOther, otherOnline, otherLastReadAt, sendTyping } =
+    useDmThread(otherId);
   const umsgs = messages.map((m) => ({
     id: m.id,
     sender_id: m.senderId,
@@ -204,6 +260,10 @@ function MemberConversation({
       meId={user?.id ?? null}
       send={send}
       header={{ name, subtitle: "VKM member", avatar }}
+      typingOther={typingOther}
+      otherOnline={otherOnline}
+      otherLastReadAt={otherLastReadAt}
+      sendTyping={sendTyping}
       onBack={onBack}
     />
   );

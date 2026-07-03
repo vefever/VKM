@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { profilesDisplayFor } from "@/lib/profiles-display";
 import { uploadToStorage } from "@/lib/storage-upload";
+import { wirePresenceAndTyping, markThreadRead, fetchOtherLastRead } from "@/components/chat/presence-typing";
 
 // namesFor kept for message sender labels in thread view
 
@@ -95,8 +96,12 @@ export function useThread(convId: string | null) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [names, setNames] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
+  const [typingOther, setTypingOther] = useState(false);
+  const [otherOnline, setOtherOnline] = useState(false);
+  const [otherLastReadAt, setOtherLastReadAt] = useState<Date | null>(null);
   const namesRef = useRef(names);
   namesRef.current = names;
+  const sendTypingRef = useRef<() => void>(() => {});
 
   useEffect(() => {
     if (!convId) {
@@ -106,6 +111,8 @@ export function useThread(convId: string | null) {
     }
     let active = true;
     setLoading(true);
+    setTypingOther(false);
+    setOtherOnline(false);
 
     (async () => {
       const { data } = await supabase
@@ -118,35 +125,50 @@ export function useThread(convId: string | null) {
       setMessages(msgs);
       setNames(await namesFor(msgs.map((m) => m.sender_id ?? "")));
       setLoading(false);
+      if (user) void markThreadRead("coach", convId, user.id);
     })();
 
-    const ch = supabase
-      .channel(`thread:${convId}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "INSERT",
-          schema: "public",
-          table: "messages",
-          filter: `conversation_id=eq.${convId}`,
-        },
-        async (p) => {
-          const m = p.new as ChatMessage;
-          setMessages((prev) => (prev.some((x) => x.id === m.id) ? prev : [...prev, m]));
-          if (m.sender_id && !namesRef.current[m.sender_id]) {
-            const resolved = await profilesDisplayFor([m.sender_id]);
-            const pr = resolved.get(m.sender_id);
-            setNames((n) => ({ ...n, [m.sender_id as string]: pr?.name ?? "User" }));
-          }
-        },
-      )
-      .subscribe();
+    void fetchOtherLastRead("coach", convId, user?.id ?? "").then((d) => active && setOtherLastReadAt(d));
+
+    const ch = supabase.channel(`thread:${convId}`).on(
+      "postgres_changes",
+      {
+        event: "INSERT",
+        schema: "public",
+        table: "messages",
+        filter: `conversation_id=eq.${convId}`,
+      },
+      async (p) => {
+        const m = p.new as ChatMessage;
+        setMessages((prev) => (prev.some((x) => x.id === m.id) ? prev : [...prev, m]));
+        if (m.sender_id && !namesRef.current[m.sender_id]) {
+          const resolved = await profilesDisplayFor([m.sender_id]);
+          const pr = resolved.get(m.sender_id);
+          setNames((n) => ({ ...n, [m.sender_id as string]: pr?.name ?? "User" }));
+        }
+        // A new message landed while this thread is open — mark it read.
+        if (user) void markThreadRead("coach", convId, user.id);
+      },
+    );
+    ch.on(
+      "postgres_changes",
+      { event: "*", schema: "public", table: "chat_read_state", filter: `thread_id=eq.${convId}` },
+      () => void fetchOtherLastRead("coach", convId, user?.id ?? "").then((d) => active && setOtherLastReadAt(d)),
+    );
+
+    const presence = user
+      ? wirePresenceAndTyping(ch, user.id, setTypingOther, setOtherOnline)
+      : null;
+    sendTypingRef.current = presence?.sendTyping ?? (() => {});
+
+    ch.subscribe((status) => presence?.onSubscribed(status));
 
     return () => {
       active = false;
+      presence?.cleanup();
       supabase.removeChannel(ch);
     };
-  }, [convId]);
+  }, [convId, user]);
 
   const send = useCallback(
     async (body: string, attachments: Attachment[]) => {
@@ -162,7 +184,19 @@ export function useThread(convId: string | null) {
     [user, convId],
   );
 
-  return { messages, names, loading, send, meId: user?.id ?? null };
+  const sendTyping = useCallback(() => sendTypingRef.current(), []);
+
+  return {
+    messages,
+    names,
+    loading,
+    send,
+    meId: user?.id ?? null,
+    typingOther,
+    otherOnline,
+    otherLastReadAt,
+    sendTyping,
+  };
 }
 
 // ---------------------------------------------------------------------------

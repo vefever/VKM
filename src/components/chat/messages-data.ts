@@ -15,6 +15,7 @@ export type InboxItem = {
   avatar: string | null;
   preview: string;
   lastAt: number; // epoch ms (0 = no messages yet)
+  unread: boolean;
 };
 
 async function profilesFor(ids: string[]) {
@@ -63,17 +64,6 @@ export function useInbox() {
         coachLast = new Date(lm.created_at).getTime();
       }
     }
-    const coachItem: InboxItem = {
-      key: "coach",
-      kind: "coach",
-      convId: conv?.id ?? null,
-      otherId: null,
-      name: "Coaching Team",
-      avatar: null,
-      preview: coachPreview || "Message your coaching team",
-      lastAt: coachLast,
-    };
-
     // --- Member DM threads ---
     const { data: threads } = await supabase
       .from("dm_threads")
@@ -101,9 +91,44 @@ export function useInbox() {
       });
     }
 
+    // --- My own read markers, so an unread badge can show on stale items ---
+    const myReadAt = new Map<string, number>(); // thread_id -> epoch ms
+    if (conv?.id) {
+      const { data: r } = await supabase
+        .from("chat_read_state")
+        .select("last_read_at")
+        .eq("thread_kind", "coach")
+        .eq("thread_id", conv.id)
+        .eq("user_id", user.id)
+        .maybeSingle();
+      if (r) myReadAt.set(conv.id, new Date(r.last_read_at).getTime());
+    }
+    if (threadIds.length) {
+      const { data: rs } = await supabase
+        .from("chat_read_state")
+        .select("thread_id, last_read_at")
+        .eq("thread_kind", "dm")
+        .eq("user_id", user.id)
+        .in("thread_id", threadIds);
+      (rs ?? []).forEach((r) => myReadAt.set(r.thread_id, new Date(r.last_read_at).getTime()));
+    }
+
+    const coachItem: InboxItem = {
+      key: "coach",
+      kind: "coach",
+      convId: conv?.id ?? null,
+      otherId: null,
+      name: "Coaching Team",
+      avatar: null,
+      preview: coachPreview || "Message your coaching team",
+      lastAt: coachLast,
+      unread: coachLast > 0 && coachLast > (myReadAt.get(conv?.id ?? "") ?? 0),
+    };
+
     const memberItems: InboxItem[] = tlist.map((t) => {
       const other = t.user_lo === user.id ? t.user_hi : t.user_lo;
       const pv = previews.get(t.id);
+      const lastAt = pv?.at ?? new Date(t.last_message_at).getTime();
       return {
         key: `m:${other}`,
         kind: "member",
@@ -112,7 +137,8 @@ export function useInbox() {
         name: names.get(other)?.name ?? "Member",
         avatar: names.get(other)?.avatar ?? null,
         preview: pv?.body ?? "Say hello 👋",
-        lastAt: pv?.at ?? new Date(t.last_message_at).getTime(),
+        lastAt,
+        unread: lastAt > (myReadAt.get(t.id) ?? 0),
       };
     });
 
@@ -138,6 +164,11 @@ export function useInbox() {
         load(),
       )
       .on("postgres_changes", { event: "*", schema: "public", table: "dm_threads" }, () => load())
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "chat_read_state", filter: `user_id=eq.${user.id}` },
+        () => load(),
+      )
       .subscribe();
     return () => {
       supabase.removeChannel(ch);

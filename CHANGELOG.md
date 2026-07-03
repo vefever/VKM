@@ -7,6 +7,7 @@ A running log of platform updates. Newest first. Ask any time for a **PDF** of t
 ## 2026-07-04
 
 ### New
+- **Messages redesign — online status, "seen" ticks, typing indicators** — the Messages page (coaching chat + community DMs) now shows when the other person is **online**, an animated **"typing…"** indicator while they're composing a reply, and **✓ / ✓✓ "seen" ticks** on your own sent messages. Message bubbles now group consecutive messages, show date separators between days, and animate in; a floating scroll-to-latest button appears with an unread count when you've scrolled up. The conversation list and thread panel got a visual refresh (frosted-glass panel, animated unread badges, smoother transitions). These upgrades also apply automatically to the Coach/Mentor/Admin chat inbox, since it shares the same conversation view.
 - **AI Assistant (floating chat, every role)** — the floating chat bubble is now an instant AI help assistant, answering questions about how to use the platform (navigation, habits, proof submission, points, batches, community, support — role-aware, so a coach and a participant get different answers). Powered by the same AI provider already configured in **Admin → AI Configurations**. Available to every signed-in role, not just participants.
 
 ### Removed

@@ -1,8 +1,9 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import type { Attachment } from "@/components/chat/chat-data";
 import { profilesDisplayFor } from "@/lib/profiles-display";
+import { wirePresenceAndTyping, markThreadRead, fetchOtherLastRead } from "@/components/chat/presence-typing";
 
 export type MemberStatus = "active" | "alumni";
 
@@ -308,6 +309,10 @@ export function useDmThread(otherUserId: string | null) {
   const [threadId, setThreadId] = useState<string | null>(null);
   const [messages, setMessages] = useState<DmMessage[]>([]);
   const [loading, setLoading] = useState(true);
+  const [typingOther, setTypingOther] = useState(false);
+  const [otherOnline, setOtherOnline] = useState(false);
+  const [otherLastReadAt, setOtherLastReadAt] = useState<Date | null>(null);
+  const sendTypingRef = useRef<() => void>(() => {});
 
   useEffect(() => {
     if (!user || !otherUserId) return;
@@ -331,6 +336,8 @@ export function useDmThread(otherUserId: string | null) {
     if (!threadId) return;
     let active = true;
     setLoading(true);
+    setTypingOther(false);
+    setOtherOnline(false);
     void supabase
       .from("dm_messages")
       .select("id, sender_id, body, attachments, created_at")
@@ -348,48 +355,63 @@ export function useDmThread(otherUserId: string | null) {
           })),
         );
         setLoading(false);
+        if (user) void markThreadRead("dm", threadId, user.id);
       });
 
-    const ch = supabase
-      .channel(`dm:${threadId}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "INSERT",
-          schema: "public",
-          table: "dm_messages",
-          filter: `thread_id=eq.${threadId}`,
-        },
-        (p) => {
-          const r = p.new as {
-            id: string;
-            sender_id: string | null;
-            body: string | null;
-            attachments: DmMessage["attachments"] | null;
-            created_at: string;
-          };
-          setMessages((m) =>
-            m.some((x) => x.id === r.id)
-              ? m
-              : [
-                  ...m,
-                  {
-                    id: r.id,
-                    senderId: r.sender_id,
-                    body: r.body,
-                    attachments: r.attachments ?? [],
-                    createdAt: r.created_at,
-                  },
-                ],
-          );
-        },
-      )
-      .subscribe();
+    void fetchOtherLastRead("dm", threadId, user?.id ?? "").then((d) => active && setOtherLastReadAt(d));
+
+    const ch = supabase.channel(`dm:${threadId}`).on(
+      "postgres_changes",
+      {
+        event: "INSERT",
+        schema: "public",
+        table: "dm_messages",
+        filter: `thread_id=eq.${threadId}`,
+      },
+      (p) => {
+        const r = p.new as {
+          id: string;
+          sender_id: string | null;
+          body: string | null;
+          attachments: DmMessage["attachments"] | null;
+          created_at: string;
+        };
+        setMessages((m) =>
+          m.some((x) => x.id === r.id)
+            ? m
+            : [
+                ...m,
+                {
+                  id: r.id,
+                  senderId: r.sender_id,
+                  body: r.body,
+                  attachments: r.attachments ?? [],
+                  createdAt: r.created_at,
+                },
+              ],
+        );
+        if (user) void markThreadRead("dm", threadId, user.id);
+      },
+    );
+    ch.on(
+      "postgres_changes",
+      { event: "*", schema: "public", table: "chat_read_state", filter: `thread_id=eq.${threadId}` },
+      () => void fetchOtherLastRead("dm", threadId, user?.id ?? "").then((d) => active && setOtherLastReadAt(d)),
+    );
+
+    const presence = user
+      ? wirePresenceAndTyping(ch, user.id, setTypingOther, setOtherOnline)
+      : null;
+    sendTypingRef.current = presence?.sendTyping ?? (() => {});
+
+    ch.subscribe((status) => presence?.onSubscribed(status));
+
     return () => {
       active = false;
+      presence?.cleanup();
       supabase.removeChannel(ch);
     };
-  }, [threadId]);
+  }, [threadId, user]);
 
   const send = useCallback(
     async (body: string, attachments: Attachment[] = []) => {
@@ -404,5 +426,7 @@ export function useDmThread(otherUserId: string | null) {
     [user, threadId],
   );
 
-  return { messages, send, loading, threadId };
+  const sendTyping = useCallback(() => sendTypingRef.current(), []);
+
+  return { messages, send, loading, threadId, typingOther, otherOnline, otherLastReadAt, sendTyping };
 }

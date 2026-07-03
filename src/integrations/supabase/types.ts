@@ -307,6 +307,27 @@ export type Database = {
         }
         Relationships: []
       }
+      chat_read_state: {
+        Row: {
+          last_read_at: string
+          thread_id: string
+          thread_kind: string
+          user_id: string
+        }
+        Insert: {
+          last_read_at?: string
+          thread_id: string
+          thread_kind: string
+          user_id: string
+        }
+        Update: {
+          last_read_at?: string
+          thread_id?: string
+          thread_kind?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       coach_assignments: {
         Row: {
           assigned_at: string
@@ -2128,6 +2149,10 @@ export type Database = {
           _role: Database["public"]["Enums"]["app_role"]
           _user_id: string
         }
+        Returns: boolean
+      }
+      is_chat_thread_participant: {
+        Args: { _kind: string; _thread_id: string }
         Returns: boolean
       }
       is_meeting_attendee: { Args: { _meeting: string }; Returns: boolean }
