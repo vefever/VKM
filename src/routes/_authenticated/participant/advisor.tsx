@@ -146,8 +146,33 @@ function AdvisorPage() {
         const decoder = new TextDecoder();
         let acc = "";
         let started = false;
+        // Defense-in-depth: the server already times out a hung upstream (see
+        // ai-provider.ts), but if the Worker itself were ever killed mid-stream
+        // its try/finally would never run and this read would hang forever with
+        // nothing to catch it. A per-chunk idle watchdog guarantees the "..."
+        // indicator always clears even in that case.
+        const CLIENT_IDLE_MS = 35_000;
         for (;;) {
-          const { done, value } = await reader.read();
+          const raced = await Promise.race([
+            reader.read(),
+            new Promise<"timeout">((resolve) => setTimeout(() => resolve("timeout"), CLIENT_IDLE_MS)),
+          ]);
+          if (raced === "timeout") {
+            void reader.cancel().catch(() => {});
+            if (!started) {
+              setMessages((m) => [
+                ...m,
+                {
+                  role: "assistant",
+                  content: "The advisor is taking too long to respond — please try again.",
+                },
+              ]);
+            } else {
+              setLastAssistant(acc + "\n\n_(cut off — please try again.)_");
+            }
+            break;
+          }
+          const { done, value } = raced;
           if (done) break;
           const chunk = decoder.decode(value, { stream: true });
           if (!chunk) continue;

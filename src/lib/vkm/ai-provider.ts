@@ -67,10 +67,31 @@ export async function loadAiConfig(): Promise<AiConfig> {
 
 // Retry transient gateway failures (overload / cold start): 429 + 5xx.
 const TRANSIENT = new Set([429, 500, 502, 503, 504]);
+
+// No outbound AI-provider call ever had a timeout, so a gateway that accepts
+// the connection but never replies (rather than erroring) hung the request —
+// and the advisor's "..." indicator — forever. Every fetch below now aborts
+// after a bound and surfaces as a normal (retryable) 504, so a broken upstream
+// always resolves within a bounded time instead of hanging indefinitely.
+const REQUEST_TIMEOUT_MS = 30_000;
+
+async function fetchWithTimeout(url: string, init: RequestInit, ms: number): Promise<Response> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), ms);
+  try {
+    return await fetch(url, { ...init, signal: controller.signal });
+  } catch (err) {
+    console.error("aiFetch: request failed or timed out:", (err as Error).message);
+    return new Response("", { status: 504 }); // synthetic — lets existing !res.ok / TRANSIENT handling apply
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 export async function aiFetch(url: string, init: RequestInit, tries = 3): Promise<Response> {
   let res: Response | null = null;
   for (let i = 0; i < tries; i++) {
-    res = await fetch(url, init);
+    res = await fetchWithTimeout(url, init, REQUEST_TIMEOUT_MS);
     if (res.ok || !TRANSIENT.has(res.status) || i === tries - 1) return res;
     await new Promise((r) => setTimeout(r, 700 * (i + 1)));
   }
@@ -214,6 +235,11 @@ function deltaText(cfg: AiConfig, json: unknown): string {
  *
  * `hooks.onDone(full)` runs once with the complete text (e.g. to log it).
  */
+// Idle window between bytes (connect included). Reset on every chunk received,
+// so a slow-but-progressing generation is never cut off — only a connection
+// that goes silent for this long is treated as hung.
+const STREAM_IDLE_MS = 20_000;
+
 export function streamAi(
   cfg: AiConfig,
   system: string,
@@ -233,6 +259,7 @@ export function streamAi(
         controller.enqueue(encoder.encode(t));
       };
       const finish = () => {
+        if (idleTimer) clearTimeout(idleTimer);
         try {
           hooks.onDone?.(full);
         } catch {
@@ -241,9 +268,21 @@ export function streamAi(
         controller.close();
       };
 
+      // One AbortController spans connect + the whole read loop: aborting it
+      // rejects both an in-flight fetch() and an in-flight reader.read() (the
+      // Fetch/Streams spec ties a response body's reads to its request signal).
+      const abortCtl = new AbortController();
+      let idleTimer: ReturnType<typeof setTimeout> | undefined;
+      const bumpIdle = () => {
+        if (idleTimer) clearTimeout(idleTimer);
+        idleTimer = setTimeout(() => abortCtl.abort(), STREAM_IDLE_MS);
+      };
+
       try {
+        bumpIdle();
         const { url, headers, body } = streamRequest(cfg, system, messages, temperature);
-        const res = await fetch(url, { method: "POST", headers, body });
+        const res = await fetch(url, { method: "POST", headers, body, signal: abortCtl.signal });
+        bumpIdle(); // got a response — reset the clock for the body/first chunk
 
         if (!res.ok || !res.body) {
           const errTxt = (await res.text().catch(() => "")).slice(0, 300);
@@ -281,6 +320,7 @@ export function streamAi(
         let buf = "";
         for (;;) {
           const { done, value } = await reader.read();
+          bumpIdle(); // got a chunk (or a clean close) — push the idle deadline out again
           if (done) break;
           buf += decoder.decode(value, { stream: true });
           let nl: number;
@@ -299,8 +339,22 @@ export function streamAi(
         }
         finish();
       } catch (err) {
-        console.error("streamAi failed:", (err as Error).message);
-        if (!full) emit("Couldn't reach the AI provider right now. Please try again in a moment.");
+        const isAbort = (err as Error)?.name === "AbortError";
+        console.error(
+          isAbort ? "streamAi timed out (idle/connect):" : "streamAi failed:",
+          (err as Error).message,
+        );
+        if (!full) {
+          emit(
+            isAbort
+              ? "The advisor is taking too long to respond — please try again in a moment."
+              : "Couldn't reach the AI provider right now. Please try again in a moment.",
+          );
+        } else if (isAbort) {
+          // Partial reply already streamed, then the connection went idle — say
+          // so instead of letting a truncated answer look like the full one.
+          emit("\n\n_(cut off — the connection stalled. Please try again.)_");
+        }
         finish();
       }
     },

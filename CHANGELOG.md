@@ -4,6 +4,16 @@ A running log of platform updates. Newest first. Ask any time for a **PDF** of t
 
 ---
 
+## 2026-07-03
+
+### New
+- **AI model picker** — Admin → AI Configurations now has a **dropdown of the models available on your gateway plan** (Claude Opus/Sonnet/Haiku, GPT-4.1, GPT-5/GPT-5 Mini/GPT-4.1 Mini/o4-mini, North Code), grouped with their capabilities, plus a **Custom** option for any other model id. Models not currently entitled on the plan are shown disabled with a clear warning instead of silently failing.
+
+### Fixed
+- **AI Advisor could get stuck on "…" forever** — outbound calls to the AI provider had no timeout, so a slow or unresponsive upstream could leave the typing indicator spinning indefinitely with no error, on any model. Added bounded timeouts (with a clear "taking too long, please try again" message) to both the streaming and non-streaming request paths, plus a client-side safety-net watchdog, so the advisor always resolves within a bounded time instead of hanging.
+
+---
+
 ## 2026-07-02
 
 ### New

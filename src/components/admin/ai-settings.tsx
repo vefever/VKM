@@ -8,6 +8,15 @@ import { SectionCard } from "@/components/vkm/section-card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectLabel,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { testAiProvider } from "@/lib/vkm/advisor.functions";
@@ -20,12 +29,64 @@ const PRESETS: Record<string, { provider: Provider; baseUrl: string; model: stri
   openrouter: { provider: "openai", baseUrl: "https://openrouter.ai/api/v1", model: "anthropic/claude-3.5-haiku", maxTokens: 800, label: "OpenRouter", hint: "openrouter.ai · many models" },
 };
 
+const CUSTOM_MODEL = "__custom__";
+
+// Models available on the opus.abhibots.com gateway plan. Grouped to match the
+// gateway's own "Models on your plan" listing. Every option here is reachable
+// through the Anthropic Messages API shape (x-api-key), which is what this
+// gateway speaks regardless of the underlying model family.
+const MODEL_CATALOG: {
+  group: string;
+  models: { id: string; label: string; badge?: string; caps: string; unavailable?: boolean }[];
+}[] = [
+  {
+    group: "Claude",
+    models: [
+      { id: "claude-opus-4-7", label: "Opus 4.7", caps: "Vision · Tools · Streaming" },
+      { id: "claude-sonnet-4-6", label: "Sonnet 4.6", caps: "Vision · Tools · Streaming" },
+      { id: "claude-haiku-4-5", label: "Haiku 4.5", caps: "Vision · Tools · Streaming" },
+    ],
+  },
+  {
+    group: "OpenAI (tools)",
+    models: [{ id: "gpt-4.1", label: "GPT-4.1", caps: "Vision · Tools · Streaming" }],
+  },
+  {
+    group: "OpenAI (chat-only)",
+    models: [
+      { id: "gpt-5", label: "GPT-5", caps: "Chat-only · Streaming" },
+      {
+        id: "gpt-5-mini",
+        label: "GPT-5 Mini",
+        badge: "Not entitled on your plan",
+        caps: "Chat-only · Streaming",
+        unavailable: true,
+      },
+      { id: "gpt-4.1-mini", label: "GPT-4.1 Mini", caps: "Chat-only · Streaming" },
+      { id: "o4-mini", label: "o4-mini", caps: "Chat-only · Streaming" },
+    ],
+  },
+  {
+    group: "Open-source (tools)",
+    models: [
+      {
+        id: "north-mini-code",
+        label: "North Code",
+        badge: "Unlimited on Pro+ until Jul 18",
+        caps: "Vision · Tools · Streaming",
+      },
+    ],
+  },
+];
+const ALL_MODEL_IDS = new Set(MODEL_CATALOG.flatMap((g) => g.models.map((m) => m.id)));
+
 export function AiSettings() {
   const test = useServerFn(testAiProvider);
   const [provider, setProvider] = useState<Provider>("anthropic");
   const [baseUrl, setBaseUrl] = useState("https://opus.abhibots.com/v1");
   const [apiKey, setApiKey] = useState("");
   const [model, setModel] = useState("claude-haiku-4-5");
+  const [customModel, setCustomModel] = useState("");
   const [maxTokens, setMaxTokens] = useState(800);
   const [enabled, setEnabled] = useState(false);
   const [reveal, setReveal] = useState(false);
@@ -47,23 +108,44 @@ export function AiSettings() {
           setEnabled(!!data.enabled);
           if (c.baseUrl) setBaseUrl(c.baseUrl);
           if (c.apiKey) setApiKey(c.apiKey);
-          if (c.model) setModel(c.model);
+          if (c.model) {
+            if (ALL_MODEL_IDS.has(c.model)) {
+              setModel(c.model);
+            } else {
+              setModel(CUSTOM_MODEL);
+              setCustomModel(c.model);
+            }
+          }
           if (c.maxTokens) setMaxTokens(Number(c.maxTokens) || 800);
         }
         setLoading(false);
       }, () => setLoading(false));
   }, []);
 
+  // Selecting a model that's on the gateway's plan sets `model` to its id;
+  // anything else (a different gateway/provider's own model string) falls back
+  // to the free-text "Custom" slot so we never lose an existing configuration.
+  function chooseModel(id: string) {
+    if (ALL_MODEL_IDS.has(id)) {
+      setModel(id);
+    } else {
+      setModel(CUSTOM_MODEL);
+      setCustomModel(id);
+    }
+  }
+
   function applyPreset(key: keyof typeof PRESETS) {
     const p = PRESETS[key];
     setProvider(p.provider);
     setBaseUrl(p.baseUrl);
-    setModel(p.model);
+    chooseModel(p.model);
     setMaxTokens(p.maxTokens);
   }
 
+  const effectiveModel = (model === CUSTOM_MODEL ? customModel : model).trim();
+
   async function save() {
-    if (!apiKey.trim() || !baseUrl.trim() || !model.trim()) {
+    if (!apiKey.trim() || !baseUrl.trim() || !effectiveModel) {
       toast.error("API key, base URL and model are required");
       return;
     }
@@ -75,20 +157,20 @@ export function AiSettings() {
           id: "ai",
           provider,
           enabled: on,
-          config: { apiKey: apiKey.trim(), baseUrl: baseUrl.trim().replace(/\/$/, ""), model: model.trim(), maxTokens: String(maxTokens) },
+          config: { apiKey: apiKey.trim(), baseUrl: baseUrl.trim().replace(/\/$/, ""), model: effectiveModel, maxTokens: String(maxTokens) },
           updated_at: new Date().toISOString(),
         },
         { onConflict: "id" },
       );
       if (error) throw error;
       setEnabled(on);
-      toast.success("AI Advisor saved & enabled", { description: `${provider === "anthropic" ? "Anthropic" : "OpenAI"} · ${model}` });
+      toast.success("AI Advisor saved & enabled", { description: `${provider === "anthropic" ? "Anthropic" : "OpenAI"} · ${effectiveModel}` });
     } catch (e) { toast.error("Could not save", { description: (e as Error).message }); }
     finally { setSaving(false); }
   }
 
   async function sendTest() {
-    if (!apiKey.trim() || !baseUrl.trim() || !model.trim()) {
+    if (!apiKey.trim() || !baseUrl.trim() || !effectiveModel) {
       toast.error("Fill in the API key, base URL and model first");
       return;
     }
@@ -98,7 +180,7 @@ export function AiSettings() {
       const r = await test({
         data: {
           prompt: "Reply with one short sentence confirming the AI Advisor is connected.",
-          provider, baseUrl: baseUrl.trim(), apiKey: apiKey.trim(), model: model.trim(), maxTokens,
+          provider, baseUrl: baseUrl.trim(), apiKey: apiKey.trim(), model: effectiveModel, maxTokens,
         },
       });
       if (!r.ok) { toast.error("Test failed", { description: r.error }); return; }
@@ -148,7 +230,55 @@ export function AiSettings() {
                   </button>
                 </div>
               </div>
-              <Field label="Model" value={model} onChange={setModel} placeholder="claude-haiku-4-5" />
+              <div className="space-y-1.5">
+                <Label>Model</Label>
+                <Select value={model} onValueChange={(v) => { setModel(v); if (v !== CUSTOM_MODEL) setCustomModel(""); }}>
+                  <SelectTrigger className="h-10 rounded-xl">
+                    <SelectValue placeholder="Choose a model" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {MODEL_CATALOG.map((g) => (
+                      <SelectGroup key={g.group}>
+                        <SelectLabel>{g.group}</SelectLabel>
+                        {g.models.map((m) => (
+                          <SelectItem key={m.id} value={m.id} disabled={m.unavailable}>
+                            {m.label}
+                            {m.badge ? (
+                              <span className={m.unavailable ? "text-red-500" : "text-gold"}> · {m.badge}</span>
+                            ) : (
+                              ""
+                            )}
+                          </SelectItem>
+                        ))}
+                      </SelectGroup>
+                    ))}
+                    <SelectGroup>
+                      <SelectLabel>Other</SelectLabel>
+                      <SelectItem value={CUSTOM_MODEL}>Custom (type a model id)…</SelectItem>
+                    </SelectGroup>
+                  </SelectContent>
+                </Select>
+                {model === CUSTOM_MODEL ? (
+                  <Input
+                    value={customModel}
+                    onChange={(e) => setCustomModel(e.target.value)}
+                    placeholder="e.g. gpt-4o-mini, anthropic/claude-3.5-haiku"
+                    className="h-10 rounded-xl"
+                    autoFocus
+                  />
+                ) : (
+                  (() => {
+                    const sel = MODEL_CATALOG.flatMap((g) => g.models).find((m) => m.id === model);
+                    return sel?.unavailable ? (
+                      <p className="text-[11px] font-medium text-red-500">
+                        ⚠ Not entitled on your plan right now — pick another model or use Send test to confirm.
+                      </p>
+                    ) : (
+                      <p className="text-[11px] text-muted-foreground">{sel?.caps}</p>
+                    );
+                  })()
+                )}
+              </div>
               <div className="space-y-1.5">
                 <Label>Max tokens per reply</Label>
                 <Input type="number" inputMode="numeric" value={maxTokens} onChange={(e) => setMaxTokens(Number(e.target.value) || 0)} className="h-10 rounded-xl" />
@@ -157,7 +287,7 @@ export function AiSettings() {
             <div className="mt-3 flex flex-wrap items-center gap-2 rounded-xl border border-gold/30 bg-gold/[0.06] px-3 py-2">
               <Zap className="h-4 w-4 text-gold" />
               <span className="text-xs text-muted-foreground">Low-token preset — cheaper, faster replies.</span>
-              <button type="button" onClick={() => { setModel(provider === "anthropic" ? "claude-haiku-4-5" : "gpt-4o-mini"); setMaxTokens(512); }} className="rounded-full bg-gradient-navy px-3 py-1 text-xs font-semibold text-primary-foreground">
+              <button type="button" onClick={() => { chooseModel(provider === "anthropic" ? "claude-haiku-4-5" : "gpt-4.1-mini"); setMaxTokens(512); }} className="rounded-full bg-gradient-navy px-3 py-1 text-xs font-semibold text-primary-foreground">
                 Use low-token model
               </button>
             </div>
