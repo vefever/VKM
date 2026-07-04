@@ -10,6 +10,7 @@ import {
   CheckCircle2,
   Youtube,
   Film,
+  ImagePlus,
 } from "lucide-react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/vkm/page-header";
@@ -29,10 +30,12 @@ import { VKM_WEEKS } from "@/lib/vkm/program";
 import {
   useWeekVideos,
   uploadClassVideo,
+  uploadThumbnail,
   saveWeekVideo,
   detectProvider,
   type WeekVideoRow,
 } from "@/components/admin/class-videos-data";
+import { thumbnailFor } from "@/lib/video-source";
 import { useProgramOptions } from "@/lib/vkm/program-scope";
 import { BatchProgramPicker } from "@/components/admin/batch-program-picker";
 
@@ -146,17 +149,25 @@ export function WeekVideoField({
   className?: string;
 }) {
   const [url, setUrl] = useState(initial?.url ?? "");
+  const [thumbnail, setThumbnail] = useState(initial?.thumbnail ?? "");
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [thumbUploading, setThumbUploading] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
+  const thumbRef = useRef<HTMLInputElement>(null);
 
-  // Sync the field when the async load (or a save/reload) changes the stored
-  // value. This only fires on real DB changes, not while the admin is typing.
+  // Sync the fields when the async load (or a save/reload) changes stored
+  // values. This only fires on real DB changes, not while the admin is typing.
   const savedUrl = initial?.url ?? "";
+  const savedThumb = initial?.thumbnail ?? "";
   useEffect(() => setUrl(savedUrl), [savedUrl]);
+  useEffect(() => setThumbnail(savedThumb), [savedThumb]);
   const trimmed = url.trim();
-  const dirty = trimmed !== savedUrl;
+  const trimmedThumb = thumbnail.trim();
+  const dirty = trimmed !== savedUrl || trimmedThumb !== savedThumb;
   const provider = trimmed ? detectProvider(trimmed) : null;
+  // What the participant will actually see as the poster (custom → YouTube).
+  const previewThumb = trimmed ? thumbnailFor(trimmed, trimmedThumb || null) : trimmedThumb || null;
 
   async function onPick(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -178,6 +189,26 @@ export function WeekVideoField({
     }
   }
 
+  async function onPickThumb(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      toast.error("Please choose an image (JPG/PNG/WebP)");
+      return;
+    }
+    setThumbUploading(true);
+    try {
+      const publicUrl = await uploadThumbnail(file);
+      setThumbnail(publicUrl);
+      toast.success("Thumbnail uploaded", { description: "Click Save to apply it." });
+    } catch (err) {
+      toast.error("Thumbnail upload failed", { description: (err as Error).message });
+    } finally {
+      setThumbUploading(false);
+    }
+  }
+
   async function save(clear = false) {
     if (!programId) {
       toast.error("Pick a batch first");
@@ -190,8 +221,12 @@ export function WeekVideoField({
         url: u || null,
         provider: u ? detectProvider(u) : null,
         title: null,
+        thumbnail: clear ? null : trimmedThumb || null,
       });
-      if (clear) setUrl("");
+      if (clear) {
+        setUrl("");
+        setThumbnail("");
+      }
       toast.success(`Week ${weekNo} ${u ? "saved" : "cleared"}`);
       onSaved();
     } catch (err) {
@@ -254,7 +289,7 @@ export function WeekVideoField({
                 </DialogTitle>
               </DialogHeader>
               <div className="px-4 pb-4">
-                <VideoPlayer url={trimmed} provider={provider ?? undefined} title={topic} />
+                <VideoPlayer url={trimmed} provider={provider ?? undefined} title={topic} poster={previewThumb ?? undefined} />
               </div>
             </DialogContent>
           </Dialog>
@@ -283,6 +318,45 @@ export function WeekVideoField({
           </Button>
         </div>
       </div>
+
+      {/* Thumbnail — the poster participants see before playing. YouTube
+          auto-derives one; upload a custom image for uploaded/Vimeo videos or
+          to override. */}
+      {trimmed && (
+        <div className="mt-3 flex items-center gap-3 rounded-lg border border-border bg-secondary/30 p-2.5">
+          <div className="relative aspect-video w-28 shrink-0 overflow-hidden rounded-md bg-gradient-navy">
+            {previewThumb ? (
+              <img src={previewThumb} alt="Thumbnail preview" className="h-full w-full object-cover" />
+            ) : (
+              <span className="flex h-full w-full items-center justify-center text-white/40">
+                <ImagePlus className="h-5 w-5" />
+              </span>
+            )}
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="text-xs font-semibold text-foreground">Thumbnail</p>
+            <p className="mt-0.5 text-[11px] text-muted-foreground">
+              {trimmedThumb
+                ? "Custom thumbnail set."
+                : provider === "youtube"
+                  ? "Auto-generated from YouTube. Upload to override."
+                  : "No thumbnail — upload one so a poster shows before play."}
+            </p>
+            <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+              <input ref={thumbRef} type="file" accept="image/*" className="hidden" onChange={onPickThumb} />
+              <Button size="sm" variant="outline" className="h-7 rounded-lg text-xs" disabled={thumbUploading || saving} onClick={() => thumbRef.current?.click()}>
+                {thumbUploading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ImagePlus className="h-3.5 w-3.5" />}
+                {trimmedThumb ? "Replace" : "Upload thumbnail"}
+              </Button>
+              {trimmedThumb && (
+                <Button size="sm" variant="ghost" className="h-7 rounded-lg text-xs text-destructive hover:text-destructive" disabled={saving} onClick={() => setThumbnail("")}>
+                  <Trash2 className="h-3.5 w-3.5" /> Remove
+                </Button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

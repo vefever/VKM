@@ -17,6 +17,8 @@ export type WeekVideo = {
    */
   url: string;
   provider?: VideoKind;
+  /** Admin-uploaded custom thumbnail (else YouTube auto-derives, else placeholder). */
+  thumbnail?: string | null;
   durationLabel: string;
   /** True while we use a stand-in recording rather than the real class video. */
   sample?: boolean;
@@ -90,7 +92,7 @@ function briefFor(w: ProgramWeek) {
 export function getWeekResources(
   w: ProgramWeek,
   currentWeek: number,
-  videoOverride?: { url: string; provider?: VideoKind; title?: string | null },
+  videoOverride?: { url: string; provider?: VideoKind; title?: string | null; thumbnail?: string | null },
 ): WeekResources {
   const sample = SAMPLE_RECORDINGS[(w.week - 1) % SAMPLE_RECORDINGS.length];
   const video: WeekVideo | undefined = videoOverride?.url
@@ -98,6 +100,7 @@ export function getWeekResources(
         title: videoOverride.title || `${w.topic} — class recording`,
         url: videoOverride.url,
         provider: videoOverride.provider,
+        thumbnail: videoOverride.thumbnail ?? null,
         durationLabel: "Class recording",
       }
     : w.week <= currentWeek

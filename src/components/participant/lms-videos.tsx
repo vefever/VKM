@@ -1,15 +1,11 @@
+import { useState } from "react";
 import { motion } from "framer-motion";
-import { Video, Play, Clock, Lock, CheckCircle2 } from "lucide-react";
+import { Video, Clock, Lock, CheckCircle2 } from "lucide-react";
 import { PageHeader } from "@/components/vkm/page-header";
 import { SectionCard } from "@/components/vkm/section-card";
-import {
-  ResponsiveModal,
-  ResponsiveModalContent,
-  ResponsiveModalHeader,
-  ResponsiveModalTitle,
-  ResponsiveModalTrigger,
-} from "@/components/ui/responsive-modal";
 import { VideoPlayer } from "@/components/vkm/video-player";
+import { VideoThumb } from "@/components/vkm/video-thumb";
+import { thumbnailFor } from "@/lib/video-source";
 import { cn } from "@/lib/utils";
 import { VKM_WEEKS, type ProgramWeek } from "@/lib/vkm/program";
 import { getWeekResources } from "@/lib/vkm/week-resources";
@@ -18,11 +14,15 @@ import {
   videoMapFromRows,
   type WeekVideoOverride,
 } from "@/components/admin/class-videos-data";
+import { useProgramPlan } from "@/components/participant/program-plan-data";
 import { currentWeekNo } from "@/components/coach/coach-data";
 
 // LMS = every Tuesday class recording, week by week, in one page.
 export function LmsVideosPage() {
-  const { rows } = useWeekVideos();
+  // Scope videos to the participant's OWN batch program (so a cloned Batch-17
+  // program shows its own recordings), matching the Program Progress page.
+  const { programId } = useProgramPlan();
+  const { rows } = useWeekVideos(programId);
   const byWeek = videoMapFromRows(rows);
   const currentWeek = currentWeekNo();
   const available = VKM_WEEKS.filter(
@@ -70,6 +70,7 @@ function LmsRow({
 }) {
   const video = getWeekResources(wk, currentWeek, override).video;
   const locked = wk.week > currentWeek && !video;
+  const [playing, setPlaying] = useState(false);
 
   return (
     <div className="rounded-xl border border-border bg-card p-3">
@@ -92,47 +93,24 @@ function LmsRow({
 
       <div className="mt-3">
         {video ? (
-          <ResponsiveModal>
-            <ResponsiveModalTrigger asChild>
-              <button
-                type="button"
-                className="app-press group flex w-full items-center gap-3 overflow-hidden rounded-xl bg-gradient-navy p-3 text-left text-primary-foreground shadow-vkm"
-              >
-                <span className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-white/15 ring-1 ring-white/20 transition-transform group-hover:scale-105">
-                  <Play className="h-5 w-5 fill-current" />
-                </span>
-                <span className="min-w-0 flex-1">
-                  <span className="flex items-center gap-1.5">
-                    <span className="truncate text-sm font-semibold">{video.title}</span>
-                    {video.sample && (
-                      <span className="shrink-0 rounded bg-gold/30 px-1.5 py-0.5 text-[9px] font-bold uppercase text-white">
-                        Sample
-                      </span>
-                    )}
-                  </span>
-                  <span className="text-[11px] text-white/70">Tap to watch</span>
-                </span>
-              </button>
-            </ResponsiveModalTrigger>
-            <ResponsiveModalContent className="max-w-2xl p-0">
-              <ResponsiveModalHeader className="px-4 pt-4">
-                <ResponsiveModalTitle className="text-base">{video.title}</ResponsiveModalTitle>
-              </ResponsiveModalHeader>
-              <div className="px-4 pb-4">
-                <VideoPlayer
-                  url={video.url}
-                  provider={video.provider}
-                  autoPlay
-                  title={video.title}
-                />
-                {video.sample && (
-                  <p className="mt-3 text-xs text-muted-foreground">
-                    Stand-in recording — your real class video replaces this.
-                  </p>
-                )}
-              </div>
-            </ResponsiveModalContent>
-          </ResponsiveModal>
+          playing ? (
+            <div>
+              <VideoPlayer url={video.url} provider={video.provider} autoPlay title={video.title} poster={thumbnailFor(video.url, video.thumbnail) ?? undefined} />
+              {video.sample && (
+                <p className="mt-2 text-[11px] text-muted-foreground">Stand-in recording — your real class video replaces this.</p>
+              )}
+            </div>
+          ) : (
+            <VideoThumb
+              url={video.url}
+              provider={video.provider}
+              thumbnail={video.thumbnail}
+              title={video.title}
+              durationLabel={video.durationLabel}
+              sample={video.sample}
+              onPlay={() => setPlaying(true)}
+            />
+          )
         ) : (
           <div
             className={cn(

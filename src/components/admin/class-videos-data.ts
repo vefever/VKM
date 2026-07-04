@@ -9,6 +9,7 @@ export type WeekVideoRow = {
   url: string | null;
   provider: VideoKind | null;
   title: string | null;
+  thumbnail: string | null;
 };
 
 // program_week_resources isn't in the generated types yet — cast the client.
@@ -21,6 +22,13 @@ export async function uploadClassVideo(file: File): Promise<string> {
   return uploadToStorage("class-videos", path, file, file.type || "video/mp4");
 }
 
+/** Upload a custom thumbnail image; returns its public URL. */
+export async function uploadThumbnail(file: File): Promise<string> {
+  const safe = file.name.replace(/[^\w.-]+/g, "_");
+  const path = `thumbnails/${Date.now()}-${safe}`;
+  return uploadToStorage("class-videos", path, file, file.type || "image/jpeg");
+}
+
 /**
  * Persist a week's class video for a SPECIFIC program (staff-only via RLS).
  * Scoping by program_id is what makes videos batch-specific.
@@ -28,7 +36,7 @@ export async function uploadClassVideo(file: File): Promise<string> {
 export async function saveWeekVideo(
   programId: string,
   weekNo: number,
-  v: { url: string | null; provider: VideoKind | null; title: string | null },
+  v: { url: string | null; provider: VideoKind | null; title: string | null; thumbnail?: string | null },
 ) {
   const { error } = await supabase
     .from("program_weeks")
@@ -36,6 +44,7 @@ export async function saveWeekVideo(
       class_video_url: v.url,
       class_video_provider: v.provider,
       class_video_title: v.title,
+      class_video_thumbnail: v.thumbnail ?? null,
     })
     .eq("program_id", programId)
     .eq("week_no", weekNo);
@@ -61,7 +70,7 @@ export function useWeekVideos(programId: string | null) {
     setLoading(true);
     void supabase
       .from("program_weeks")
-      .select("week_no, class_video_url, class_video_provider, class_video_title")
+      .select("week_no, class_video_url, class_video_provider, class_video_title, class_video_thumbnail")
       .eq("program_id", programId)
       .order("week_no")
       .then(({ data }) => {
@@ -71,6 +80,7 @@ export function useWeekVideos(programId: string | null) {
             url: r.class_video_url,
             provider: (r.class_video_provider as VideoKind | null) ?? null,
             title: r.class_video_title,
+            thumbnail: (r as { class_video_thumbnail: string | null }).class_video_thumbnail ?? null,
           })),
         );
         setLoading(false);
@@ -81,13 +91,13 @@ export function useWeekVideos(programId: string | null) {
   return { rows, loading, reload: load };
 }
 
-export type WeekVideoOverride = { url: string; provider?: VideoKind; title?: string | null };
+export type WeekVideoOverride = { url: string; provider?: VideoKind; title?: string | null; thumbnail?: string | null };
 
 /** Map of week_no → override, only for weeks that have a real video set. */
 export function videoMapFromRows(rows: WeekVideoRow[]): Map<number, WeekVideoOverride> {
   const m = new Map<number, WeekVideoOverride>();
   rows.forEach((r) => {
-    if (r.url) m.set(r.week_no, { url: r.url, provider: r.provider ?? undefined, title: r.title });
+    if (r.url) m.set(r.week_no, { url: r.url, provider: r.provider ?? undefined, title: r.title, thumbnail: r.thumbnail });
   });
   return m;
 }

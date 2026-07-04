@@ -67,6 +67,8 @@ import { Route as AuthenticatedMentorStoriesRouteImport } from './routes/_authen
 import { Route as AuthenticatedMentorSettingsRouteImport } from './routes/_authenticated/mentor/settings'
 import { Route as AuthenticatedMentorReportsRouteImport } from './routes/_authenticated/mentor/reports'
 import { Route as AuthenticatedMentorProgramsRouteImport } from './routes/_authenticated/mentor/programs'
+import { Route as AuthenticatedMentorProgramContentRouteImport } from './routes/_authenticated/mentor/program-content'
+import { Route as AuthenticatedMentorProgramBuilderRouteImport } from './routes/_authenticated/mentor/program-builder'
 import { Route as AuthenticatedMentorProfileRouteImport } from './routes/_authenticated/mentor/profile'
 import { Route as AuthenticatedMentorParticipantsRouteImport } from './routes/_authenticated/mentor/participants'
 import { Route as AuthenticatedMentorParticipantPerformanceRouteImport } from './routes/_authenticated/mentor/participant-performance'
@@ -126,6 +128,7 @@ import { Route as AuthenticatedAdminSecurityRouteImport } from './routes/_authen
 import { Route as AuthenticatedAdminReportsRouteImport } from './routes/_authenticated/admin/reports'
 import { Route as AuthenticatedAdminPwaRouteImport } from './routes/_authenticated/admin/pwa'
 import { Route as AuthenticatedAdminPushRouteImport } from './routes/_authenticated/admin/push'
+import { Route as AuthenticatedAdminProgramsHubRouteImport } from './routes/_authenticated/admin/programs-hub'
 import { Route as AuthenticatedAdminProgramsRouteImport } from './routes/_authenticated/admin/programs'
 import { Route as AuthenticatedAdminProgramBuilderRouteImport } from './routes/_authenticated/admin/program-builder'
 import { Route as AuthenticatedAdminProfileRouteImport } from './routes/_authenticated/admin/profile'
@@ -510,6 +513,18 @@ const AuthenticatedMentorProgramsRoute =
     path: '/programs',
     getParentRoute: () => AuthenticatedMentorRouteRoute,
   } as any)
+const AuthenticatedMentorProgramContentRoute =
+  AuthenticatedMentorProgramContentRouteImport.update({
+    id: '/program-content',
+    path: '/program-content',
+    getParentRoute: () => AuthenticatedMentorRouteRoute,
+  } as any)
+const AuthenticatedMentorProgramBuilderRoute =
+  AuthenticatedMentorProgramBuilderRouteImport.update({
+    id: '/program-builder',
+    path: '/program-builder',
+    getParentRoute: () => AuthenticatedMentorRouteRoute,
+  } as any)
 const AuthenticatedMentorProfileRoute =
   AuthenticatedMentorProfileRouteImport.update({
     id: '/profile',
@@ -852,6 +867,12 @@ const AuthenticatedAdminPushRoute = AuthenticatedAdminPushRouteImport.update({
   path: '/push',
   getParentRoute: () => AuthenticatedAdminRouteRoute,
 } as any)
+const AuthenticatedAdminProgramsHubRoute =
+  AuthenticatedAdminProgramsHubRouteImport.update({
+    id: '/programs-hub',
+    path: '/programs-hub',
+    getParentRoute: () => AuthenticatedAdminRouteRoute,
+  } as any)
 const AuthenticatedAdminProgramsRoute =
   AuthenticatedAdminProgramsRouteImport.update({
     id: '/programs',
@@ -1165,6 +1186,7 @@ export interface FileRoutesByFullPath {
   '/admin/profile': typeof AuthenticatedAdminProfileRoute
   '/admin/program-builder': typeof AuthenticatedAdminProgramBuilderRoute
   '/admin/programs': typeof AuthenticatedAdminProgramsRoute
+  '/admin/programs-hub': typeof AuthenticatedAdminProgramsHubRoute
   '/admin/push': typeof AuthenticatedAdminPushRoute
   '/admin/pwa': typeof AuthenticatedAdminPwaRoute
   '/admin/reports': typeof AuthenticatedAdminReportsRoute
@@ -1224,6 +1246,8 @@ export interface FileRoutesByFullPath {
   '/mentor/participant-performance': typeof AuthenticatedMentorParticipantPerformanceRoute
   '/mentor/participants': typeof AuthenticatedMentorParticipantsRoute
   '/mentor/profile': typeof AuthenticatedMentorProfileRoute
+  '/mentor/program-builder': typeof AuthenticatedMentorProgramBuilderRoute
+  '/mentor/program-content': typeof AuthenticatedMentorProgramContentRoute
   '/mentor/programs': typeof AuthenticatedMentorProgramsRouteWithChildren
   '/mentor/reports': typeof AuthenticatedMentorReportsRoute
   '/mentor/settings': typeof AuthenticatedMentorSettingsRoute
@@ -1326,6 +1350,7 @@ export interface FileRoutesByTo {
   '/admin/profile': typeof AuthenticatedAdminProfileRoute
   '/admin/program-builder': typeof AuthenticatedAdminProgramBuilderRoute
   '/admin/programs': typeof AuthenticatedAdminProgramsRoute
+  '/admin/programs-hub': typeof AuthenticatedAdminProgramsHubRoute
   '/admin/push': typeof AuthenticatedAdminPushRoute
   '/admin/pwa': typeof AuthenticatedAdminPwaRoute
   '/admin/reports': typeof AuthenticatedAdminReportsRoute
@@ -1385,6 +1410,8 @@ export interface FileRoutesByTo {
   '/mentor/participant-performance': typeof AuthenticatedMentorParticipantPerformanceRoute
   '/mentor/participants': typeof AuthenticatedMentorParticipantsRoute
   '/mentor/profile': typeof AuthenticatedMentorProfileRoute
+  '/mentor/program-builder': typeof AuthenticatedMentorProgramBuilderRoute
+  '/mentor/program-content': typeof AuthenticatedMentorProgramContentRoute
   '/mentor/programs': typeof AuthenticatedMentorProgramsRouteWithChildren
   '/mentor/reports': typeof AuthenticatedMentorReportsRoute
   '/mentor/settings': typeof AuthenticatedMentorSettingsRoute
@@ -1493,6 +1520,7 @@ export interface FileRoutesById {
   '/_authenticated/admin/profile': typeof AuthenticatedAdminProfileRoute
   '/_authenticated/admin/program-builder': typeof AuthenticatedAdminProgramBuilderRoute
   '/_authenticated/admin/programs': typeof AuthenticatedAdminProgramsRoute
+  '/_authenticated/admin/programs-hub': typeof AuthenticatedAdminProgramsHubRoute
   '/_authenticated/admin/push': typeof AuthenticatedAdminPushRoute
   '/_authenticated/admin/pwa': typeof AuthenticatedAdminPwaRoute
   '/_authenticated/admin/reports': typeof AuthenticatedAdminReportsRoute
@@ -1552,6 +1580,8 @@ export interface FileRoutesById {
   '/_authenticated/mentor/participant-performance': typeof AuthenticatedMentorParticipantPerformanceRoute
   '/_authenticated/mentor/participants': typeof AuthenticatedMentorParticipantsRoute
   '/_authenticated/mentor/profile': typeof AuthenticatedMentorProfileRoute
+  '/_authenticated/mentor/program-builder': typeof AuthenticatedMentorProgramBuilderRoute
+  '/_authenticated/mentor/program-content': typeof AuthenticatedMentorProgramContentRoute
   '/_authenticated/mentor/programs': typeof AuthenticatedMentorProgramsRouteWithChildren
   '/_authenticated/mentor/reports': typeof AuthenticatedMentorReportsRoute
   '/_authenticated/mentor/settings': typeof AuthenticatedMentorSettingsRoute
@@ -1660,6 +1690,7 @@ export interface FileRouteTypes {
     | '/admin/profile'
     | '/admin/program-builder'
     | '/admin/programs'
+    | '/admin/programs-hub'
     | '/admin/push'
     | '/admin/pwa'
     | '/admin/reports'
@@ -1719,6 +1750,8 @@ export interface FileRouteTypes {
     | '/mentor/participant-performance'
     | '/mentor/participants'
     | '/mentor/profile'
+    | '/mentor/program-builder'
+    | '/mentor/program-content'
     | '/mentor/programs'
     | '/mentor/reports'
     | '/mentor/settings'
@@ -1821,6 +1854,7 @@ export interface FileRouteTypes {
     | '/admin/profile'
     | '/admin/program-builder'
     | '/admin/programs'
+    | '/admin/programs-hub'
     | '/admin/push'
     | '/admin/pwa'
     | '/admin/reports'
@@ -1880,6 +1914,8 @@ export interface FileRouteTypes {
     | '/mentor/participant-performance'
     | '/mentor/participants'
     | '/mentor/profile'
+    | '/mentor/program-builder'
+    | '/mentor/program-content'
     | '/mentor/programs'
     | '/mentor/reports'
     | '/mentor/settings'
@@ -1987,6 +2023,7 @@ export interface FileRouteTypes {
     | '/_authenticated/admin/profile'
     | '/_authenticated/admin/program-builder'
     | '/_authenticated/admin/programs'
+    | '/_authenticated/admin/programs-hub'
     | '/_authenticated/admin/push'
     | '/_authenticated/admin/pwa'
     | '/_authenticated/admin/reports'
@@ -2046,6 +2083,8 @@ export interface FileRouteTypes {
     | '/_authenticated/mentor/participant-performance'
     | '/_authenticated/mentor/participants'
     | '/_authenticated/mentor/profile'
+    | '/_authenticated/mentor/program-builder'
+    | '/_authenticated/mentor/program-content'
     | '/_authenticated/mentor/programs'
     | '/_authenticated/mentor/reports'
     | '/_authenticated/mentor/settings'
@@ -2533,6 +2572,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedMentorProgramsRouteImport
       parentRoute: typeof AuthenticatedMentorRouteRoute
     }
+    '/_authenticated/mentor/program-content': {
+      id: '/_authenticated/mentor/program-content'
+      path: '/program-content'
+      fullPath: '/mentor/program-content'
+      preLoaderRoute: typeof AuthenticatedMentorProgramContentRouteImport
+      parentRoute: typeof AuthenticatedMentorRouteRoute
+    }
+    '/_authenticated/mentor/program-builder': {
+      id: '/_authenticated/mentor/program-builder'
+      path: '/program-builder'
+      fullPath: '/mentor/program-builder'
+      preLoaderRoute: typeof AuthenticatedMentorProgramBuilderRouteImport
+      parentRoute: typeof AuthenticatedMentorRouteRoute
+    }
     '/_authenticated/mentor/profile': {
       id: '/_authenticated/mentor/profile'
       path: '/profile'
@@ -2946,6 +2999,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAdminPushRouteImport
       parentRoute: typeof AuthenticatedAdminRouteRoute
     }
+    '/_authenticated/admin/programs-hub': {
+      id: '/_authenticated/admin/programs-hub'
+      path: '/programs-hub'
+      fullPath: '/admin/programs-hub'
+      preLoaderRoute: typeof AuthenticatedAdminProgramsHubRouteImport
+      parentRoute: typeof AuthenticatedAdminRouteRoute
+    }
     '/_authenticated/admin/programs': {
       id: '/_authenticated/admin/programs'
       path: '/programs'
@@ -3303,6 +3363,7 @@ interface AuthenticatedAdminRouteRouteChildren {
   AuthenticatedAdminProfileRoute: typeof AuthenticatedAdminProfileRoute
   AuthenticatedAdminProgramBuilderRoute: typeof AuthenticatedAdminProgramBuilderRoute
   AuthenticatedAdminProgramsRoute: typeof AuthenticatedAdminProgramsRoute
+  AuthenticatedAdminProgramsHubRoute: typeof AuthenticatedAdminProgramsHubRoute
   AuthenticatedAdminPushRoute: typeof AuthenticatedAdminPushRoute
   AuthenticatedAdminPwaRoute: typeof AuthenticatedAdminPwaRoute
   AuthenticatedAdminReportsRoute: typeof AuthenticatedAdminReportsRoute
@@ -3363,6 +3424,7 @@ const AuthenticatedAdminRouteRouteChildren: AuthenticatedAdminRouteRouteChildren
     AuthenticatedAdminProgramBuilderRoute:
       AuthenticatedAdminProgramBuilderRoute,
     AuthenticatedAdminProgramsRoute: AuthenticatedAdminProgramsRoute,
+    AuthenticatedAdminProgramsHubRoute: AuthenticatedAdminProgramsHubRoute,
     AuthenticatedAdminPushRoute: AuthenticatedAdminPushRoute,
     AuthenticatedAdminPwaRoute: AuthenticatedAdminPwaRoute,
     AuthenticatedAdminReportsRoute: AuthenticatedAdminReportsRoute,
@@ -3519,6 +3581,8 @@ interface AuthenticatedMentorRouteRouteChildren {
   AuthenticatedMentorParticipantPerformanceRoute: typeof AuthenticatedMentorParticipantPerformanceRoute
   AuthenticatedMentorParticipantsRoute: typeof AuthenticatedMentorParticipantsRoute
   AuthenticatedMentorProfileRoute: typeof AuthenticatedMentorProfileRoute
+  AuthenticatedMentorProgramBuilderRoute: typeof AuthenticatedMentorProgramBuilderRoute
+  AuthenticatedMentorProgramContentRoute: typeof AuthenticatedMentorProgramContentRoute
   AuthenticatedMentorProgramsRoute: typeof AuthenticatedMentorProgramsRouteWithChildren
   AuthenticatedMentorReportsRoute: typeof AuthenticatedMentorReportsRoute
   AuthenticatedMentorSettingsRoute: typeof AuthenticatedMentorSettingsRoute
@@ -3555,6 +3619,10 @@ const AuthenticatedMentorRouteRouteChildren: AuthenticatedMentorRouteRouteChildr
       AuthenticatedMentorParticipantPerformanceRoute,
     AuthenticatedMentorParticipantsRoute: AuthenticatedMentorParticipantsRoute,
     AuthenticatedMentorProfileRoute: AuthenticatedMentorProfileRoute,
+    AuthenticatedMentorProgramBuilderRoute:
+      AuthenticatedMentorProgramBuilderRoute,
+    AuthenticatedMentorProgramContentRoute:
+      AuthenticatedMentorProgramContentRoute,
     AuthenticatedMentorProgramsRoute:
       AuthenticatedMentorProgramsRouteWithChildren,
     AuthenticatedMentorReportsRoute: AuthenticatedMentorReportsRoute,

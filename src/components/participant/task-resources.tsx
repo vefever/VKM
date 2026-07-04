@@ -1,6 +1,5 @@
 import { useMemo, useState } from "react";
 import {
-  Play,
   Lock,
   CheckCircle2,
   Download,
@@ -14,8 +13,9 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { VideoPlayer } from "@/components/vkm/video-player";
+import { VideoThumb } from "@/components/vkm/video-thumb";
 import { cn } from "@/lib/utils";
-import { posterFor, type VideoKind } from "@/lib/video-source";
+import { thumbnailFor, type VideoKind } from "@/lib/video-source";
 import type { ProgramWeek } from "@/lib/vkm/program";
 import type { WeekResource } from "@/components/admin/class-videos-data";
 import {
@@ -78,7 +78,7 @@ export function TaskResources({
   submitted: boolean;
   onWatched: () => void;
   onToggleAssignment: (v: boolean) => void;
-  videoOverride?: { url: string; provider?: VideoKind; title?: string | null };
+  videoOverride?: { url: string; provider?: VideoKind; title?: string | null; thumbnail?: string | null };
   resources?: WeekResource[];
 }) {
   const res: WeekResources = useMemo(
@@ -208,7 +208,7 @@ function VideoBlock({
   onWatched: () => void;
 }) {
   const [playing, setPlaying] = useState(false);
-  const poster = video ? posterFor(video.url) : null;
+  const poster = video ? thumbnailFor(video.url, video.thumbnail) : null;
 
   return (
     <div>
@@ -219,7 +219,7 @@ function VideoBlock({
         <EmptyNote>Class recording is posted here after the live class.</EmptyNote>
       ) : (
         <>
-          {/* Inline 16:9 player region — replaces the old popup. */}
+          {/* Inline 16:9 player region — click the thumbnail to play in place. */}
           {playing ? (
             <VideoPlayer
               url={video.url}
@@ -230,45 +230,16 @@ function VideoBlock({
               title={video.title}
             />
           ) : (
-            <button
-              type="button"
-              onClick={() => setPlaying(true)}
-              aria-label={`Play ${video.title}`}
-              className="app-press group relative block aspect-video w-full overflow-hidden rounded-xl bg-gradient-navy text-left text-primary-foreground shadow-vkm"
-            >
-              {poster && (
-                <img
-                  src={poster}
-                  alt=""
-                  className="absolute inset-0 h-full w-full object-cover opacity-70"
-                />
-              )}
-              <span
-                aria-hidden
-                className="absolute inset-0 bg-gradient-to-t from-navy/85 via-navy/30 to-navy/10"
-              />
-              <span className="absolute inset-0 flex items-center justify-center">
-                <span className="inline-flex h-14 w-14 items-center justify-center rounded-full bg-white/20 ring-1 ring-white/30 backdrop-blur transition-transform group-hover:scale-110">
-                  <Play className="h-6 w-6 fill-current" />
-                </span>
-              </span>
-              {video.sample && (
-                <span className="absolute right-2 top-2 rounded bg-gold/30 px-1.5 py-0.5 text-[9px] font-bold uppercase">
-                  Sample
-                </span>
-              )}
-              {watched && (
-                <span className="absolute left-2 top-2 inline-flex items-center gap-0.5 rounded-full bg-[#10b981] px-2 py-0.5 text-[10px] font-semibold text-white">
-                  <CheckCircle2 className="h-3 w-3" /> Watched
-                </span>
-              )}
-              <span className="absolute inset-x-0 bottom-0 flex items-center justify-between gap-2 p-3">
-                <span className="truncate text-sm font-semibold drop-shadow">{video.title}</span>
-                <span className="inline-flex shrink-0 items-center gap-1 rounded bg-black/40 px-1.5 py-0.5 text-[11px]">
-                  <Clock className="h-3 w-3" /> {video.durationLabel}
-                </span>
-              </span>
-            </button>
+            <VideoThumb
+              url={video.url}
+              provider={video.provider}
+              thumbnail={video.thumbnail}
+              title={video.title}
+              durationLabel={video.durationLabel}
+              sample={video.sample}
+              watched={watched}
+              onPlay={() => setPlaying(true)}
+            />
           )}
 
           {/* Caption + Mark watched — sits under the inline player, not in a modal. */}

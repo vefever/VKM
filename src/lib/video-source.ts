@@ -39,10 +39,23 @@ export function withAutoplay(src: ResolvedVideo): ResolvedVideo {
   return { ...src, embedUrl: `${src.embedUrl}${sep}autoplay=1` };
 }
 
-/** A poster/thumbnail URL when we can derive one (YouTube), else null. */
+/** YouTube-derived thumbnail (hqdefault, always exists), else null. */
 export function posterFor(url: string): string | null {
   const yt = (url ?? "").match(YT);
   return yt ? `https://img.youtube.com/vi/${yt[1]}/hqdefault.jpg` : null;
+}
+
+/**
+ * The thumbnail to show before a video plays, in priority order:
+ *   1. an admin-uploaded custom thumbnail (works for any source, incl. .mp4/Vimeo)
+ *   2. the YouTube-derived thumbnail (no upload needed)
+ *   3. null → the caller shows a branded placeholder
+ * Vimeo/direct files have no static thumbnail URL, so they rely on a custom one.
+ */
+export function thumbnailFor(url: string, custom?: string | null): string | null {
+  const c = (custom ?? "").trim();
+  if (c) return c;
+  return posterFor(url);
 }
 
 /** True for HLS streams (.m3u8) — need hls.js on browsers without native HLS. */
