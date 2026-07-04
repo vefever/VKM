@@ -286,7 +286,7 @@ function AdvisorPage() {
       )}
 
       {/* Chat surface */}
-      <div className="flex h-[calc(100dvh-15rem)] min-h-[440px] flex-col overflow-hidden rounded-3xl border border-border bg-card shadow-vkm md:h-[calc(100dvh-13rem)]">
+      <div className="flex h-[calc(100dvh-9.5rem-var(--vkm-nav-h)-var(--kb,0px))] md:min-h-[440px] flex-col overflow-hidden rounded-3xl border border-border bg-card shadow-vkm md:h-[calc(100dvh-13rem)]">
         <div ref={scrollRef} className="flex-1 overflow-y-auto">
           <div className="mx-auto w-full max-w-3xl px-4 py-6 md:px-6">
             {messages.length === 0 ? (
@@ -328,7 +328,7 @@ function AdvisorPage() {
                 disabled={!input.trim() || loading}
                 size="icon"
                 aria-label="Send"
-                className="h-10 w-10 shrink-0 rounded-xl bg-gradient-navy text-primary-foreground shadow-vkm transition-transform hover:opacity-90 active:scale-95 disabled:opacity-40 disabled:shadow-none"
+                className="h-11 w-11 shrink-0 rounded-xl bg-gradient-navy text-primary-foreground shadow-vkm transition-transform hover:opacity-90 active:scale-95 disabled:opacity-40 disabled:shadow-none"
               >
                 <Send className="h-4 w-4" />
               </Button>

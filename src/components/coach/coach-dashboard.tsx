@@ -59,7 +59,7 @@ export function CoachDashboard() {
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4 }}
-      className="mx-auto w-full max-w-[1100px] space-y-6 pb-20"
+      className="mx-auto w-full max-w-[1100px] space-y-6"
     >
       <PageHeader
         eyebrow="Coach"

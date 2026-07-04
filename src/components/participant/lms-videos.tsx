@@ -3,12 +3,12 @@ import { Video, Play, Clock, Lock, CheckCircle2 } from "lucide-react";
 import { PageHeader } from "@/components/vkm/page-header";
 import { SectionCard } from "@/components/vkm/section-card";
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
+  ResponsiveModal,
+  ResponsiveModalContent,
+  ResponsiveModalHeader,
+  ResponsiveModalTitle,
+  ResponsiveModalTrigger,
+} from "@/components/ui/responsive-modal";
 import { VideoPlayer } from "@/components/vkm/video-player";
 import { cn } from "@/lib/utils";
 import { VKM_WEEKS, type ProgramWeek } from "@/lib/vkm/program";
@@ -92,8 +92,8 @@ function LmsRow({
 
       <div className="mt-3">
         {video ? (
-          <Dialog>
-            <DialogTrigger asChild>
+          <ResponsiveModal>
+            <ResponsiveModalTrigger asChild>
               <button
                 type="button"
                 className="app-press group flex w-full items-center gap-3 overflow-hidden rounded-xl bg-gradient-navy p-3 text-left text-primary-foreground shadow-vkm"
@@ -113,11 +113,11 @@ function LmsRow({
                   <span className="text-[11px] text-white/70">Tap to watch</span>
                 </span>
               </button>
-            </DialogTrigger>
-            <DialogContent className="max-w-2xl p-0">
-              <DialogHeader className="px-4 pt-4">
-                <DialogTitle className="text-base">{video.title}</DialogTitle>
-              </DialogHeader>
+            </ResponsiveModalTrigger>
+            <ResponsiveModalContent className="max-w-2xl p-0">
+              <ResponsiveModalHeader className="px-4 pt-4">
+                <ResponsiveModalTitle className="text-base">{video.title}</ResponsiveModalTitle>
+              </ResponsiveModalHeader>
               <div className="px-4 pb-4">
                 <VideoPlayer
                   url={video.url}
@@ -131,8 +131,8 @@ function LmsRow({
                   </p>
                 )}
               </div>
-            </DialogContent>
-          </Dialog>
+            </ResponsiveModalContent>
+          </ResponsiveModal>
         ) : (
           <div
             className={cn(

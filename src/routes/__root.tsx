@@ -172,7 +172,7 @@ function RootComponent() {
           mobile={appShell}
           closeButton
           position={appShell ? "bottom-center" : "top-center"}
-          offset={appShell ? "calc(env(safe-area-inset-bottom) + 5.5rem)" : undefined}
+          offset={appShell ? "calc(var(--vkm-nav-h) + 0.75rem)" : undefined}
         />
       </AuthProvider>
     </QueryClientProvider>

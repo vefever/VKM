@@ -1,12 +1,12 @@
 import { useEffect, useState } from "react";
 import { Pencil, Trash2, Target } from "lucide-react";
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from "@/components/ui/dialog";
+  ResponsiveModal,
+  ResponsiveModalContent,
+  ResponsiveModalHeader,
+  ResponsiveModalTitle,
+  ResponsiveModalFooter,
+} from "@/components/ui/responsive-modal";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -181,14 +181,14 @@ export function GoalEditorDialog({
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[88vh] max-w-lg overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2 text-base">
+    <ResponsiveModal open={open} onOpenChange={onOpenChange}>
+      <ResponsiveModalContent className="max-h-[88vh] max-w-lg overflow-y-auto">
+        <ResponsiveModalHeader>
+          <ResponsiveModalTitle className="flex items-center gap-2 text-base">
             <Target className="h-4 w-4 text-navy" />
             {initial ? "Edit goal" : `Add a Year ${year} goal`}
-          </DialogTitle>
-        </DialogHeader>
+          </ResponsiveModalTitle>
+        </ResponsiveModalHeader>
 
         <div className="space-y-3">
           <Field label="Goal">
@@ -314,7 +314,7 @@ export function GoalEditorDialog({
           </Field>
         </div>
 
-        <DialogFooter>
+        <ResponsiveModalFooter>
           <Button variant="ghost" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
@@ -325,9 +325,9 @@ export function GoalEditorDialog({
           >
             {initial ? "Save goal" : "Add goal"}
           </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </ResponsiveModalFooter>
+      </ResponsiveModalContent>
+    </ResponsiveModal>
   );
 }
 

@@ -4,6 +4,17 @@ A running log of platform updates. Newest first. Ask any time for a **PDF** of t
 
 ---
 
+## 2026-07-06
+
+### Improved
+- **Mobile / installed-app experience, top to bottom** — a pass to make the phone and PWA experience feel like a real app instead of a website:
+  - **Toasts no longer overlap the bottom navigation.** Every floating element that has to clear the bottom tab bar (page content, toasts, the install prompt, the AI button) now measures from a single shared value, so notifications always sit cleanly above the nav with a proper gap — and the "Install app" prompt and a toast can never land on top of each other anymore.
+  - **Pop-ups open as native bottom sheets on phones.** Editing a vision goal, opening a class video, messaging a community member, editing your community profile, adding a team member, importing a document, and the support and avatar dialogs now slide up from the bottom with a drag handle (like a native app) on mobile, while staying as centered dialogs on desktop.
+  - **The AI Assistant now works on mobile.** The floating assistant button (previously desktop-only) now appears on phones just above the tab bar and opens a full-height chat sheet with a keyboard-aware input.
+  - **On-screen keyboard no longer covers inputs.** The chat, AI Advisor, support, and AI Assistant composers now all stay above the keyboard.
+  - **Collapsing page title.** As you scroll down any page, its title slides up into the top bar so you never lose track of where you are.
+  - **Bigger tap targets & touch-friendly info tips**, a springy active-tab animation, and removed dead whitespace at the bottom of a couple of pages.
+
 ## 2026-07-05
 
 ### New

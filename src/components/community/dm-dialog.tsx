@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Send, Loader2, Lock } from "lucide-react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { ResponsiveModal, ResponsiveModalContent, ResponsiveModalHeader, ResponsiveModalTitle } from "@/components/ui/responsive-modal";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
@@ -39,12 +39,12 @@ export function DmDialog({
   const blocked = member && !member.allowMessages;
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="flex h-[80vh] max-w-lg flex-col p-0">
-        <DialogHeader className="flex-row items-center gap-3 space-y-0 border-b border-border px-4 py-3">
+    <ResponsiveModal open={open} onOpenChange={onOpenChange}>
+      <ResponsiveModalContent className="flex h-[80vh] max-w-lg flex-col p-0">
+        <ResponsiveModalHeader className="flex-row items-center gap-3 space-y-0 border-b border-border px-4 py-3">
           {member && <MemberAvatar name={member.name} src={member.avatar} size={36} />}
-          <DialogTitle className="text-base">{member?.name ?? "Message"}</DialogTitle>
-        </DialogHeader>
+          <ResponsiveModalTitle className="text-base">{member?.name ?? "Message"}</ResponsiveModalTitle>
+        </ResponsiveModalHeader>
 
         {blocked ? (
           <div className="flex flex-1 flex-col items-center justify-center gap-2 p-6 text-center">
@@ -111,7 +111,7 @@ export function DmDialog({
             </div>
           </>
         )}
-      </DialogContent>
-    </Dialog>
+      </ResponsiveModalContent>
+    </ResponsiveModal>
   );
 }

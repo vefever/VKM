@@ -4,13 +4,13 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+  ResponsiveModal,
+  ResponsiveModalContent,
+  ResponsiveModalDescription,
+  ResponsiveModalFooter,
+  ResponsiveModalHeader,
+  ResponsiveModalTitle,
+} from "@/components/ui/responsive-modal";
 import { Slider } from "@/components/ui/slider";
 import {
   CROP_VIEWPORT,
@@ -198,7 +198,7 @@ export function AvatarUploader({
         )}
       </div>
 
-      <Dialog
+      <ResponsiveModal
         open={cropOpen}
         onOpenChange={(o) => {
           if (!o && !busy) {
@@ -207,13 +207,13 @@ export function AvatarUploader({
           }
         }}
       >
-        <DialogContent className="max-w-sm rounded-2xl sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Crop profile photo</DialogTitle>
-            <DialogDescription>
+        <ResponsiveModalContent className="max-w-sm rounded-2xl sm:max-w-md">
+          <ResponsiveModalHeader>
+            <ResponsiveModalTitle>Crop profile photo</ResponsiveModalTitle>
+            <ResponsiveModalDescription>
               Drag to reposition, use the slider to zoom. Your photo is saved as a circle.
-            </DialogDescription>
-          </DialogHeader>
+            </ResponsiveModalDescription>
+          </ResponsiveModalHeader>
 
           <div className="space-y-4">
             <div
@@ -274,7 +274,7 @@ export function AvatarUploader({
             </div>
           </div>
 
-          <DialogFooter className="gap-2 sm:gap-0">
+          <ResponsiveModalFooter className="gap-2 sm:gap-0">
             <Button
               type="button"
               variant="outline"
@@ -296,9 +296,9 @@ export function AvatarUploader({
               {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
               Save photo
             </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+          </ResponsiveModalFooter>
+        </ResponsiveModalContent>
+      </ResponsiveModal>
     </>
   );
 }

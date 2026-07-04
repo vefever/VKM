@@ -107,23 +107,8 @@ export function ConversationView({
     setUnseenBelow(0);
   }
 
-  // Keep the composer above the on-screen keyboard via visualViewport.
-  useEffect(() => {
-    const vv = window.visualViewport;
-    if (!vv) return;
-    const onResize = () => {
-      const overlap = window.innerHeight - vv.height - vv.offsetTop;
-      document.documentElement.style.setProperty("--kb", `${Math.max(0, overlap)}px`);
-    };
-    vv.addEventListener("resize", onResize);
-    vv.addEventListener("scroll", onResize);
-    onResize();
-    return () => {
-      vv.removeEventListener("resize", onResize);
-      vv.removeEventListener("scroll", onResize);
-      document.documentElement.style.removeProperty("--kb");
-    };
-  }, []);
+  // Keyboard overlap (--kb) is published globally by useKeyboardInset in
+  // AppShell — consumed here via the height calc in chat-page.tsx.
 
   // Auto-grow the textarea from 1 line up to the existing max-h-28 cap.
   useEffect(() => {

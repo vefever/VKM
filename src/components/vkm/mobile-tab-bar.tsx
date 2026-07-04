@@ -1,6 +1,6 @@
 import { Link, useRouterState } from "@tanstack/react-router";
 import { useState } from "react";
-import { motion } from "framer-motion";
+import { motion, useReducedMotion } from "framer-motion";
 import {
   LayoutDashboard,
   Calendar,
@@ -118,6 +118,7 @@ export function MobileTabBar({ role }: { role: AppRole }) {
 
 function TabLink({ tab }: { tab: Tab }) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const reducedMotion = useReducedMotion();
   const active = pathname === tab.to;
   return (
     <Link
@@ -137,9 +138,15 @@ function TabLink({ tab }: { tab: Tab }) {
           transition={{ type: "spring", stiffness: 420, damping: 34 }}
         />
       )}
-      <tab.icon
-        className={cn("relative z-10 h-5 w-5 transition-transform", active && "scale-110")}
-      />
+      {/* Springy pop when a tab becomes active — the low damping gives the
+          icon a small native-style overshoot. */}
+      <motion.span
+        className="relative z-10"
+        animate={reducedMotion ? undefined : { scale: active ? 1.12 : 1, y: active ? -1 : 0 }}
+        transition={{ type: "spring", stiffness: 420, damping: 16 }}
+      >
+        <tab.icon className="h-5 w-5" />
+      </motion.span>
       <span className="relative z-10 leading-none">{tab.label}</span>
     </Link>
   );

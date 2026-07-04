@@ -8,13 +8,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
-} from "@/components/ui/dialog";
+  ResponsiveModal,
+  ResponsiveModalContent,
+  ResponsiveModalHeader,
+  ResponsiveModalTitle,
+  ResponsiveModalDescription,
+  ResponsiveModalFooter,
+} from "@/components/ui/responsive-modal";
 import {
   Select,
   SelectContent,
@@ -192,7 +192,7 @@ function TicketPane({
 }) {
   const closed = ticket.status === "closed" || ticket.status === "resolved";
   return (
-    <div className="flex h-[calc(100dvh-15rem)] min-h-[440px] flex-col overflow-hidden rounded-3xl border border-border bg-card shadow-vkm">
+    <div className="flex h-[calc(100dvh-9.5rem-var(--vkm-nav-h)-var(--kb,0px))] md:min-h-[440px] flex-col overflow-hidden rounded-3xl border border-border bg-card shadow-vkm md:h-[calc(100dvh-15rem)]">
       <div className="flex items-center gap-2 border-b border-border px-3 py-2.5 sm:px-4">
         <button
           type="button"
@@ -286,14 +286,14 @@ function NewTicketDialog({
   }
 
   return (
-    <Dialog open={open} onOpenChange={(o) => !busy && onOpenChange(o)}>
-      <DialogContent className="max-w-lg rounded-3xl">
-        <DialogHeader>
-          <DialogTitle>Raise a support ticket</DialogTitle>
-          <DialogDescription>
+    <ResponsiveModal open={open} onOpenChange={(o) => !busy && onOpenChange(o)}>
+      <ResponsiveModalContent className="max-w-lg rounded-3xl">
+        <ResponsiveModalHeader>
+          <ResponsiveModalTitle>Raise a support ticket</ResponsiveModalTitle>
+          <ResponsiveModalDescription>
             Share the details — your mentors and the VKM team will get back to you here.
-          </DialogDescription>
-        </DialogHeader>
+          </ResponsiveModalDescription>
+        </ResponsiveModalHeader>
 
         <div className="space-y-3">
           <div>
@@ -350,7 +350,7 @@ function NewTicketDialog({
           </div>
         </div>
 
-        <DialogFooter>
+        <ResponsiveModalFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={busy}>
             Cancel
           </Button>
@@ -362,8 +362,8 @@ function NewTicketDialog({
             {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />} Raise
             ticket
           </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </ResponsiveModalFooter>
+      </ResponsiveModalContent>
+    </ResponsiveModal>
   );
 }

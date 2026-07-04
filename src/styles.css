@@ -501,6 +501,30 @@
   }
 }
 
+/* ============ Bottom-nav clearance — SINGLE source of truth ============
+   The floating mobile tab bar is ~72px tall + 8px bottom margin (= 5rem) +
+   the device safe area. EVERYTHING that must clear it (main content padding,
+   toast offset, install banner, AI bubble, full-height chat panels) derives
+   from this one variable so the offsets can never drift apart again.
+   Zero on md+ where the tab bar is hidden.
+
+   Z-INDEX SCALE (keep every fixed/sticky element on this ladder):
+     z-20  sticky in-page sub-bars (business sub-nav, week bar)
+     z-30  app header (TopBar)
+     z-40  mobile tab bar
+     z-45  floating widgets & PWA banners (AI bubble, update banner) —
+           BELOW overlays so a prompt can never cover an open modal
+     z-50  dialog/drawer/sheet overlays
+     toasts: sonner's own layer (above everything, short-lived)          */
+:root {
+  --vkm-nav-h: calc(5rem + max(env(safe-area-inset-bottom), 0px));
+}
+@media (min-width: 768px) {
+  :root {
+    --vkm-nav-h: 0px;
+  }
+}
+
 /* iOS zooms the viewport when focusing an input < 16px — pin to 16px on phones
    so focusing the chat box / forms feels native (no jump-zoom). */
 @media (max-width: 640px) {

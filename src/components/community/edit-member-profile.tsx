@@ -2,12 +2,12 @@ import { useEffect, useState } from "react";
 import { UserCog, Sparkles, Globe, Lock, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from "@/components/ui/dialog";
+  ResponsiveModal,
+  ResponsiveModalContent,
+  ResponsiveModalHeader,
+  ResponsiveModalTitle,
+  ResponsiveModalFooter,
+} from "@/components/ui/responsive-modal";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -97,13 +97,13 @@ export function EditMemberProfileDialog({
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[88vh] max-w-lg overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2 text-base">
+    <ResponsiveModal open={open} onOpenChange={onOpenChange}>
+      <ResponsiveModalContent className="max-h-[88vh] max-w-lg overflow-y-auto">
+        <ResponsiveModalHeader>
+          <ResponsiveModalTitle className="flex items-center gap-2 text-base">
             <UserCog className="h-4 w-4 text-navy" /> Your network profile
-          </DialogTitle>
-        </DialogHeader>
+          </ResponsiveModalTitle>
+        </ResponsiveModalHeader>
 
         <div className="space-y-3">
           <Field label="Headline">
@@ -221,7 +221,7 @@ export function EditMemberProfileDialog({
           </div>
         </div>
 
-        <DialogFooter>
+        <ResponsiveModalFooter>
           <Button variant="ghost" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
@@ -232,9 +232,9 @@ export function EditMemberProfileDialog({
           >
             {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : null} Save profile
           </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </ResponsiveModalFooter>
+      </ResponsiveModalContent>
+    </ResponsiveModal>
   );
 }
 

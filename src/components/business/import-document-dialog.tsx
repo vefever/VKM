@@ -3,12 +3,12 @@ import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
 import { Loader2, FileText, Sparkles, UploadCloud, Check } from "lucide-react";
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-} from "@/components/ui/dialog";
+  ResponsiveModal,
+  ResponsiveModalContent,
+  ResponsiveModalHeader,
+  ResponsiveModalTitle,
+  ResponsiveModalDescription,
+} from "@/components/ui/responsive-modal";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { extractDocumentText, ACCEPTED_DOC_TYPES } from "@/lib/pdf-text";
@@ -126,17 +126,17 @@ export function ImportDocumentDialog({
   const foundKeys = Object.keys(fields) as BusinessFieldKey[];
 
   return (
-    <Dialog open={open} onOpenChange={close}>
-      <DialogContent className="max-h-[88vh] overflow-y-auto sm:max-w-lg">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
+    <ResponsiveModal open={open} onOpenChange={close}>
+      <ResponsiveModalContent className="max-h-[88vh] overflow-y-auto sm:max-w-lg">
+        <ResponsiveModalHeader>
+          <ResponsiveModalTitle className="flex items-center gap-2">
             <Sparkles className="h-5 w-5 text-primary" /> Auto-fill from a document
-          </DialogTitle>
-          <DialogDescription>
+          </ResponsiveModalTitle>
+          <ResponsiveModalDescription>
             Upload a business plan, profile or report (PDF or text). We'll read it and pull out your
             details for you to review — nothing is saved until you apply it.
-          </DialogDescription>
-        </DialogHeader>
+          </ResponsiveModalDescription>
+        </ResponsiveModalHeader>
 
         {stage === "pick" && (
           <div className="space-y-3">
@@ -245,7 +245,7 @@ export function ImportDocumentDialog({
           onChange={onFile}
           className="hidden"
         />
-      </DialogContent>
-    </Dialog>
+      </ResponsiveModalContent>
+    </ResponsiveModal>
   );
 }

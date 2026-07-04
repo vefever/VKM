@@ -90,7 +90,7 @@ export function CommunityPage() {
         actions={
           <Button
             size="sm"
-            className="rounded-full bg-gradient-navy text-primary-foreground hover:opacity-90"
+            className="h-10 rounded-full bg-gradient-navy text-primary-foreground hover:opacity-90"
             onClick={() => setEditOpen(true)}
           >
             <UserCog className="h-4 w-4" /> Edit my profile
@@ -126,7 +126,7 @@ export function CommunityPage() {
             </div>
             <Button
               size="sm"
-              className="rounded-lg bg-gradient-navy text-primary-foreground hover:opacity-90"
+              className="h-10 rounded-lg bg-gradient-navy text-primary-foreground hover:opacity-90"
               onClick={() => setEditOpen(true)}
             >
               Set up profile
@@ -265,7 +265,7 @@ export function CommunityPage() {
                     <Button
                       size="sm"
                       variant="ghost"
-                      className="h-9 shrink-0 rounded-lg px-3 text-xs"
+                      className="h-10 shrink-0 rounded-lg px-3 text-xs"
                       onClick={() => setDm(m)}
                     >
                       Message

@@ -4,7 +4,9 @@ import { useServerFn } from "@tanstack/react-start";
 import { motion, AnimatePresence } from "framer-motion";
 import { Sparkles, X, Send, Loader2 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
+import { useAppShell } from "@/hooks/use-app-shell";
 import { askPlatformAssistantStream, type ChatMsg } from "@/lib/vkm/platform-assistant.functions";
+import { haptic } from "@/lib/haptics";
 import { cn } from "@/lib/utils";
 
 // Foundation · Systems · Sell · Review — the page's phase colour language.
@@ -21,71 +23,164 @@ const GREETING =
  * Business Advisor). Ephemeral: the conversation lives only in this session
  * (lifted to this component so it survives closing/reopening the bubble, but
  * resets on a full page reload — this is quick wayfinding help, not a record).
+ *
+ * Desktop: floating panel above the launcher. Mobile app shell: the launcher
+ * sits just above the bottom tab bar (clearance from --vkm-nav-h) and opens a
+ * full-height bottom sheet with a keyboard-aware composer.
  */
 export function ChatWidget() {
   const { user } = useAuth();
   const location = useLocation();
+  const { appShell } = useAppShell();
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState<ChatMsg[]>([]);
+
+  // Lock the page behind the mobile sheet (native sheets don't let the
+  // background scroll). Hook stays above the early returns to keep order stable.
+  useEffect(() => {
+    if (!open || !appShell) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [open, appShell]);
 
   if (!user) return null;
   const path = location.pathname;
   if (path.startsWith("/auth")) return null;
+  // On phones, the chat/advisor/support surfaces already fill the screen with
+  // their own composer — a floating bubble on top of them is clutter, not
+  // help. Desktop keeps the bubble everywhere (unchanged behavior).
+  if (appShell && /\/(chat|advisor|support)$/.test(path)) return null;
 
-  return (
-    <div className="fixed bottom-5 right-5 z-40 hidden md:block">
-      <AnimatePresence>
-        {open && (
-          <ChatPanel messages={messages} setMessages={setMessages} onClose={() => setOpen(false)} />
+  const launcher = (
+    <motion.button
+      type="button"
+      onClick={() => {
+        if (!open && appShell) haptic("light");
+        setOpen((o) => !o);
+      }}
+      whileTap={{ scale: 0.92 }}
+      aria-label={open ? "Close AI Assistant" : "Open AI Assistant"}
+      className="app-press relative inline-flex h-14 w-14 items-center justify-center rounded-full bg-gradient-navy text-primary-foreground shadow-vkm-float ring-1 ring-white/10"
+    >
+      <AnimatePresence mode="wait" initial={false}>
+        {open ? (
+          <motion.span
+            key="x"
+            initial={{ rotate: -90, opacity: 0 }}
+            animate={{ rotate: 0, opacity: 1 }}
+            exit={{ rotate: 90, opacity: 0 }}
+            transition={{ duration: 0.15 }}
+          >
+            <X className="h-6 w-6" />
+          </motion.span>
+        ) : (
+          <motion.span
+            key="chat"
+            initial={{ rotate: 90, opacity: 0 }}
+            animate={{ rotate: 0, opacity: 1 }}
+            exit={{ rotate: -90, opacity: 0 }}
+            transition={{ duration: 0.15 }}
+          >
+            <Sparkles className="h-6 w-6" />
+          </motion.span>
         )}
       </AnimatePresence>
+      {!open && (
+        <span className="absolute right-1 top-1 h-3 w-3 rounded-full border-2 border-navy bg-gold" />
+      )}
+    </motion.button>
+  );
 
-      <motion.button
-        type="button"
-        onClick={() => setOpen((o) => !o)}
-        whileTap={{ scale: 0.92 }}
-        aria-label={open ? "Close AI Assistant" : "Open AI Assistant"}
-        className="relative inline-flex h-14 w-14 items-center justify-center rounded-full bg-gradient-navy text-primary-foreground shadow-vkm-float ring-1 ring-white/10"
-      >
-        <AnimatePresence mode="wait" initial={false}>
-          {open ? (
-            <motion.span
-              key="x"
-              initial={{ rotate: -90, opacity: 0 }}
-              animate={{ rotate: 0, opacity: 1 }}
-              exit={{ rotate: 90, opacity: 0 }}
-              transition={{ duration: 0.15 }}
-            >
-              <X className="h-6 w-6" />
-            </motion.span>
-          ) : (
-            <motion.span
-              key="chat"
-              initial={{ rotate: 90, opacity: 0 }}
-              animate={{ rotate: 0, opacity: 1 }}
-              exit={{ rotate: -90, opacity: 0 }}
-              transition={{ duration: 0.15 }}
-            >
-              <Sparkles className="h-6 w-6" />
-            </motion.span>
+  if (appShell) {
+    return (
+      <>
+        <div
+          className="fixed right-4 z-[45]"
+          style={{ bottom: "calc(var(--vkm-nav-h) + 0.75rem)" }}
+        >
+          {launcher}
+        </div>
+        {/* Plain framer-motion bottom sheet — NOT vaul. vaul's drawer manages
+            its own height + scales the background, which was rendering this
+            sheet as a blank white panel. This is the exact flex-column pattern
+            the desktop panel already uses (fixed height, header/scroll/input),
+            just full-width and slid up from the bottom. */}
+        <AnimatePresence>
+          {open && (
+            <>
+              <motion.div
+                key="ai-overlay"
+                className="fixed inset-0 z-50 bg-black/50"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.2 }}
+                onClick={() => setOpen(false)}
+              />
+              <motion.div
+                key="ai-sheet"
+                role="dialog"
+                aria-label="AI Assistant"
+                className="fixed inset-x-0 bottom-0 z-50 flex flex-col overflow-hidden rounded-t-2xl border border-border bg-card shadow-vkm-float"
+                style={{ height: "85dvh" }}
+                initial={{ y: "100%" }}
+                animate={{ y: 0 }}
+                exit={{ y: "100%" }}
+                transition={{ type: "spring", stiffness: 360, damping: 34 }}
+              >
+                <div className="mx-auto mt-2 h-1.5 w-10 shrink-0 rounded-full bg-muted" />
+                <AssistantBody
+                  messages={messages}
+                  setMessages={setMessages}
+                  onClose={() => setOpen(false)}
+                  mobile
+                />
+              </motion.div>
+            </>
           )}
         </AnimatePresence>
-        {!open && (
-          <span className="absolute right-1 top-1 h-3 w-3 rounded-full border-2 border-navy bg-gold" />
+      </>
+    );
+  }
+
+  return (
+    <div className="fixed bottom-5 right-5 z-[45] hidden md:block">
+      <AnimatePresence>
+        {open && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.92, y: 14 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.92, y: 14 }}
+            transition={{ type: "spring", stiffness: 340, damping: 26 }}
+            style={{ transformOrigin: "bottom right" }}
+            className="mb-3 flex h-[28rem] w-[20rem] flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-vkm-float"
+          >
+            <AssistantBody
+              messages={messages}
+              setMessages={setMessages}
+              onClose={() => setOpen(false)}
+            />
+          </motion.div>
         )}
-      </motion.button>
+      </AnimatePresence>
+      {launcher}
     </div>
   );
 }
 
-function ChatPanel({
+function AssistantBody({
   messages,
   setMessages,
   onClose,
+  mobile = false,
 }: {
   messages: ChatMsg[];
   setMessages: React.Dispatch<React.SetStateAction<ChatMsg[]>>;
   onClose: () => void;
+  mobile?: boolean;
 }) {
   const askStream = useServerFn(askPlatformAssistantStream);
   const [text, setText] = useState("");
@@ -178,14 +273,7 @@ function ChatPanel({
   }
 
   return (
-    <motion.div
-      initial={{ opacity: 0, scale: 0.92, y: 14 }}
-      animate={{ opacity: 1, scale: 1, y: 0 }}
-      exit={{ opacity: 0, scale: 0.92, y: 14 }}
-      transition={{ type: "spring", stiffness: 340, damping: 26 }}
-      style={{ transformOrigin: "bottom right" }}
-      className="mb-3 flex h-[28rem] w-[20rem] flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-vkm-float"
-    >
+    <>
       {/* phase colour strip */}
       <div className="flex h-1 shrink-0">
         {PHASE_STRIP.map((c) => (
@@ -194,7 +282,7 @@ function ChatPanel({
       </div>
 
       {/* header */}
-      <div className="flex items-center gap-2.5 bg-gradient-navy px-3 py-2.5 text-primary-foreground">
+      <div className="flex shrink-0 items-center gap-2.5 bg-gradient-navy px-3 py-2.5 text-primary-foreground">
         <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white/15 ring-1 ring-white/20">
           <Sparkles className="h-5 w-5" />
         </span>
@@ -208,14 +296,17 @@ function ChatPanel({
           type="button"
           onClick={onClose}
           aria-label="Close"
-          className="app-press inline-flex h-7 w-7 items-center justify-center rounded-full text-white/80 hover:bg-white/10"
+          className={cn(
+            "app-press inline-flex items-center justify-center rounded-full text-white/80 hover:bg-white/10",
+            mobile ? "h-10 w-10" : "h-7 w-7",
+          )}
         >
           <X className="h-4 w-4" />
         </button>
       </div>
 
       {/* messages */}
-      <div className="flex-1 space-y-2 overflow-y-auto bg-secondary/20 p-3">
+      <div className="min-h-0 flex-1 space-y-2 overflow-y-auto overscroll-contain bg-secondary/20 p-3" data-selectable>
         {messages.length === 0 && (
           <div className="max-w-[85%] rounded-2xl rounded-tl-sm bg-card px-3 py-2 text-sm text-foreground shadow-vkm">
             {GREETING}
@@ -245,11 +336,20 @@ function ChatPanel({
         <div ref={endRef} />
       </div>
 
-      {/* input */}
-      <div className="flex items-center gap-2 border-t border-border p-2.5">
+      {/* input — on mobile, --kb lifts the composer above the on-screen
+          keyboard and pb-safe clears the home indicator. */}
+      <div
+        className="flex shrink-0 items-center gap-2 border-t border-border bg-card p-2.5"
+        style={
+          mobile
+            ? { paddingBottom: "calc(max(env(safe-area-inset-bottom), 0px) + 0.625rem + var(--kb, 0px))" }
+            : undefined
+        }
+      >
         <input
           value={text}
           onChange={(e) => setText(e.target.value)}
+          enterKeyHint="send"
           onKeyDown={(e) => {
             if (e.key === "Enter" && !e.shiftKey) {
               e.preventDefault();
@@ -257,18 +357,18 @@ function ChatPanel({
             }
           }}
           placeholder="Ask how something works…"
-          className="h-10 flex-1 rounded-xl border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="h-11 flex-1 rounded-xl border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         />
         <button
           type="button"
           onClick={onSend}
           disabled={loading || !text.trim()}
           aria-label="Send"
-          className="app-press inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-gold text-navy disabled:opacity-50"
+          className="app-press inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gradient-gold text-navy disabled:opacity-50"
         >
           {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
         </button>
       </div>
-    </motion.div>
+    </>
   );
 }

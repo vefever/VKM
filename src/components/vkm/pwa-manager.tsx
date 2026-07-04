@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { toast } from "sonner";
 import { Download, X, Share, Plus, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { VKMLogo } from "@/components/vkm/logo";
@@ -168,6 +169,7 @@ export function PwaManager() {
   function dismiss() {
     setShowBanner(false);
     setIosHint(false);
+    toast.dismiss(INSTALL_TOAST_ID);
     try {
       localStorage.setItem(DISMISS_KEY, String(Date.now()));
     } catch {
@@ -181,20 +183,44 @@ export function PwaManager() {
     await deferred.userChoice;
     setShowBanner(false);
     setDeferred(null);
+    toast.dismiss(INSTALL_TOAST_ID);
   }
 
   const showInstall = showBanner && !!deferred;
 
+  // The install prompt renders as a PERSISTENT SONNER TOAST rather than its own
+  // fixed-position banner — sonner then owns the stacking, so the prompt and a
+  // regular toast can never overlap each other or the bottom nav (the toaster's
+  // offset already derives from --vkm-nav-h).
+  useEffect(() => {
+    if (!(showInstall || iosHint)) {
+      toast.dismiss(INSTALL_TOAST_ID);
+      return;
+    }
+    toast.custom(
+      () => (
+        <InstallToastCard
+          canInstall={showInstall}
+          onInstall={() => void install()}
+          onDismiss={dismiss}
+        />
+      ),
+      { id: INSTALL_TOAST_ID, duration: Infinity },
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showInstall, iosHint, deferred]);
+
   return (
     <>
-      {/* Update available toast */}
+      {/* Update available banner — z-45: above the nav, BELOW modal overlays so
+          it can never cover an open sheet/dialog. */}
       <AnimatePresence>
         {updateReady && (
           <motion.div
             initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 16 }}
-            className="fixed inset-x-0 top-[calc(env(safe-area-inset-top)+0.75rem)] z-[60] mx-auto flex w-[min(92%,420px)] items-center gap-3 rounded-2xl border border-border glass px-4 py-3 shadow-vkm-float"
+            className="fixed inset-x-0 top-[calc(env(safe-area-inset-top)+0.75rem)] z-[45] mx-auto flex w-[min(92%,420px)] items-center gap-3 rounded-2xl border border-border glass px-4 py-3 shadow-vkm-float"
           >
             <RefreshCw className="h-4 w-4 shrink-0 text-gold" />
             <p className="flex-1 text-sm font-medium text-foreground">
@@ -210,59 +236,60 @@ export function PwaManager() {
           </motion.div>
         )}
       </AnimatePresence>
-
-      {/* Install banner (Android/desktop) + iOS hint */}
-      <AnimatePresence>
-        {(showInstall || iosHint) && (
-          <motion.div
-            initial={{ opacity: 0, y: 24 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 24 }}
-            transition={{ type: "spring", stiffness: 320, damping: 30 }}
-            className="fixed inset-x-0 z-[55] mx-auto w-[min(94%,460px)] px-1"
-            style={{ bottom: "calc(env(safe-area-inset-bottom) + 5.25rem)" }}
-          >
-            <div className="relative overflow-hidden rounded-3xl border border-border bg-card p-4 shadow-vkm-float">
-              <span aria-hidden className="absolute inset-x-0 top-0 h-[3px] bg-gradient-gold" />
-              <button
-                onClick={dismiss}
-                aria-label="Dismiss"
-                className="absolute right-3 top-3 rounded-full p-1 text-muted-foreground hover:text-foreground"
-              >
-                <X className="h-4 w-4" />
-              </button>
-
-              <div className="flex items-center gap-3 pr-6">
-                <span className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-gradient-navy shadow-vkm">
-                  <VKMLogo showWordmark={false} />
-                </span>
-                <div className="min-w-0">
-                  <p className="text-sm font-semibold text-foreground">Install VK Mentorship</p>
-                  <p className="text-xs text-muted-foreground">
-                    Get the full-screen app — faster, offline-ready, on your home screen.
-                  </p>
-                </div>
-              </div>
-
-              {showInstall ? (
-                <Button
-                  onClick={install}
-                  className="mt-3 w-full rounded-xl bg-gradient-navy text-primary-foreground hover:opacity-90"
-                >
-                  <Download className="h-4 w-4" /> Add to home screen
-                </Button>
-              ) : (
-                <div className="mt-3 flex items-center justify-center gap-1.5 rounded-xl bg-secondary px-3 py-2.5 text-xs text-foreground">
-                  Tap <Share className="mx-0.5 inline h-4 w-4 text-navy" /> then
-                  <span className="mx-0.5 inline-flex items-center gap-1 font-medium">
-                    <Plus className="h-3.5 w-3.5" /> Add to Home Screen
-                  </span>
-                </div>
-              )}
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
     </>
+  );
+}
+
+const INSTALL_TOAST_ID = "vkm-install-prompt";
+
+// Content only — the sonner toast card (border/background/padding from
+// .vkm-toaster CSS) supplies the chrome.
+function InstallToastCard({
+  canInstall,
+  onInstall,
+  onDismiss,
+}: {
+  canInstall: boolean;
+  onInstall: () => void;
+  onDismiss: () => void;
+}) {
+  return (
+    <div className="relative w-full">
+      <button
+        onClick={onDismiss}
+        aria-label="Dismiss"
+        className="absolute -right-1 -top-1 rounded-full p-1.5 text-muted-foreground hover:text-foreground"
+      >
+        <X className="h-4 w-4" />
+      </button>
+
+      <div className="flex items-center gap-3 pr-7">
+        <span className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-gradient-navy shadow-vkm">
+          <VKMLogo showWordmark={false} />
+        </span>
+        <div className="min-w-0">
+          <p className="text-sm font-bold text-foreground">Install VK Mentorship</p>
+          <p className="text-xs text-muted-foreground">
+            Get the full-screen app — faster, offline-ready, on your home screen.
+          </p>
+        </div>
+      </div>
+
+      {canInstall ? (
+        <Button
+          onClick={onInstall}
+          className="mt-3 w-full rounded-xl bg-gradient-navy text-primary-foreground hover:opacity-90"
+        >
+          <Download className="h-4 w-4" /> Add to home screen
+        </Button>
+      ) : (
+        <div className="mt-3 flex items-center justify-center gap-1.5 rounded-xl bg-secondary px-3 py-2.5 text-xs text-foreground">
+          Tap <Share className="mx-0.5 inline h-4 w-4 text-navy" /> then
+          <span className="mx-0.5 inline-flex items-center gap-1 font-medium">
+            <Plus className="h-3.5 w-3.5" /> Add to Home Screen
+          </span>
+        </div>
+      )}
+    </div>
   );
 }

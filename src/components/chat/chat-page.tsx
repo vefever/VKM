@@ -58,8 +58,7 @@ export function ChatPage() {
       />
 
       <div
-        className="grid gap-4 lg:grid-cols-[320px_1fr]"
-        style={{ height: "calc(100dvh - 12rem - var(--kb, 0px))" }}
+        className="grid gap-4 lg:grid-cols-[320px_1fr] h-[calc(100dvh-6.5rem-var(--vkm-nav-h)-var(--kb,0px))] md:h-[calc(100dvh-12rem-var(--kb,0px))]"
       >
         {/* Conversation list */}
         <div

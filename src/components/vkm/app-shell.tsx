@@ -41,6 +41,8 @@ import { VKMLogo } from "@/components/vkm/logo";
 import { cn } from "@/lib/utils";
 import { CommandMenu } from "@/components/vkm/command-menu";
 import { MobileTabBar } from "@/components/vkm/mobile-tab-bar";
+import { useKeyboardInset } from "@/hooks/use-keyboard-inset";
+import { PageTitleProvider, usePageTitle } from "@/components/vkm/page-title-context";
 
 function VKMSidebar({ role }: { role: AppRole }) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
@@ -227,10 +229,9 @@ function TopBar({ onOpenCommand, role }: { onOpenCommand: () => void; role: AppR
       className="sticky top-0 z-30 flex items-center gap-2 border-b border-border glass px-3 sm:px-6 pt-safe"
       style={{ minHeight: "calc(4rem + env(safe-area-inset-top))" }}
     >
-      {/* Mobile: brand only (the sidebar toggle is redundant — "More" tab opens it) */}
-      <div className="md:hidden">
-        <VKMLogo />
-      </div>
+      {/* Mobile: brand, crossfading into the page title once the user scrolls
+          past the page header (native large-title-collapse feel). */}
+      <MobileBarTitle />
       {/* Desktop: sidebar toggle */}
       <SidebarTrigger className="hidden h-11 w-11 rounded-xl md:flex" />
       <button
@@ -283,6 +284,41 @@ function TopBar({ onOpenCommand, role }: { onOpenCommand: () => void; role: AppR
   );
 }
 
+// Mobile TopBar left slot: the brand logo until the page header scrolls under
+// the bar, then the page title takes its place (and back on scroll-up).
+function MobileBarTitle() {
+  const { title, collapsed } = usePageTitle();
+  const showTitle = collapsed && !!title;
+  return (
+    <div className="min-w-0 md:hidden">
+      <AnimatePresence mode="wait" initial={false}>
+        {showTitle ? (
+          <motion.p
+            key="title"
+            initial={{ opacity: 0, y: 6 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -6 }}
+            transition={{ duration: 0.18, ease: "easeOut" }}
+            className="truncate text-base font-semibold text-foreground"
+          >
+            {title}
+          </motion.p>
+        ) : (
+          <motion.div
+            key="logo"
+            initial={{ opacity: 0, y: -6 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 6 }}
+            transition={{ duration: 0.18, ease: "easeOut" }}
+          >
+            <VKMLogo />
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
+
 // #3 — slide route content while the header + bottom nav stay mounted (#2).
 // Desktop pointer users get no wrapper (identical to today).
 function RouteTransition({ children }: { children: ReactNode }) {
@@ -307,6 +343,9 @@ function RouteTransition({ children }: { children: ReactNode }) {
 export function AppShell({ role, children }: { role: AppRole; children: ReactNode }) {
   const [cmdOpen, setCmdOpen] = useState(false);
   const router = useRouter();
+  // Global --kb CSS var so every bottom-anchored composer stays above the
+  // on-screen keyboard (chat, advisor, AI assistant sheet).
+  useKeyboardInset();
   // #16 — re-run route loaders + signal data hooks to refetch.
   const refresh = useCallback(async () => {
     window.dispatchEvent(new Event("vkm:refresh"));
@@ -315,13 +354,14 @@ export function AppShell({ role, children }: { role: AppRole; children: ReactNod
   }, [router]);
 
   return (
+    <PageTitleProvider>
     <SidebarProvider>
       <OfflineBanner />
       <div data-app-root className="flex min-h-screen-mobile w-full bg-background">
         <VKMSidebar role={role} />
         <div className="flex min-h-screen-mobile min-w-0 flex-1 flex-col">
           <TopBar onOpenCommand={() => setCmdOpen(true)} role={role} />
-          <main className="flex-1 overflow-x-hidden px-4 pt-3 pb-[calc(6rem+env(safe-area-inset-bottom))] sm:px-8 sm:pt-8 md:pb-8">
+          <main className="flex-1 overflow-x-hidden px-4 pt-3 pb-[calc(var(--vkm-nav-h)+1rem)] sm:px-8 sm:pt-8 md:pb-8">
             <div className="min-w-0 w-full">
               <PullToRefresh onRefresh={refresh}>
                 <RouteTransition>{children}</RouteTransition>
@@ -333,5 +373,6 @@ export function AppShell({ role, children }: { role: AppRole; children: ReactNod
       </div>
       <CommandMenu role={role} open={cmdOpen} onOpenChange={setCmdOpen} />
     </SidebarProvider>
+    </PageTitleProvider>
   );
 }

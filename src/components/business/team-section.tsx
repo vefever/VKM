@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import { ResponsiveModal, ResponsiveModalContent, ResponsiveModalHeader, ResponsiveModalTitle, ResponsiveModalDescription, ResponsiveModalFooter } from "@/components/ui/responsive-modal";
 import { cn } from "@/lib/utils";
 import { useTeamMembers, type TeamMember, type TeamMemberInput } from "@/components/business/business-data";
 
@@ -142,12 +142,12 @@ export function TeamSection({ reportedTeamSize }: { reportedTeamSize: number | n
       </SectionCard>
 
       {/* Add / edit dialog */}
-      <Dialog open={!!draft} onOpenChange={(o) => !o && setDraft(null)}>
-        <DialogContent className="sm:max-w-[540px] max-h-[88vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>{draft?.id ? "Edit team member" : "Add team member"}</DialogTitle>
-            <DialogDescription>Their role, department and pay help you and your coach plan growth.</DialogDescription>
-          </DialogHeader>
+      <ResponsiveModal open={!!draft} onOpenChange={(o) => !o && setDraft(null)}>
+        <ResponsiveModalContent className="sm:max-w-[540px] max-h-[88vh] overflow-y-auto">
+          <ResponsiveModalHeader>
+            <ResponsiveModalTitle>{draft?.id ? "Edit team member" : "Add team member"}</ResponsiveModalTitle>
+            <ResponsiveModalDescription>Their role, department and pay help you and your coach plan growth.</ResponsiveModalDescription>
+          </ResponsiveModalHeader>
           {draft && (
             <div className="space-y-3">
               <div className="grid grid-cols-2 gap-3">
@@ -202,14 +202,14 @@ export function TeamSection({ reportedTeamSize }: { reportedTeamSize: number | n
               </div>
             </div>
           )}
-          <DialogFooter>
+          <ResponsiveModalFooter>
             <Button variant="outline" className="rounded-xl" onClick={() => setDraft(null)}>Cancel</Button>
             <Button onClick={saveDraft} disabled={saving} className="rounded-xl bg-gradient-navy text-primary-foreground hover:opacity-90">
               {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />} Save
             </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+          </ResponsiveModalFooter>
+        </ResponsiveModalContent>
+      </ResponsiveModal>
     </section>
   );
 }

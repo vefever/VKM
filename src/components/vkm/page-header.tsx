@@ -1,6 +1,8 @@
+import { useEffect, useRef } from "react";
 import { type LucideIcon } from "lucide-react";
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
+import { usePageTitle } from "@/components/vkm/page-title-context";
 
 export function PageHeader({
   eyebrow,
@@ -17,6 +19,33 @@ export function PageHeader({
   actions?: React.ReactNode;
   className?: string;
 }) {
+  const { setTitle, setCollapsed } = usePageTitle();
+  const sentinelRef = useRef<HTMLSpanElement>(null);
+
+  // Register this page's title and report when the header scrolls out of
+  // view — the mobile TopBar then shows the title in the sticky bar so the
+  // user never loses context (no-op outside AppShell / on desktop).
+  useEffect(() => {
+    setTitle(title);
+    return () => {
+      setTitle(null);
+      setCollapsed(false);
+    };
+  }, [title, setTitle, setCollapsed]);
+
+  useEffect(() => {
+    const el = sentinelRef.current;
+    if (!el || typeof IntersectionObserver === "undefined") return;
+    const io = new IntersectionObserver(
+      ([entry]) => setCollapsed(!entry.isIntersecting),
+      // The sticky TopBar is ~4rem tall — treat the header as "scrolled past"
+      // once it slides under the bar, not at the literal viewport top.
+      { rootMargin: "-72px 0px 0px 0px" },
+    );
+    io.observe(el);
+    return () => io.disconnect();
+  }, [setCollapsed]);
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 8 }}
@@ -27,6 +56,7 @@ export function PageHeader({
         className,
       )}
     >
+      <span ref={sentinelRef} aria-hidden className="absolute inset-x-0 top-0 h-px" />
       <div className="flex min-w-0 items-center gap-3 md:items-start">
         {Icon && (
           <span className="relative inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-gradient-navy text-primary-foreground shadow-vkm md:h-12 md:w-12">

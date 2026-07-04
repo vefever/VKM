@@ -549,7 +549,7 @@ function StickyWeekBar({ week, pct, topic }: { week: number; pct: number; topic:
             <Button
               size="sm"
               asChild
-              className="h-9 shrink-0 rounded-full bg-gradient-navy text-primary-foreground"
+              className="h-11 shrink-0 rounded-full bg-gradient-navy text-primary-foreground"
             >
               <Link to="/participant/proof">Submit</Link>
             </Button>
