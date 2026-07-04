@@ -1,8 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { WireframePage } from "@/components/vkm/wireframe-page";
-import { getPageConfig } from "@/components/vkm/page-registry";
+import { ProgramsHub } from "@/components/admin/programs-hub";
 
 export const Route = createFileRoute("/_authenticated/mentor/programs")({
   head: () => ({ meta: [{ title: "Programs · VKM" }] }),
-  component: () => <WireframePage config={getPageConfig("/mentor/programs")} />,
+  component: () => <ProgramsHub role="mentor" />,
 });

@@ -201,9 +201,10 @@ export const MENTOR_NAV: NavGroup[] = [
   {
     label: "Programs & Batches",
     items: [
-      { label: "Create Program", to: "/mentor/programs/new", icon: FilePlus },
       { label: "Manage Programs", to: "/mentor/programs", icon: BookCopy },
       { label: "Clone Programs", to: "/mentor/programs/clone", icon: GitBranch },
+      { label: "Program Builder", to: "/mentor/program-builder", icon: ListChecks },
+      { label: "Videos & Files", to: "/mentor/program-content", icon: FilePlus },
       { label: "Manage Batches", to: "/mentor/batches", icon: Layers3 },
       { label: "Schedule Live Classes", to: "/mentor/classes", icon: CalendarClock },
       { label: "Zoom Meetings", to: "/mentor/meetings", icon: Calendar },
@@ -272,7 +273,8 @@ export const ADMIN_NAV: NavGroup[] = [
   {
     label: "Academy",
     items: [
-      { label: "Programs", to: "/admin/programs", icon: BookCopy },
+      { label: "Manage Programs", to: "/admin/programs-hub", icon: GitBranch },
+      { label: "Videos & Files", to: "/admin/programs", icon: BookCopy },
       { label: "Program Builder", to: "/admin/program-builder", icon: ListChecks },
       { label: "Batches", to: "/admin/batches", icon: Layers3 },
       { label: "LMS", to: "/admin/lms", icon: BookOpen },

@@ -37,9 +37,12 @@ type Batch = {
   name: string;
   status: string;
   start_date: string | null;
+  program_id: string | null;
   memberCount: number;
   alumniCount: number;
 };
+
+type ProgramLite = { id: string; title: string };
 
 const STATUS_OPTS = [
   { value: "active", label: "Active — full app" },
@@ -58,16 +61,19 @@ const STATUS_BADGE: Record<string, string> = {
 export function BatchesManager() {
   const invite = useServerFn(createInvite);
   const [batches, setBatches] = useState<Batch[]>([]);
+  const [programs, setPrograms] = useState<ProgramLite[]>([]);
   const [loading, setLoading] = useState(true);
   const [newOpen, setNewOpen] = useState(false);
   const [importFor, setImportFor] = useState<Batch | null>(null);
 
   const load = useCallback(async () => {
-    const [{ data: bs }, { data: bm }, { data: profs }] = await Promise.all([
-      supabase.from("batches").select("id, name, status, start_date").order("start_date", { ascending: false, nullsFirst: false }),
+    const [{ data: bs }, { data: bm }, { data: profs }, { data: progs }] = await Promise.all([
+      supabase.from("batches").select("id, name, status, start_date, program_id").order("start_date", { ascending: false, nullsFirst: false }),
       supabase.from("batch_members").select("batch_id, user_id").eq("role", "participant"),
       supabase.from("profiles").select("id, is_alumni"),
+      supabase.from("programs").select("id, title").order("created_at", { ascending: true }),
     ]);
+    setPrograms((progs ?? []) as ProgramLite[]);
     const alumniSet = new Set((profs ?? []).filter((p) => (p as { is_alumni?: boolean }).is_alumni).map((p) => p.id));
     const byBatch = new Map<string, { total: number; alumni: number }>();
     (bm ?? []).forEach((r) => {
@@ -83,6 +89,7 @@ export function BatchesManager() {
         name: b.name,
         status: b.status ?? "active",
         start_date: b.start_date,
+        program_id: (b as { program_id: string | null }).program_id ?? null,
         memberCount: byBatch.get(b.id)?.total ?? 0,
         alumniCount: byBatch.get(b.id)?.alumni ?? 0,
       })),
@@ -128,6 +135,16 @@ export function BatchesManager() {
   async function createBatch(name: string, status: string) {
     const { error } = await supabase.from("batches").insert({ name: name.trim(), status });
     if (error) throw error;
+    await load();
+  }
+
+  // Which program this batch runs — scopes what its participants see (curriculum,
+  // class videos, resources) via resolveMyProgramId.
+  async function setBatchProgram(b: Batch, programId: string | null) {
+    const { error } = await supabase.from("batches").update({ program_id: programId }).eq("id", b.id);
+    if (error) return toast.error("Couldn't set program", { description: error.message });
+    const prog = programs.find((p) => p.id === programId);
+    toast.success(prog ? `${b.name} → ${prog.title}` : `${b.name} → default program`);
     await load();
   }
 
@@ -193,6 +210,17 @@ export function BatchesManager() {
                   </div>
 
                   <div className="flex flex-wrap items-center gap-2">
+                    <Select value={b.program_id ?? "default"} onValueChange={(v) => setBatchProgram(b, v === "default" ? null : v)}>
+                      <SelectTrigger className="h-9 w-44 rounded-lg text-xs" title="Which program this batch runs">
+                        <SelectValue placeholder="Program…" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="default">Default program</SelectItem>
+                        {programs.map((p) => (
+                          <SelectItem key={p.id} value={p.id}>{p.title}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                     <Select value={b.status} onValueChange={(v) => setStatus(b, v)}>
                       <SelectTrigger className="h-9 w-52 rounded-lg text-xs">
                         <SelectValue />
