@@ -6,6 +6,9 @@ A running log of platform updates. Newest first. Ask any time for a **PDF** of t
 
 ## 2026-07-06
 
+### New
+- **Email log — see every email the platform sends** — a new **Email log** tab on Admin → Messaging (and a panel on Admin → Workflow Automation) lists every email the platform has sent, newest first, updating live as they go out: login codes, 2FA codes, daily reminders, bulk/meeting invites, manual admin sends, and provider tests. Each row shows the recipient, type, subject, time, provider, and whether it **sent or failed** (with the provider's error message on hover for failures). Filter by type or show failures only. For privacy it records only the metadata — never the email body or any login/2FA code. Visible to super admins only.
+
 ### Fixed
 - **Getting logged out when reopening the app** — investigated live against the auth server (which was confirmed to be keeping sessions valid — the problem was entirely in the app). Two causes: (1) on a phone's cold start the very first network request often fails while the connection wakes up, and the app made exactly **one** attempt to restore the session before showing the login screen — it now retries with backoff, only accepts a genuine "session invalid" answer from the server as a logout, and quietly signs you back in the moment connectivity or focus returns even if the first attempts failed; (2) after every deployment, the app-update reload could fire at launch right in the middle of restoring the session — the update now waits until the session is safely stored before reloading.
 

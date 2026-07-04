@@ -21,6 +21,49 @@ export type MessageTemplate = {
 
 const EMPTY: MessagingSetting = { provider: null, enabled: false, config: {} };
 
+export type EmailLogRow = {
+  id: number;
+  to_email: string;
+  subject: string | null;
+  kind: string; // otp | mfa | reminder | bulk | admin | test
+  status: "sent" | "failed";
+  detail: string | null;
+  provider: string | null;
+  user_id: string | null;
+  created_at: string;
+};
+
+// Every email the platform has sent (super-admin readable via RLS), newest
+// first, live-updating as new sends land. Shared by the Messaging "Email log"
+// tab and the Workflow Automation page.
+export function useEmailLog(limit = 200) {
+  const [rows, setRows] = useState<EmailLogRow[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const load = useCallback(async () => {
+    const { data } = await supabase
+      .from("email_log")
+      .select("id, to_email, subject, kind, status, detail, provider, user_id, created_at")
+      .order("created_at", { ascending: false })
+      .limit(limit);
+    setRows((data ?? []) as EmailLogRow[]);
+    setLoading(false);
+  }, [limit]);
+
+  useEffect(() => {
+    void load();
+    const ch = supabase
+      .channel("email-log")
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "email_log" }, () => void load())
+      .subscribe();
+    return () => {
+      void supabase.removeChannel(ch);
+    };
+  }, [load]);
+
+  return { rows, loading, reload: load };
+}
+
 /** Call the `messaging` edge function; throws on { ok:false }. */
 export async function invokeMessaging(action: string, payload: Record<string, unknown> = {}) {
   const { data, error } = await supabase.functions.invoke("messaging", {

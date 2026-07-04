@@ -221,7 +221,7 @@ async function sendEmail(to: string, subject: string, html: string, text?: strin
       body: JSON.stringify({ from: `${fromName} <${fromEmail}>`, to: [to], subject, html, text }),
     });
     if (!r.ok) throw new Error(`Resend: ${await r.text()}`);
-    return;
+    return s.provider;
   }
 
   if (s.provider === "mailersend") {
@@ -242,13 +242,13 @@ async function sendEmail(to: string, subject: string, html: string, text?: strin
       }),
     });
     // 202 Accepted (queued) is the success case; 200/201 are fine too.
-    if (r.status === 202 || r.ok) return;
+    if (r.status === 202 || r.ok) return s.provider;
     throw new Error(mailerSendError(r.status, await r.text().catch(() => "")));
   }
 
   if (s.provider === "ses") {
     await sendSes(c, fromEmail, to, subject, html, text || stripHtml(html));
-    return;
+    return s.provider;
   }
 
   if (s.provider === "zeptomail") {
@@ -268,10 +268,57 @@ async function sendEmail(to: string, subject: string, html: string, text?: strin
       }),
     });
     if (!r.ok) throw new Error(`ZeptoMail: ${await r.text()}`);
-    return;
+    return s.provider;
   }
 
   throw new Error(`Unknown email provider: ${s.provider}`);
+}
+
+// Append-only audit trail of every email the platform sends. Best-effort — a
+// logging failure must never break (or block) the actual send. Never stores
+// the email body or any OTP/2FA code, only metadata.
+async function logEmail(
+  to: string,
+  subject: string,
+  kind: string,
+  status: "sent" | "failed",
+  detail?: string | null,
+  userId?: string | null,
+  provider?: string | null,
+) {
+  try {
+    await admin.from("email_log").insert({
+      to_email: to,
+      subject,
+      kind,
+      status,
+      detail: detail ?? null,
+      user_id: userId ?? null,
+      provider: provider ?? null,
+    });
+  } catch (e) {
+    console.error("logEmail failed:", (e as Error).message);
+  }
+}
+
+// Drop-in replacement for sendEmail that records the outcome in email_log,
+// then RE-THROWS on failure so every call site's existing try/catch and
+// error messaging is preserved unchanged.
+async function sendEmailLogged(
+  to: string,
+  subject: string,
+  html: string,
+  text: string | undefined,
+  kind: string,
+  userId?: string | null,
+) {
+  try {
+    const provider = await sendEmail(to, subject, html, text);
+    await logEmail(to, subject, kind, "sent", null, userId ?? null, provider);
+  } catch (e) {
+    await logEmail(to, subject, kind, "failed", (e as Error).message, userId ?? null, null);
+    throw e;
+  }
 }
 
 const stripHtml = (h: string) =>
@@ -630,7 +677,7 @@ Deno.serve(async (req) => {
           <p style="font-size:32px;font-weight:700;letter-spacing:6px;color:#0B2545">${code}</p>
           <p style="color:#667">If you didn't request this, you can ignore this email.</p></div>`;
         try {
-          await sendEmail(email, "Your VKM login code", html, `Your VKM login code: ${code}`);
+          await sendEmailLogged(email, "Your VKM login code", html, `Your VKM login code: ${code}`, "otp");
         } catch (e) {
           // Pre-auth path — never leak provider/internal error details to the caller.
           console.error("request_otp sendEmail failed:", (e as Error).message);
@@ -676,7 +723,7 @@ Deno.serve(async (req) => {
         <p style="font-size:32px;font-weight:700;letter-spacing:6px;color:#0B2545">${code}</p>
         <p style="color:#667">If you didn't request this, someone may have your password — consider changing it.</p></div>`;
       try {
-        await sendEmail(email, "Your VKM security code", html, `Your VKM security code: ${code}`);
+        await sendEmailLogged(email, "Your VKM security code", html, `Your VKM security code: ${code}`, "mfa", staff.userId);
       } catch (e) {
         console.error("request_mfa_email_otp sendEmail failed:", (e as Error).message);
         return json({ ok: false, error: "Could not send the code. Try again later." }, 500, cors);
@@ -733,7 +780,7 @@ Deno.serve(async (req) => {
         if (emailOn && t.email && !sentKey.has(`${t.user_id}:email`)) {
           try {
             const { subject, html, text } = renderReminderEmail(cfg, name, t.done || 0);
-            await sendEmail(t.email, subject, html, text);
+            await sendEmailLogged(t.email, subject, html, text, "reminder", t.user_id);
             email.sent++;
             await logReminder(t.user_id, target, "email", "sent");
           } catch (e) {
@@ -790,7 +837,7 @@ Deno.serve(async (req) => {
       try {
         if (channel === "email") {
           const { subject, html, text } = renderReminderEmail(cfg, p.name || "there", 3);
-          await sendEmail(to, `[Test] ${subject}`, html, text);
+          await sendEmailLogged(to, `[Test] ${subject}`, html, text, "test");
         } else if (channel === "whatsapp") {
           const phone = normalizePhone(to);
           if (!phone) return json({ ok: false, error: "Invalid phone number." }, 400, cors);
@@ -851,7 +898,7 @@ Deno.serve(async (req) => {
       let failed = 0;
       for (const to of recipients) {
         try {
-          await sendEmail(to, subject, html, text);
+          await sendEmailLogged(to, subject, html, text, "bulk");
           sent++;
         } catch (e) {
           failed++;
@@ -893,7 +940,7 @@ Deno.serve(async (req) => {
     // details are safe (and useful) to surface for debugging their setup.
     try {
       if (action === "send_email") {
-        await sendEmail(p.to, p.subject, p.html, p.text);
+        await sendEmailLogged(p.to, p.subject, p.html, p.text, "admin");
         return json({ ok: true }, 200, cors);
       }
       if (action === "send_sms") {
@@ -907,11 +954,12 @@ Deno.serve(async (req) => {
       if (action === "test") {
         const to = String(p.to || "");
         if (p.channel === "email")
-          await sendEmail(
+          await sendEmailLogged(
             to,
             "VKM test email",
             "<p>✅ Your VKM email provider is working.</p>",
             "Your VKM email provider is working.",
+            "test",
           );
         else if (p.channel === "sms") await sendSms(to, "✅ VKM SMS test — your provider works.");
         else if (p.channel === "whatsapp")

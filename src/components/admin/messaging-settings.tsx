@@ -15,6 +15,7 @@ import {
   EyeOff,
   Globe,
   Lock,
+  ScrollText,
 } from "lucide-react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/vkm/page-header";
@@ -30,6 +31,7 @@ import {
   type ChannelId,
   type MessageTemplate,
 } from "@/components/admin/messaging-data";
+import { EmailLogPanel } from "@/components/admin/email-log-panel";
 
 type Field = { k: string; label: string; secret?: boolean; placeholder?: string };
 type Chan = "email" | "sms" | "whatsapp";
@@ -94,13 +96,14 @@ const PROVIDER_LABEL: Record<string, string> = {
   meta: "Meta Cloud API",
 };
 
-type TabId = "email" | "sms" | "whatsapp" | "templates" | "login";
+type TabId = "email" | "sms" | "whatsapp" | "templates" | "login" | "log";
 const TABS: { id: TabId; label: string; icon: typeof Mail }[] = [
   { id: "email", label: "Email", icon: Mail },
   { id: "sms", label: "SMS", icon: Phone },
   { id: "whatsapp", label: "WhatsApp", icon: MessageSquareMore },
   { id: "templates", label: "Templates", icon: FileText },
   { id: "login", label: "Login (OTP)", icon: KeyRound },
+  { id: "log", label: "Email log", icon: ScrollText },
 ];
 
 export function MessagingSettings({ defaultTab = "email" }: { defaultTab?: TabId }) {
@@ -144,6 +147,7 @@ export function MessagingSettings({ defaultTab = "email" }: { defaultTab?: TabId
       {(tab === "email" || tab === "sms" || tab === "whatsapp") && <ChannelTab channel={tab} />}
       {tab === "templates" && <TemplatesTab />}
       {tab === "login" && <LoginTab />}
+      {tab === "log" && <EmailLogPanel />}
     </motion.div>
   );
 }

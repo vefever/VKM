@@ -15,6 +15,7 @@ import {
 import { toast } from "sonner";
 import { PageHeader } from "@/components/vkm/page-header";
 import { SectionCard } from "@/components/vkm/section-card";
+import { EmailLogPanel } from "@/components/admin/email-log-panel";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -365,6 +366,9 @@ export function AutomationSettingsPage() {
           )}
         </div>
       </div>
+
+      {/* Every email the automation (and the rest of the platform) has sent. */}
+      <EmailLogPanel />
     </motion.div>
   );
 }

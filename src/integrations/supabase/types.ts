@@ -612,6 +612,42 @@ export type Database = {
         }
         Relationships: []
       }
+      email_log: {
+        Row: {
+          created_at: string
+          detail: string | null
+          id: number
+          kind: string
+          provider: string | null
+          status: string
+          subject: string | null
+          to_email: string
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          detail?: string | null
+          id?: never
+          kind: string
+          provider?: string | null
+          status: string
+          subject?: string | null
+          to_email: string
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          detail?: string | null
+          id?: never
+          kind?: string
+          provider?: string | null
+          status?: string
+          subject?: string | null
+          to_email?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       focus_sessions: {
         Row: {
           created_at: string
