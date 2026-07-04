@@ -6,6 +6,9 @@ A running log of platform updates. Newest first. Ask any time for a **PDF** of t
 
 ## 2026-07-06
 
+### Fixed
+- **Getting logged out when reopening the app** — investigated live against the auth server (which was confirmed to be keeping sessions valid — the problem was entirely in the app). Two causes: (1) on a phone's cold start the very first network request often fails while the connection wakes up, and the app made exactly **one** attempt to restore the session before showing the login screen — it now retries with backoff, only accepts a genuine "session invalid" answer from the server as a logout, and quietly signs you back in the moment connectivity or focus returns even if the first attempts failed; (2) after every deployment, the app-update reload could fire at launch right in the middle of restoring the session — the update now waits until the session is safely stored before reloading.
+
 ### Improved
 - **Mobile / installed-app experience, top to bottom** — a pass to make the phone and PWA experience feel like a real app instead of a website:
   - **Toasts no longer overlap the bottom navigation.** Every floating element that has to clear the bottom tab bar (page content, toasts, the install prompt, the AI button) now measures from a single shared value, so notifications always sit cleanly above the nav with a proper gap — and the "Install app" prompt and a toast can never land on top of each other anymore.

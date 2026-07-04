@@ -92,12 +92,17 @@ export function PwaManager() {
       .then((registration) => {
         reg = registration;
         // A new build was already downloaded on a previous session and is
-        // waiting. This is app launch (a cold, safe point — not mid-session), so
-        // apply it now: users are never more than one launch behind, without the
-        // deploy-time force-reload that caused logouts. The boot session-refresh
-        // (use-auth) recovers if the ensuing reload interrupts a token refresh.
+        // waiting. Apply it at launch — but ONLY after the boot session
+        // refresh has fully settled (getSession resolves once any pending
+        // token rotation is done and persisted). We deploy several times a
+        // day, so an immediate SKIP_WAITING here used to force a reload right
+        // in the middle of the boot refresh on nearly every launch — the
+        // exact race that strands sessions. The extra beat after settle lets
+        // the storage write land before controllerchange reloads the app.
         if (registration.waiting && navigator.serviceWorker.controller) {
-          registration.waiting.postMessage("SKIP_WAITING");
+          void supabase.auth.getSession().finally(() => {
+            setTimeout(() => registration?.waiting?.postMessage("SKIP_WAITING"), 1500);
+          });
         }
         // Nudge the browser to check for a newer worker on every launch.
         void registration.update().catch(() => {});
