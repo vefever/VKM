@@ -1359,6 +1359,7 @@ export type Database = {
       program_weeks: {
         Row: {
           class_video_provider: string | null
+          class_video_thumbnail: string | null
           class_video_title: string | null
           class_video_url: string | null
           created_at: string
@@ -1374,6 +1375,7 @@ export type Database = {
         }
         Insert: {
           class_video_provider?: string | null
+          class_video_thumbnail?: string | null
           class_video_title?: string | null
           class_video_url?: string | null
           created_at?: string
@@ -1389,6 +1391,7 @@ export type Database = {
         }
         Update: {
           class_video_provider?: string | null
+          class_video_thumbnail?: string | null
           class_video_title?: string | null
           class_video_url?: string | null
           created_at?: string
@@ -2095,6 +2098,37 @@ export type Database = {
           participant_count: number
         }[]
       }
+      admin_live_participants: {
+        Args: { _batch_id?: string }
+        Returns: {
+          actions_done: number
+          actions_total: number
+          at_risk: boolean
+          avatar_url: string
+          batch_id: string
+          batch_name: string
+          batch_status: string
+          business_name: string
+          current_week: number
+          enroll_status: string
+          focus_minutes_today: number
+          full_name: string
+          habit_active_3d: boolean
+          habits_done_today: number
+          is_online_15m: boolean
+          last_active_at: string
+          last_proof_at: string
+          mrr_inr: number
+          open_tickets: number
+          pending_proofs: number
+          points: number
+          started_at: string
+          total_weeks: number
+          user_id: string
+          water_pct_today: number
+          weeks_approved: number
+        }[]
+      }
       admin_participant_files: { Args: { _user_id: string }; Returns: Json }
       admin_people_search: {
         Args: { _limit?: number; _q?: string }
@@ -2134,6 +2168,10 @@ export type Database = {
           schedule: string
           scheduled: boolean
         }[]
+      }
+      clone_program: {
+        Args: { _new_title: string; _source: string; _status?: string }
+        Returns: string
       }
       coach_cohort_overview: {
         Args: never
