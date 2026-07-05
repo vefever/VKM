@@ -1,8 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { WireframePage } from "@/components/vkm/wireframe-page";
-import { getPageConfig } from "@/components/vkm/page-registry";
+import { CoachPerformance } from "@/components/coach/coach-performance";
 
 export const Route = createFileRoute("/_authenticated/mentor/coaches")({
   head: () => ({ meta: [{ title: "Coaches · VKM" }] }),
-  component: () => <WireframePage config={getPageConfig("/mentor/coaches")} />,
+  component: () => <CoachPerformance eyebrow="Mentor · VK" />,
 });

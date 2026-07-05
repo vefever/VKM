@@ -1,8 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { WireframePage } from "@/components/vkm/wireframe-page";
-import { getPageConfig } from "@/components/vkm/page-registry";
+import { SectionUnavailable } from "@/components/vkm/section-unavailable";
 
 export const Route = createFileRoute("/_authenticated/admin/vk-ops/welcome-kit")({
   head: () => ({ meta: [{ title: "Welcome Kit · VKM" }] }),
-  component: () => <WireframePage config={getPageConfig("/admin/vk-ops/welcome-kit")} />,
+  component: () => <SectionUnavailable title="Welcome Kit" home="/admin" />,
 });

@@ -67,7 +67,7 @@ function describeActivity(row: ActivityRow): string {
   return bySource[row.source] ?? "was awarded points";
 }
 
-export function PlatformAnalyticsPage() {
+export function PlatformAnalyticsPage({ eyebrow = "Admin · VK" }: { eyebrow?: string } = {}) {
   const { data: overview, loading: overviewLoading } = useAnalyticsOverview();
   const { coaches, loading: coachesLoading } = useAnalyticsCoaches();
   const { batches, loading: batchesLoading } = useAnalyticsBatches();
@@ -117,7 +117,7 @@ export function PlatformAnalyticsPage() {
       className="space-y-5"
     >
       <PageHeader
-        eyebrow="Admin · VK"
+        eyebrow={eyebrow}
         title="Platform Analytics"
         description="Live participant, coach & mentor activity — computed from real platform data, refreshing automatically."
         icon={LineChartIcon}

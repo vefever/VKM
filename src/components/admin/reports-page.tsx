@@ -50,7 +50,7 @@ const RANGE_PRESETS = [
   { label: "90d", days: 89 },
 ];
 
-export function ReportsPage() {
+export function ReportsPage({ eyebrow = "Admin · VK" }: { eyebrow?: string } = {}) {
   const [tab, setTab] = useState<Tab>("individual");
   const [from, setFrom] = useState(daysAgo(29));
   const [to, setTo] = useState(fmtDate(new Date()));
@@ -218,7 +218,7 @@ export function ReportsPage() {
       className="space-y-5"
     >
       <PageHeader
-        eyebrow="Admin · VK"
+        eyebrow={eyebrow}
         title="Reports"
         description="One-on-one, batch-wise, and coach/mentor behaviour reports — drill down and export to Excel or PDF."
         icon={FileBarChart}

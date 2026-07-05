@@ -1,8 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { WireframePage } from "@/components/vkm/wireframe-page";
-import { getPageConfig } from "@/components/vkm/page-registry";
+import { BatchesManager } from "@/components/admin/batches-manager";
 
 export const Route = createFileRoute("/_authenticated/mentor/batches")({
   head: () => ({ meta: [{ title: "Batches · VKM" }] }),
-  component: () => <WireframePage config={getPageConfig("/mentor/batches")} />,
+  component: () => <BatchesManager eyebrow="Mentor" />,
 });

@@ -4,6 +4,11 @@ A running log of platform updates. Newest first. Ask any time for a **PDF** of t
 
 ---
 
+## 2026-07-07
+
+### Changed
+- **All mock/demo data removed from Admin & Mentor — real data everywhere** — every admin and mentor page now shows live data or an honest "not set up yet" notice; there are no more fabricated names or numbers anywhere in those areas. Specifically: **mentors now get the same real org-wide Analytics and Reports as super admins** (they were previously blocked); a batch of mentor pages that duplicated real screens (Analytics, Reports, Batches, Coaches, Community, Content, Live Classes, Review Cohorts, Settings) now render the real components; and four pages were built fresh on real data — **Mentor Insights** (live at-risk / attention signals derived from real cohort data), **Mentor Leaderboards** (real cross-batch standings), **Graduation & Recognition** (real alumni, graduation rate, ready-to-graduate with one-click "mark alumni" — for both mentor and admin), and **Coach Assignment** (the real coach→participant caseload map). Pages for features the platform genuinely doesn't have yet (Payments, Invoices, CRM, Backup, Database, Exports, Feature Flags, API Keys, and the operational planning pages like Admissions/Campaigns/Printing/Gifts/Welcome-Kit/Events/Feedback) were removed from the navigation rather than shown with fake data. (Coach and participant pages are unchanged in this pass.)
+
 ## 2026-07-06
 
 ### New

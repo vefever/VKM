@@ -1,8 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { WireframePage } from "@/components/vkm/wireframe-page";
-import { getPageConfig } from "@/components/vkm/page-registry";
+import { SectionUnavailable } from "@/components/vkm/section-unavailable";
 
 export const Route = createFileRoute("/_authenticated/admin/api-keys")({
-  head: () => ({ meta: [{ title: "Api Keys · VKM" }] }),
-  component: () => <WireframePage config={getPageConfig("/admin/api-keys")} />,
+  head: () => ({ meta: [{ title: "API Keys · VKM" }] }),
+  component: () => <SectionUnavailable title="API Keys" home="/admin" />,
 });

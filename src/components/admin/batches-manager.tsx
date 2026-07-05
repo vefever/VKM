@@ -58,7 +58,7 @@ const STATUS_BADGE: Record<string, string> = {
   archived: "bg-secondary text-muted-foreground",
 };
 
-export function BatchesManager() {
+export function BatchesManager({ eyebrow = "Admin" }: { eyebrow?: string } = {}) {
   const invite = useServerFn(createInvite);
   const [batches, setBatches] = useState<Batch[]>([]);
   const [programs, setPrograms] = useState<ProgramLite[]>([]);
@@ -156,7 +156,7 @@ export function BatchesManager() {
       className="space-y-5"
     >
       <PageHeader
-        eyebrow="Admin"
+        eyebrow={eyebrow}
         title="Batches"
         description="Manage cohorts & access. Completed/archived batches see only the Community page; alumni also get My Business, Support & Settings."
         icon={Layers3}

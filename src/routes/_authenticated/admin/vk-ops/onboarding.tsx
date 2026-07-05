@@ -1,8 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { WireframePage } from "@/components/vkm/wireframe-page";
-import { getPageConfig } from "@/components/vkm/page-registry";
+import { SectionUnavailable } from "@/components/vkm/section-unavailable";
 
 export const Route = createFileRoute("/_authenticated/admin/vk-ops/onboarding")({
   head: () => ({ meta: [{ title: "Onboarding · VKM" }] }),
-  component: () => <WireframePage config={getPageConfig("/admin/vk-ops/onboarding")} />,
+  component: () => <SectionUnavailable title="Onboarding" home="/admin" />,
 });

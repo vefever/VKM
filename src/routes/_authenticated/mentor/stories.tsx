@@ -1,8 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { WireframePage } from "@/components/vkm/wireframe-page";
-import { getPageConfig } from "@/components/vkm/page-registry";
+import { SectionUnavailable } from "@/components/vkm/section-unavailable";
 
 export const Route = createFileRoute("/_authenticated/mentor/stories")({
-  head: () => ({ meta: [{ title: "Stories · VKM" }] }),
-  component: () => <WireframePage config={getPageConfig("/mentor/stories")} />,
+  head: () => ({ meta: [{ title: "Success Stories · VKM" }] }),
+  component: () => <SectionUnavailable title="Success Stories" home="/mentor" />,
 });
