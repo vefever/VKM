@@ -328,6 +328,27 @@ export type Database = {
         }
         Relationships: []
       }
+      coach_activity: {
+        Row: {
+          activity_date: string
+          coach_id: string
+          hits: number
+          last_seen_at: string
+        }
+        Insert: {
+          activity_date?: string
+          coach_id: string
+          hits?: number
+          last_seen_at?: string
+        }
+        Update: {
+          activity_date?: string
+          coach_id?: string
+          hits?: number
+          last_seen_at?: string
+        }
+        Relationships: []
+      }
       coach_assignments: {
         Row: {
           assigned_at: string
@@ -2173,6 +2194,20 @@ export type Database = {
         Args: { _new_title: string; _source: string; _status?: string }
         Returns: string
       }
+      coach_batch_breakdown: {
+        Args: never
+        Returns: {
+          approval_rate: number
+          at_risk_count: number
+          avg_progress_pct: number
+          batch_id: string
+          batch_name: string
+          coach_id: string
+          coach_name: string
+          participants: number
+          reviews_total: number
+        }[]
+      }
       coach_cohort_overview: {
         Args: never
         Returns: {
@@ -2195,26 +2230,49 @@ export type Database = {
           weeks_approved: number
         }[]
       }
+      coach_daily_activity: {
+        Args: { _coach_id: string; _days?: number }
+        Returns: {
+          day: string
+          logins: number
+          meetings: number
+          messages: number
+          notes: number
+          reviews: number
+        }[]
+      }
       coach_performance_report: {
         Args: never
         Returns: {
+          active_days_30: number
           approval_rate: number
+          at_risk_count: number
+          avg_progress_pct: number
           avg_turnaround_h: number
+          caseload_active_3d_pct: number
+          chat_messages: number
           coach_avatar: string
           coach_id: string
           coach_name: string
+          contacted_7d: number
+          last_login_at: string
+          last_message_at: string
           last_note_at: string
           last_review_at: string
+          login_days_30: number
           meetings_count: number
           notes_count: number
           notifs_sent: number
           participant_count: number
+          reviews_30d: number
+          reviews_7d: number
           reviews_approved: number
           reviews_rejected: number
           reviews_total: number
           visits_count: number
         }[]
       }
+      coach_ping: { Args: never; Returns: undefined }
       coaches_participant: { Args: { _participant: string }; Returns: boolean }
       current_stage: { Args: { uid: string }; Returns: string }
       get_community_business: {

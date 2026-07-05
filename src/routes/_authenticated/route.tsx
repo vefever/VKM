@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { supabase } from "@/integrations/supabase/client";
 import { computeMfaGateMode } from "@/components/admin/security-data";
+import { coachPing } from "@/components/coach/coach-performance-data";
 
 export const Route = createFileRoute("/_authenticated")({
   ssr: false,
@@ -19,6 +20,15 @@ function AuthenticatedLayout() {
   useEffect(() => {
     if (!loading && !user) navigate({ to: "/auth", replace: true });
   }, [loading, user, navigate]);
+
+  // Staff login heartbeat — records that this coach/mentor/admin was active today
+  // (server no-ops for non-staff). Builds the real daily-login history behind the
+  // Coach Performance login streaks + consistency score. Once per session.
+  useEffect(() => {
+    if (!user) return;
+    const isStaff = roles.some((r) => r === "coach" || r === "mentor" || r === "super_admin");
+    if (isStaff) coachPing();
+  }, [user, roles]);
 
   // A staff "log in as participant" support session arrives at /app?impersonated=1.
   // Remember it (for this tab) so the forced-reset gate below is skipped — support
