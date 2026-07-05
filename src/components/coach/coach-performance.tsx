@@ -845,6 +845,16 @@ function ParticipantDetailCard({ p }: { p: ParticipantInteraction }) {
         <Stat n={String(p.meetingsCount)} label="Meetings" />
         <Stat n={p.daysSinceContact != null ? `${p.daysSinceContact}d` : "—"} label="Last touch" />
       </div>
+      <div className="mt-2 flex items-center justify-between border-t border-border pt-2 text-[11px]">
+        <span className="flex items-center gap-1.5 text-muted-foreground">
+          <Activity className="h-3 w-3" /> Daily habits
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span className={cn("h-1.5 w-1.5 rounded-full", p.habitActive3d ? "bg-emerald-500" : "bg-muted-foreground/30")} />
+          <span className={p.habitsToday > 0 ? "font-semibold text-foreground" : "text-muted-foreground"}>{p.habitsToday}/6 today</span>
+          <span className="text-muted-foreground">· {p.habitActive3d ? "active" : "idle 3d+"}</span>
+        </span>
+      </div>
     </div>
   );
 }
@@ -1094,7 +1104,7 @@ function ParticipantMapTab({
           <p className="py-12 text-center text-sm text-muted-foreground">No participants match.</p>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[960px] text-sm">
+            <table className="w-full min-w-[1060px] text-sm">
               <thead>
                 <tr className="border-b border-border bg-muted/40 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
                   <SortTh k="name" label="Participant" />
@@ -1105,6 +1115,7 @@ function ParticipantMapTab({
                   <SortTh k="reviewsReceived" label="Reviews rcvd" right />
                   <SortTh k="coachingNotes" label="Notes" right />
                   <th className="px-3 py-3 text-right">Meetings</th>
+                  <th className="px-3 py-3 text-right">Habits today</th>
                   <SortTh k="daysSinceContact" label="Last contact" right />
                   <th className="px-3 py-3 text-center">Status</th>
                 </tr>
@@ -1130,6 +1141,12 @@ function ParticipantMapTab({
                       <span className={cn("tabular-nums", p.coachingNotes === 0 ? "font-semibold text-amber-600" : "text-muted-foreground")}>{p.coachingNotes}</span>
                     </td>
                     <td className="px-3 py-3 text-right tabular-nums text-muted-foreground">{p.meetingsCount}</td>
+                    <td className="px-3 py-3 text-right">
+                      <span className="inline-flex items-center justify-end gap-1.5 tabular-nums">
+                        <span className={cn("h-1.5 w-1.5 rounded-full", p.habitActive3d ? "bg-emerald-500" : "bg-muted-foreground/30")} title={p.habitActive3d ? "Active in the last 3 days" : "No habit activity in 3+ days"} />
+                        <span className={p.habitsToday > 0 ? "font-medium text-foreground" : "text-muted-foreground"}>{p.habitsToday}/6</span>
+                      </span>
+                    </td>
                     <td className="px-3 py-3 text-right text-xs">
                       {p.daysSinceContact != null ? (
                         <span className={cn(p.daysSinceContact > 14 ? "font-semibold text-destructive" : p.daysSinceContact > 7 ? "text-amber-600 dark:text-amber-400" : "text-muted-foreground")}>

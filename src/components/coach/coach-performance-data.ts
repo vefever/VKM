@@ -70,6 +70,8 @@ export type ParticipantInteraction = {
   currentWeek: number;
   atRisk: boolean;
   daysSinceContact: number | null;
+  habitActive3d: boolean;
+  habitsToday: number;
 };
 
 export type CoachDailyActivity = {
@@ -426,6 +428,8 @@ export function useParticipantInteractions() {
         last_meeting_at: string | null;
         started_at: string | null;
         total_weeks: number;
+        habit_active_3d: boolean;
+        habits_today: number;
       }[]).map((r) => {
         const startedAt = r.started_at ? new Date(r.started_at) : null;
         const currentWeek = weekFromStart(startedAt, Number(r.total_weeks));
@@ -465,6 +469,8 @@ export function useParticipantInteractions() {
           currentWeek,
           atRisk,
           daysSinceContact,
+          habitActive3d: Boolean(r.habit_active_3d),
+          habitsToday: Number(r.habits_today),
         };
       });
       setRows(mapped);

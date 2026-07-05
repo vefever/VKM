@@ -2386,6 +2386,8 @@ export type Database = {
           batch_id: string
           batch_name: string
           coaching_notes: number
+          habit_active_3d: boolean
+          habits_today: number
           last_meeting_at: string
           last_note_at: string
           last_review_at: string

@@ -7,6 +7,7 @@ A running log of platform updates. Newest first. Ask any time for a **PDF** of t
 ## 2026-07-07
 
 ### Fixed
+- **Coach Performance now shows each coach's own interaction data** — previously, when a participant was assigned to several coaches, every coach saw the *same* "reviews received / notes / meetings / last contacted" for that participant (the numbers were counted per participant, not per coach), which made all coaches look identical. These are now scoped to the specific coach — "reviews I gave, notes I wrote, meetings I hosted, the last time I contacted them" — so a participant reviewed by one coach correctly shows 0/never under the others. Also added each participant's **daily-habit activity** (habits ticked today out of 6, plus an active-in-last-3-days indicator) to the participant map and drill-down cards. *(Note: if several coaches still show similar overall progress / at-risk numbers, that's because those reflect the participant's own progress and most participants are currently assigned to most coaches — assign participants more distinctly and the coaches will diverge.)*
 - **"Log in as participant" links now use your own domain** — the one-time support login link (staff "log in as participant" and admin impersonation) previously showed the raw Supabase URL (`…supabase.co/auth/v1/verify…`). It now points at `vkmentorship.com/auth-confirm`, which verifies the same one-time token behind the scenes — so nothing internal is exposed and the link is on-brand.
 
 ### Added
