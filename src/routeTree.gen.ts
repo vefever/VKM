@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as UnauthorizedRouteImport } from './routes/unauthorized'
+import { Route as AuthConfirmRouteImport } from './routes/auth-confirm'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as IndexRouteImport } from './routes/index'
@@ -180,6 +181,11 @@ import { Route as AuthenticatedAdminParticipantUserIdRouteImport } from './route
 const UnauthorizedRoute = UnauthorizedRouteImport.update({
   id: '/unauthorized',
   path: '/unauthorized',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuthConfirmRoute = AuthConfirmRouteImport.update({
+  id: '/auth-confirm',
+  path: '/auth-confirm',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthRoute = AuthRouteImport.update({
@@ -1153,6 +1159,7 @@ const AuthenticatedAdminParticipantUserIdRoute =
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
+  '/auth-confirm': typeof AuthConfirmRoute
   '/unauthorized': typeof UnauthorizedRoute
   '/admin': typeof AuthenticatedAdminRouteRouteWithChildren
   '/coach': typeof AuthenticatedCoachRouteRouteWithChildren
@@ -1321,6 +1328,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
+  '/auth-confirm': typeof AuthConfirmRoute
   '/unauthorized': typeof UnauthorizedRoute
   '/app': typeof AuthenticatedAppRoute
   '/reset-password': typeof AuthenticatedResetPasswordRoute
@@ -1487,6 +1495,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
   '/auth': typeof AuthRoute
+  '/auth-confirm': typeof AuthConfirmRoute
   '/unauthorized': typeof UnauthorizedRoute
   '/_authenticated/admin': typeof AuthenticatedAdminRouteRouteWithChildren
   '/_authenticated/coach': typeof AuthenticatedCoachRouteRouteWithChildren
@@ -1657,6 +1666,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/auth'
+    | '/auth-confirm'
     | '/unauthorized'
     | '/admin'
     | '/coach'
@@ -1825,6 +1835,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/auth'
+    | '/auth-confirm'
     | '/unauthorized'
     | '/app'
     | '/reset-password'
@@ -1990,6 +2001,7 @@ export interface FileRouteTypes {
     | '/'
     | '/_authenticated'
     | '/auth'
+    | '/auth-confirm'
     | '/unauthorized'
     | '/_authenticated/admin'
     | '/_authenticated/coach'
@@ -2160,6 +2172,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
   AuthRoute: typeof AuthRoute
+  AuthConfirmRoute: typeof AuthConfirmRoute
   UnauthorizedRoute: typeof UnauthorizedRoute
   InviteTokenRoute: typeof InviteTokenRoute
 }
@@ -2171,6 +2184,13 @@ declare module '@tanstack/react-router' {
       path: '/unauthorized'
       fullPath: '/unauthorized'
       preLoaderRoute: typeof UnauthorizedRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/auth-confirm': {
+      id: '/auth-confirm'
+      path: '/auth-confirm'
+      fullPath: '/auth-confirm'
+      preLoaderRoute: typeof AuthConfirmRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/auth': {
@@ -3776,6 +3796,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
   AuthRoute: AuthRoute,
+  AuthConfirmRoute: AuthConfirmRoute,
   UnauthorizedRoute: UnauthorizedRoute,
   InviteTokenRoute: InviteTokenRoute,
 }

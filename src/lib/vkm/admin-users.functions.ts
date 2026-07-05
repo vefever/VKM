@@ -233,8 +233,12 @@ export const impersonateUser = createServerFn({ method: "POST" })
       options: { redirectTo },
     });
     if (error) throw new Error(error.message);
-    const actionLink = link?.properties?.action_link;
-    if (!actionLink) throw new Error("Could not generate a login link");
+    // Route the one-time link through OUR domain — /auth-confirm verifies the
+    // token client-side — instead of exposing the raw Supabase project URL
+    // (https://<ref>.supabase.co/auth/v1/verify?…). Same one-time token, our brand.
+    const tokenHash = link?.properties?.hashed_token;
+    if (!tokenHash) throw new Error("Could not generate a login link");
+    const actionLink = `${SITE_URL}/auth-confirm?token_hash=${tokenHash}&type=magiclink&next=${encodeURIComponent("/app?impersonated=1")}`;
     return { actionLink };
   });
 
@@ -303,8 +307,12 @@ export const staffLoginAsParticipant = createServerFn({ method: "POST" })
       options: { redirectTo: `${SITE_URL}/app?impersonated=1` },
     });
     if (error) throw new Error(error.message);
-    const actionLink = link?.properties?.action_link;
-    if (!actionLink) throw new Error("Could not generate a login link");
+    // Route the one-time link through OUR domain — /auth-confirm verifies the
+    // token client-side — instead of exposing the raw Supabase project URL
+    // (https://<ref>.supabase.co/auth/v1/verify?…). Same one-time token, our brand.
+    const tokenHash = link?.properties?.hashed_token;
+    if (!tokenHash) throw new Error("Could not generate a login link");
+    const actionLink = `${SITE_URL}/auth-confirm?token_hash=${tokenHash}&type=magiclink&next=${encodeURIComponent("/app?impersonated=1")}`;
     return { actionLink };
   });
 

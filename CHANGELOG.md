@@ -6,6 +6,9 @@ A running log of platform updates. Newest first. Ask any time for a **PDF** of t
 
 ## 2026-07-07
 
+### Fixed
+- **"Log in as participant" links now use your own domain** — the one-time support login link (staff "log in as participant" and admin impersonation) previously showed the raw Supabase URL (`…supabase.co/auth/v1/verify…`). It now points at `vkmentorship.com/auth-confirm`, which verifies the same one-time token behind the scenes — so nothing internal is exposed and the link is on-brand.
+
 ### Added
 - **Coach Performance, rebuilt for judging coaches** — the Coach Performance screen (mentor + admin) is now a full evaluation toolkit built entirely on real data. Every coach gets a **balanced 5-dimension score** — Quality (proof-review approval), Responsiveness (turnaround + login recency), Consistency (active days), Coverage (share of their caseload contacted each week), and Outcomes (how their assigned participants actually progress and how few go at-risk) — shown as a breakdown so you can see *why* a coach scored what they did, not just a number. New views: a **30-day daily-activity heatmap** (each coach's real work rhythm across reviews, notes, meetings and chat), a **Compare tab** for head-to-head coach-vs-coach, and a **Batch-wise tab** showing each coach's performance per batch plus batch-level health. The scoreboard adds active-days, coverage, participant-progress, at-risk and last-login columns. **Coach reports export to Excel and PDF** — both a single-coach packet and the whole-team scoreboard. The app now also records a lightweight **daily login/activity heartbeat** for staff, so real login history and streaks build up over time.
 
