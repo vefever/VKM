@@ -32,8 +32,29 @@ export default defineConfig(({ mode }) => {
     ),
   };
 
+  // Heavy, browser-only libraries that are ALWAYS reached through a dynamic
+  // import() inside a client event handler (Excel/PDF export, image/video
+  // decoding). They never run during SSR, so we keep them out of the Cloudflare
+  // Worker bundle — otherwise their lazy chunks are still uploaded with the
+  // worker and blow past the 3 MiB Workers size limit. The client build (a
+  // separate Vite environment) still bundles them normally.
+  const WORKER_EXTERNAL_CLIENT_LIBS = [
+    /^exceljs/,
+    /^jspdf/,
+    /^html2canvas/,
+    /^heic2any/,
+    /^hls\.js/,
+  ];
+
   return {
     define: { ...envDefine, ...supabaseDefine },
+    environments: {
+      ssr: {
+        build: {
+          rollupOptions: { external: WORKER_EXTERNAL_CLIENT_LIBS },
+        },
+      },
+    },
     // Run Lightning CSS in dev too so the static build's CSS pipeline matches
     // the preview — Vite only runs Lightning CSS at build by default, which can
     // make a build-time transform diverge from what dev showed.
