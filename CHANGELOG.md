@@ -6,6 +6,9 @@ A running log of platform updates. Newest first. Ask any time for a **PDF** of t
 
 ## 2026-07-07
 
+### Fixed
+- **Scrolling in bottom-sheet drawers** — the "Update snapshot" form on **My Business** (and other mobile bottom-sheets) could get clipped at the bottom on smaller screens, so you couldn't scroll down to the Save button. Fixed the drawer body to scroll properly within its height — affects the business snapshot editor, the mobile "All sections" menu, and KPI detail sheets.
+
 ### Added
 - **WhatsApp log** — a new **WhatsApp log** tab in Admin → Messaging (and Admin → WhatsApp), mirroring the Email log: every WhatsApp message the platform attempts — daily reminders, manual sends, and provider tests — is recorded with recipient, message, type, provider, status and time, updating live. Filter by type or "Failed only" to debug delivery, with the provider's error shown on hover for failures.
 - **AiSensy WhatsApp provider** — you can now connect **AiSensy** as a WhatsApp provider in **Admin → WhatsApp** (alongside Meta Cloud API and Twilio). Paste your AiSensy API key and default campaign name, Save, and WhatsApp notifications/automation reminders go out through AiSensy's approved-template campaigns. A message's text fills the template's first variable; automation uses the template/campaign name from the Templates tab.

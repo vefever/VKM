@@ -279,7 +279,7 @@ export function UpdateSnapshotDrawer({
           <DrawerHeader>
             <DrawerTitle>{title}</DrawerTitle>
           </DrawerHeader>
-          <div className="overflow-y-auto">{body}</div>
+          <div className="min-h-0 flex-1 overflow-y-auto">{body}</div>
         </DrawerContent>
       </Drawer>
     );

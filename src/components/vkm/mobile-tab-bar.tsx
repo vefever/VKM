@@ -206,7 +206,7 @@ function MoreSheet({
           <DrawerTitle>All sections</DrawerTitle>
         </DrawerHeader>
         <div
-          className="overflow-y-auto px-4 pb-[calc(env(safe-area-inset-bottom)+1.5rem)]"
+          className="min-h-0 flex-1 overflow-y-auto px-4 pb-[calc(env(safe-area-inset-bottom)+1.5rem)]"
           data-selectable
         >
           {groups.map((g) => (

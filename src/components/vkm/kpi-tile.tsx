@@ -321,11 +321,11 @@ function KpiDrill({
   if (appShell) {
     return (
       <Drawer open={open} onOpenChange={onOpenChange}>
-        <DrawerContent>
+        <DrawerContent className="max-h-[85vh]">
           <DrawerHeader>
             <DrawerTitle>{label}</DrawerTitle>
           </DrawerHeader>
-          {body}
+          <div className="min-h-0 flex-1 overflow-y-auto">{body}</div>
         </DrawerContent>
       </Drawer>
     );
