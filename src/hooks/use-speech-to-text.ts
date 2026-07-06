@@ -8,6 +8,10 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 type StartOptions = {
   lang?: string;
+  // Keep listening across pauses (push-to-talk: the user taps stop to send).
+  // Default true — avoids the browser's ~1–2s silence-detection delay and never
+  // cuts off mid-sentence. Set false for auto-stop on the first pause.
+  continuous?: boolean;
   // Fires on every partial result with the full text so far (for a live preview).
   onInterim?: (text: string) => void;
   // Fires once with the complete transcript when recognition ends naturally or
@@ -52,8 +56,8 @@ export function useSpeechToText() {
 
     const rec = new SR();
     rec.lang = opts.lang || "en-IN";
-    rec.interimResults = true;
-    rec.continuous = false;
+    rec.interimResults = true; // stream words live as they're recognised (low latency)
+    rec.continuous = opts.continuous ?? true;
     rec.maxAlternatives = 1;
 
     rec.onresult = (e: any) => {
