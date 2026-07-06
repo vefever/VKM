@@ -1,4 +1,5 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useServerFn } from "@tanstack/react-start";
 import { motion } from "framer-motion";
 import {
   AreaChart,
@@ -20,6 +21,11 @@ import {
   GraduationCap,
   AlertTriangle,
   Loader2,
+  Sparkles,
+  Briefcase,
+  Award,
+  Trophy,
+  RefreshCw,
 } from "lucide-react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/vkm/page-header";
@@ -40,7 +46,9 @@ import {
   daysAgo,
   type RosterRow,
 } from "@/components/admin/reports-data";
+import { cn } from "@/lib/utils";
 import { exportReportExcel, exportReportPdf, type ReportExportSpec } from "@/lib/vkm/report-export";
+import { generateReportNarrativeStream, type ReportKind } from "@/lib/vkm/report-ai.functions";
 
 type Tab = "individual" | "batch" | "coach" | "mentor";
 
@@ -49,6 +57,21 @@ const RANGE_PRESETS = [
   { label: "30d", days: 29 },
   { label: "90d", days: 89 },
 ];
+
+function fmtInr(n: number | null | undefined): string {
+  if (n == null) return "—";
+  if (n >= 1_00_000) return `₹${(n / 1_00_000).toFixed(1)}L`;
+  if (n >= 1_000) return `₹${(n / 1_000).toFixed(0)}k`;
+  return `₹${n.toLocaleString("en-IN")}`;
+}
+
+function daysSinceLabel(iso: string): string {
+  const d = Math.floor((Date.now() - new Date(iso).getTime()) / 86_400_000);
+  if (d <= 0) return "today";
+  if (d === 1) return "yesterday";
+  if (d < 30) return `${d}d ago`;
+  return iso.slice(0, 10);
+}
 
 export function ReportsPage({ eyebrow = "Admin · VK" }: { eyebrow?: string } = {}) {
   const [tab, setTab] = useState<Tab>("individual");
@@ -192,16 +215,88 @@ export function ReportsPage({ eyebrow = "Admin · VK" }: { eyebrow?: string } = 
     return null;
   }, [tab, individual.data, batchR.data, coachR.data, mentorR.data, from, to]);
 
+  // ── AI report ──────────────────────────────────────────────────────────────
+  const genAi = useServerFn(generateReportNarrativeStream);
+  const [aiText, setAiText] = useState("");
+  const [aiLoading, setAiLoading] = useState(false);
+
+  const activeReport = useMemo<{ kind: ReportKind; title: string; data: unknown } | null>(() => {
+    if (tab === "individual" && individual.data?.profile)
+      return { kind: "individual", title: `Individual Report — ${individual.data.profile.full_name ?? "Participant"}`, data: individual.data };
+    if (tab === "batch" && batchR.data?.batch)
+      return { kind: "batch", title: `Batch Report — ${batchR.data.batch.name}`, data: batchR.data };
+    if (tab === "coach" && coachR.data?.coach)
+      return { kind: "coach", title: `Coach Report — ${coachR.data.coach.full_name ?? "Coach"}`, data: coachR.data };
+    if (tab === "mentor" && mentorR.data?.mentor)
+      return { kind: "mentor", title: `Mentor Report — ${mentorR.data.mentor.full_name ?? "Mentor"}`, data: mentorR.data };
+    return null;
+  }, [tab, individual.data, batchR.data, coachR.data, mentorR.data]);
+
+  // Reset the AI narrative whenever the subject / range changes so it never
+  // shows a stale write-up for a different report.
+  useEffect(() => {
+    setAiText("");
+  }, [activeReport?.kind, activeReport?.title, from, to]);
+
+  async function generateAi() {
+    if (!activeReport) {
+      toast.error("Pick a report first, then generate its AI write-up.");
+      return;
+    }
+    setAiLoading(true);
+    setAiText("");
+    try {
+      const res = await genAi({
+        data: { kind: activeReport.kind, title: activeReport.title, from, to, data: activeReport.data },
+      });
+      if (res instanceof Response && res.body) {
+        const reader = res.body.getReader();
+        const decoder = new TextDecoder();
+        let acc = "";
+        for (;;) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          acc += decoder.decode(value, { stream: true });
+          setAiText(acc);
+        }
+      } else if (typeof res === "string") {
+        setAiText(res);
+      }
+    } catch (e) {
+      toast.error("AI report failed", { description: (e as Error).message });
+    } finally {
+      setAiLoading(false);
+    }
+  }
+
   async function onExport(kind: "excel" | "pdf") {
     if (!currentSpec) {
       toast.error("Pick a report to export first.");
       return;
     }
+    // Fold the AI narrative into the export (as its own leading section) when present.
+    const spec: ReportExportSpec = aiText
+      ? {
+          ...currentSpec,
+          tables: [
+            {
+              title: "AI Report",
+              columns: ["AI-generated summary"],
+              rows: aiText
+                .split(/\n+/)
+                .map((l) => l.replace(/[#*`]/g, "").trim())
+                .filter(Boolean)
+                .map((l) => [l]),
+            },
+            ...currentSpec.tables,
+          ],
+        }
+      : currentSpec;
     setExporting(kind);
     try {
       const filename = currentSpec.title.replace(/[^\w.-]+/g, "_");
-      if (kind === "excel") await exportReportExcel(currentSpec, filename);
-      else await exportReportPdf(currentSpec, filename);
+      if (kind === "excel") await exportReportExcel(spec, filename);
+      else await exportReportPdf(spec, filename);
       toast.success(`Exported ${kind === "excel" ? "Excel" : "PDF"}`);
     } catch (e) {
       toast.error("Export failed", { description: (e as Error).message });
@@ -383,6 +478,14 @@ export function ReportsPage({ eyebrow = "Admin · VK" }: { eyebrow?: string } = 
         </div>
       </SectionCard>
 
+      {/* AI report */}
+      <AiReportCard
+        available={!!activeReport}
+        loading={aiLoading}
+        text={aiText}
+        onGenerate={generateAi}
+      />
+
       {/* Report bodies */}
       {tab === "individual" && (
         <IndividualBody loading={individual.loading} data={individual.data} personName={personName} />
@@ -413,6 +516,105 @@ function EmptyState({ text }: { text: string }) {
   );
 }
 
+// Lightweight, safe Markdown renderer (headings, bullets, bold) — enough for the
+// AI report without pulling in a full markdown dependency.
+function MarkdownLite({ text }: { text: string }) {
+  const lines = text.split("\n");
+  const out: React.ReactNode[] = [];
+  let list: string[] = [];
+  const flush = () => {
+    if (list.length) {
+      out.push(
+        <ul key={`ul-${out.length}`} className="my-1.5 ml-4 list-disc space-y-1">
+          {list.map((li, i) => (
+            <li key={i} className="text-sm leading-relaxed text-foreground">{inline(li)}</li>
+          ))}
+        </ul>,
+      );
+      list = [];
+    }
+  };
+  function inline(s: string): React.ReactNode {
+    const parts = s.split(/(\*\*[^*]+\*\*)/g);
+    return parts.map((p, i) =>
+      p.startsWith("**") && p.endsWith("**") ? <strong key={i}>{p.slice(2, -2)}</strong> : <span key={i}>{p}</span>,
+    );
+  }
+  lines.forEach((raw, idx) => {
+    const line = raw.trimEnd();
+    if (/^#{1,2}\s/.test(line)) {
+      flush();
+      out.push(<h3 key={idx} className="mt-3 text-base font-bold text-foreground first:mt-0">{line.replace(/^#{1,2}\s/, "")}</h3>);
+    } else if (/^#{3,}\s/.test(line)) {
+      flush();
+      out.push(<h4 key={idx} className="mt-3 text-[13px] font-semibold uppercase tracking-wide text-muted-foreground">{line.replace(/^#{3,}\s/, "")}</h4>);
+    } else if (/^\s*[-*]\s/.test(line)) {
+      list.push(line.replace(/^\s*[-*]\s/, ""));
+    } else if (line.trim() === "") {
+      flush();
+    } else {
+      flush();
+      out.push(<p key={idx} className="my-1 text-sm leading-relaxed text-foreground">{inline(line)}</p>);
+    }
+  });
+  flush();
+  return <div className="space-y-0.5">{out}</div>;
+}
+
+function AiReportCard({
+  available,
+  loading,
+  text,
+  onGenerate,
+}: {
+  available: boolean;
+  loading: boolean;
+  text: string;
+  onGenerate: () => void;
+}) {
+  return (
+    <SectionCard
+      title={
+        <span className="flex items-center gap-2">
+          <span className="inline-flex h-6 w-6 items-center justify-center rounded-lg bg-gradient-navy text-primary-foreground">
+            <Sparkles className="h-3.5 w-3.5" />
+          </span>
+          AI Report
+        </span>
+      }
+      subtitle="Turn this report's numbers into a clear written summary with highlights, concerns & recommended actions"
+      action={
+        <Button
+          className="rounded-xl bg-gradient-navy text-primary-foreground hover:opacity-90"
+          onClick={onGenerate}
+          disabled={!available || loading}
+        >
+          {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : text ? <RefreshCw className="h-4 w-4" /> : <Sparkles className="h-4 w-4" />}
+          {text ? "Regenerate" : "Generate AI report"}
+        </Button>
+      }
+    >
+      {!available ? (
+        <p className="py-3 text-sm text-muted-foreground">Pick a report above, then generate its AI write-up.</p>
+      ) : !text && !loading ? (
+        <p className="py-3 text-sm text-muted-foreground">
+          Click <span className="font-medium text-foreground">Generate AI report</span> — the AI reads this report's live
+          data and writes an executive summary. It's included when you export to Excel or PDF.
+        </p>
+      ) : (
+        <div className="rounded-xl border border-border bg-secondary/20 p-4">
+          {text ? <MarkdownLite text={text} /> : null}
+          {loading && (
+            <p className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
+              <Loader2 className="h-3.5 w-3.5 animate-spin" /> Analysing…
+            </p>
+          )}
+        </div>
+      )}
+    </SectionCard>
+  );
+}
+
 function IndividualBody({
   loading,
   data,
@@ -427,19 +629,68 @@ function IndividualBody({
   if (!data?.profile) return <EmptyState text="No data found for this person." />;
 
   const chart = data.habit_trend.map((d) => ({ label: d.date.slice(5), pct: d.pct }));
+  const p = data.profile;
+  const biz = data.business;
+  const hasBiz = !!(biz && (biz.business_name || biz.current_mrr_inr || biz.monthly_leads));
 
   return (
     <div className="space-y-4">
-      <SectionCard title={data.profile.full_name ?? "Participant"} subtitle={data.profile.roles.join(", ")}>
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-6">
+      <SectionCard title={p.full_name ?? "Participant"} subtitle={p.roles.join(", ")}>
+        {/* Identity / context row */}
+        <div className="mb-4 flex flex-wrap gap-x-6 gap-y-1.5 text-xs text-muted-foreground">
+          {p.email && <span><span className="font-medium text-foreground">Email:</span> {p.email}</span>}
+          {p.phone && <span><span className="font-medium text-foreground">Phone:</span> {p.phone}</span>}
+          {data.batch_name && <span><span className="font-medium text-foreground">Batch:</span> {data.batch_name}</span>}
+          {data.coaches.length > 0 && <span><span className="font-medium text-foreground">Coach:</span> {data.coaches.join(", ")}</span>}
+          {p.joined_at && <span><span className="font-medium text-foreground">Joined:</span> {p.joined_at.slice(0, 10)}</span>}
+          <span><span className="font-medium text-foreground">Last active:</span> {p.last_active_at ? daysSinceLabel(p.last_active_at) : "—"}</span>
+          {p.is_alumni && <span className="rounded-full bg-gradient-gold px-2 py-0.5 font-semibold text-navy">Alumni</span>}
+        </div>
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
           <Kpi label="Points (range)" value={data.kpis.points_range} />
+          <Kpi label="Total points" value={data.total_points} />
           <Kpi label="Weeks approved" value={data.kpis.weeks_approved} />
           <Kpi label="Weeks pending" value={data.kpis.weeks_pending} />
+          <Kpi label="Weeks rejected" value={data.kpis.weeks_rejected} />
+          <Kpi label="Approval rate" value={`${data.kpis.proof_approval_rate}%`} />
           <Kpi label="Avg completion" value={`${data.kpis.habit_completion_avg_pct}%`} />
+          <Kpi label="Current streak" value={`${data.kpis.streak_current}d`} />
           <Kpi label="Days active" value={data.kpis.days_active_range} />
+          <Kpi label="Focus minutes" value={data.kpis.focus_minutes_range} />
+          <Kpi label="Water adherence" value={`${data.kpis.water_adherence_pct}%`} />
+          <Kpi label="Avg steps/day" value={data.kpis.steps_avg} />
+          <Kpi label="Meetings" value={data.kpis.meetings_attended_range} />
+          <Kpi label="Milestones" value={data.milestones_count} />
           <Kpi label="Tickets raised" value={data.kpis.tickets_raised_range} />
         </div>
       </SectionCard>
+
+      {hasBiz && (
+        <SectionCard title={<span className="flex items-center gap-2"><Briefcase className="h-4 w-4 text-muted-foreground" /> Business snapshot</span>} subtitle={biz!.business_name ?? undefined}>
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-6">
+            <Kpi label="Current MRR" value={fmtInr(biz!.current_mrr_inr)} />
+            <Kpi label="Target MRR" value={fmtInr(biz!.target_mrr_inr)} />
+            <Kpi label="Monthly leads" value={biz!.monthly_leads ?? "—"} />
+            <Kpi label="Closing rate" value={biz!.closing_rate_pct != null ? `${biz!.closing_rate_pct}%` : "—"} />
+            <Kpi label="Team size" value={biz!.team_size ?? "—"} />
+            <Kpi label="Industry" value={biz!.industry ?? "—"} />
+          </div>
+        </SectionCard>
+      )}
+
+      {data.milestones.length > 0 && (
+        <SectionCard title={<span className="flex items-center gap-2"><Award className="h-4 w-4 text-gold" /> Milestones earned</span>} subtitle={`${data.milestones_count} total`}>
+          <div className="flex flex-wrap gap-2">
+            {data.milestones.map((m, i) => (
+              <span key={i} className="inline-flex items-center gap-1.5 rounded-full border border-border bg-secondary/40 px-2.5 py-1 text-xs">
+                <Award className="h-3 w-3 text-gold" />
+                <span className="font-medium text-foreground">{m.code}</span>
+                <span className="text-muted-foreground">· {m.awarded_at.slice(0, 10)}</span>
+              </span>
+            ))}
+          </div>
+        </SectionCard>
+      )}
 
       <SectionCard title="Habit completion trend">
         <div className="h-[220px] w-full min-w-0">
@@ -556,12 +807,31 @@ function BatchBody({
   return (
     <div className="space-y-4">
       <SectionCard title={data.batch.name} subtitle={`Status: ${data.batch.status}`}>
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-8">
           <Kpi label="Participants" value={data.kpis.participant_count} />
           <Kpi label="Avg completion" value={`${data.kpis.avg_completion_pct}%`} />
+          <Kpi label="Active (3d)" value={`${data.kpis.active_3d_pct}%`} />
+          <Kpi label="At risk" value={data.kpis.at_risk_count} />
+          <Kpi label="Alumni" value={data.kpis.alumni_count} />
+          <Kpi label="Coaches" value={data.kpis.coach_count} />
+          <Kpi label="Unassigned" value={data.kpis.unassigned_count} />
           <Kpi label="Points (range)" value={data.kpis.points_range} />
         </div>
       </SectionCard>
+
+      {data.top_performers.length > 0 && (
+        <SectionCard title={<span className="flex items-center gap-2"><Trophy className="h-4 w-4 text-gold" /> Top performers (range)</span>}>
+          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+            {data.top_performers.map((t, i) => (
+              <div key={i} className="flex items-center gap-2.5 rounded-xl border border-border bg-secondary/30 px-3 py-2">
+                <span className={cn("flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-bold", i === 0 ? "bg-gradient-gold text-navy" : "bg-secondary text-muted-foreground")}>{i + 1}</span>
+                <span className="min-w-0 flex-1 truncate text-sm font-medium text-foreground">{t.full_name ?? "—"}</span>
+                <span className="shrink-0 text-sm font-bold tabular-nums text-foreground">{t.points_range} pts</span>
+              </div>
+            ))}
+          </div>
+        </SectionCard>
+      )}
       <SectionCard title="Batch habit completion trend">
         <div className="h-[220px] w-full min-w-0">
           <ResponsiveContainer width="100%" height="100%">
@@ -605,11 +875,18 @@ function CoachBody({
 
   return (
     <div className="space-y-4">
-      <SectionCard title={data.coach.full_name ?? "Coach"} subtitle="Coach → participants">
-        <div className="grid grid-cols-3 gap-3">
+      <SectionCard title={data.coach.full_name ?? "Coach"} subtitle="Coach delivery & participant outcomes">
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-5">
           <Kpi label="Participants" value={data.kpis.participant_count} />
+          <Kpi label="At risk" value={data.kpis.at_risk_count} />
+          <Kpi label="Reviews (range)" value={data.kpis.reviews_range} />
+          <Kpi label="Approval rate" value={`${data.kpis.approval_rate}%`} />
+          <Kpi label="Avg turnaround" value={data.kpis.avg_turnaround_h ? `${data.kpis.avg_turnaround_h < 24 ? Math.round(data.kpis.avg_turnaround_h) + "h" : (data.kpis.avg_turnaround_h / 24).toFixed(1) + "d"}` : "—"} />
+          <Kpi label="Coaching notes" value={data.kpis.notes_range} />
+          <Kpi label="Meetings" value={data.kpis.meetings_range} />
           <Kpi label="Avg completion" value={`${data.kpis.avg_completion_pct}%`} />
-          <Kpi label="Points awarded (range)" value={data.kpis.points_awarded_range} />
+          <Kpi label="Caseload active (3d)" value={`${data.kpis.active_3d_pct}%`} />
+          <Kpi label="Points awarded" value={data.kpis.points_awarded_range} />
         </div>
       </SectionCard>
       <SectionCard title="Cohort habit completion trend">
@@ -648,9 +925,14 @@ function MentorBody({ loading, data }: { loading: boolean; data: ReturnType<type
   return (
     <div className="space-y-4">
       <SectionCard title={data.mentor.full_name ?? "Mentor"} subtitle="Oversight activity">
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-7">
           <Kpi label="Proofs reviewed" value={data.kpis.proofs_reviewed_range} />
+          <Kpi label="Approved" value={data.kpis.proofs_approved_range} />
+          <Kpi label="Rejected" value={data.kpis.proofs_rejected_range} />
+          <Kpi label="Meetings hosted" value={data.kpis.meetings_hosted_range} />
           <Kpi label="Tickets resolved" value={data.kpis.tickets_resolved_range} />
+          <Kpi label="Active batches" value={data.kpis.batches_overseen} />
+          <Kpi label="Coaches" value={data.kpis.coaches_total} />
         </div>
       </SectionCard>
       <SectionCard title="Review activity trend">

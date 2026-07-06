@@ -43,12 +43,35 @@ export type IndividualReport = {
     roles: string[];
   } | null;
   enrollment: { started_at: string | null; total_weeks: number; status: string } | null;
+  batch_name: string | null;
+  coaches: string[];
+  total_points: number;
+  business: {
+    business_name: string | null;
+    industry: string | null;
+    location: string | null;
+    current_mrr_inr: number | null;
+    target_mrr_inr: number | null;
+    monthly_leads: number | null;
+    closing_rate_pct: number | null;
+    team_size: number | null;
+  } | null;
+  milestones_count: number;
+  milestones: { code: string; awarded_at: string }[];
   kpis: {
     points_range: number;
     weeks_approved: number;
     weeks_pending: number;
+    weeks_rejected: number;
+    proof_approval_rate: number;
     habit_completion_avg_pct: number;
     days_active_range: number;
+    streak_current: number;
+    focus_minutes_range: number;
+    focus_sessions_range: number;
+    water_adherence_pct: number;
+    steps_avg: number;
+    meetings_attended_range: number;
     tickets_raised_range: number;
   };
   habit_trend: { date: string; done: number; pct: number }[];
@@ -70,21 +93,51 @@ export type RosterRow = {
 
 export type BatchReport = {
   batch: { batch_id: string; name: string; status: string; start_date: string | null } | null;
-  kpis: { participant_count: number; avg_completion_pct: number; points_range: number };
+  kpis: {
+    participant_count: number;
+    avg_completion_pct: number;
+    points_range: number;
+    at_risk_count: number;
+    alumni_count: number;
+    active_3d_pct: number;
+    coach_count: number;
+    unassigned_count: number;
+  };
+  top_performers: { full_name: string | null; points_range: number }[];
   habit_trend: { date: string; avg_completion_pct: number }[];
   roster: RosterRow[];
 };
 
 export type CoachReport = {
   coach: { user_id: string; full_name: string | null; avatar_url: string | null } | null;
-  kpis: { participant_count: number; avg_completion_pct: number; points_awarded_range: number };
+  kpis: {
+    participant_count: number;
+    avg_completion_pct: number;
+    points_awarded_range: number;
+    reviews_range: number;
+    approvals_range: number;
+    approval_rate: number;
+    avg_turnaround_h: number;
+    notes_range: number;
+    meetings_range: number;
+    at_risk_count: number;
+    active_3d_pct: number;
+  };
   habit_trend: { date: string; avg_completion_pct: number }[];
   roster: RosterRow[];
 };
 
 export type MentorReport = {
   mentor: { user_id: string; full_name: string | null; avatar_url: string | null } | null;
-  kpis: { proofs_reviewed_range: number; tickets_resolved_range: number };
+  kpis: {
+    proofs_reviewed_range: number;
+    proofs_approved_range: number;
+    proofs_rejected_range: number;
+    meetings_hosted_range: number;
+    tickets_resolved_range: number;
+    batches_overseen: number;
+    coaches_total: number;
+  };
   review_trend: { date: string; reviews: number }[];
   recent_reviews: { kind: string; label: string; ts: string }[];
 };

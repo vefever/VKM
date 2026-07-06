@@ -6,6 +6,9 @@ A running log of platform updates. Newest first. Ask any time for a **PDF** of t
 
 ## 2026-07-07
 
+### Added
+- **Admin Reports are now ultra-detailed, with AI-written summaries** — every report card (Individual, Batch, Coach, Mentor) now shows far more. **Participant reports** add batch + coach context, all-time vs range points, proof approval rate, weeks approved/pending/rejected, current habit streak, focus minutes, water adherence, average steps, meetings attended, milestones earned, and a full **business snapshot** (MRR, target, monthly leads, closing rate, team size). **Batch reports** add at-risk / alumni / active counts, coach coverage (with unassigned flagged), and a top-performers list. **Coach reports** add review volume, approval rate, turnaround speed, coaching notes, meetings, at-risk count and caseload habit activity. **Mentor reports** add approved/rejected proofs, meetings hosted, and batches/coaches overseen. On top of that, a new **"AI Report"** button reads the report's live data and writes a clear executive summary — Summary, Highlights, Concerns, and Recommended actions — streamed live, and included automatically when you export to Excel or PDF.
+
 ### Changed
 - **Inviting users: batch is now a dropdown, and only for participants** — when inviting a Coach, Mentor, or Co-Admin, the batch field no longer appears (they don't belong to a batch). For participants, instead of typing a batch number, you now **pick from a dropdown of the batches you've already created** (e.g. Batch 16, Batch 15) — no more typing, and no accidentally creating a mis-spelled batch. If no batches exist yet, it points you to create one in Academy → Batches first.
 
