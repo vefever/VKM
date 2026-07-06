@@ -18,9 +18,12 @@ import {
   ArrowRight,
   Copy,
   Check,
+  Mic,
+  Square,
   type LucideIcon,
 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
+import { useSpeechToText } from "@/hooks/use-speech-to-text";
 import { PageHeader } from "@/components/vkm/page-header";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -80,6 +83,7 @@ function AdvisorPage() {
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const taRef = useRef<HTMLTextAreaElement>(null);
+  const stt = useSpeechToText();
 
   // Hydrate thread from localStorage (per user) + check activation.
   useEffect(() => {
@@ -232,6 +236,26 @@ function AdvisorPage() {
     setInput("");
   }
 
+  // Voice input: tap to dictate; the live transcript fills the box, and when you
+  // stop talking (or tap again) it's sent so the advisor answers straight away.
+  function toggleMic() {
+    if (loading) return;
+    if (stt.listening) {
+      stt.stop(); // finish → onFinal auto-sends the transcript
+      return;
+    }
+    stt.start({
+      lang: "en-IN",
+      onInterim: (t) => {
+        setInput(t);
+        requestAnimationFrame(autoresize);
+      },
+      onFinal: (t) => {
+        void send(t);
+      },
+    });
+  }
+
   const firstName = profile?.full_name?.split(" ")[0] ?? "there";
 
   return (
@@ -320,9 +344,26 @@ function AdvisorPage() {
                   }
                 }}
                 rows={1}
-                placeholder="Ask anything — English, తెలుగు or Tenglish…"
+                placeholder={stt.listening ? "Listening… speak now" : "Ask anything — English, తెలుగు or Tenglish…"}
                 className="max-h-40 flex-1 resize-none bg-transparent px-2.5 py-2 text-sm text-foreground outline-none placeholder:text-muted-foreground"
               />
+              {stt.supported && (
+                <Button
+                  onClick={toggleMic}
+                  disabled={loading}
+                  size="icon"
+                  aria-label={stt.listening ? "Stop and send" : "Speak your question"}
+                  title={stt.listening ? "Stop and send" : "Speak your question"}
+                  className={cn(
+                    "h-11 w-11 shrink-0 rounded-xl transition-transform active:scale-95 disabled:opacity-40",
+                    stt.listening
+                      ? "animate-pulse bg-destructive text-primary-foreground shadow-vkm hover:opacity-90"
+                      : "border border-border bg-background text-foreground hover:bg-secondary/60",
+                  )}
+                >
+                  {stt.listening ? <Square className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
+                </Button>
+              )}
               <Button
                 onClick={() => send()}
                 disabled={!input.trim() || loading}
@@ -333,11 +374,20 @@ function AdvisorPage() {
                 <Send className="h-4 w-4" />
               </Button>
             </div>
-            <p className="mt-2 hidden px-1 text-center text-[11px] text-muted-foreground sm:block">
-              <span className="font-medium">Enter</span> to send ·{" "}
-              <span className="font-medium">Shift + Enter</span> for a new line · Guides you alongside
-              your coach, never replaces them.
-            </p>
+            {stt.error ? (
+              <p className="mt-2 px-1 text-center text-[11px] text-destructive">{stt.error}</p>
+            ) : stt.listening ? (
+              <p className="mt-2 px-1 text-center text-[11px] text-destructive">
+                <span className="font-medium">Listening…</span> tap the stop button when you're done.
+              </p>
+            ) : (
+              <p className="mt-2 hidden px-1 text-center text-[11px] text-muted-foreground sm:block">
+                <span className="font-medium">Enter</span> to send ·{" "}
+                <span className="font-medium">Shift + Enter</span> for a new line ·{" "}
+                {stt.supported && <><span className="font-medium">Mic</span> to speak · </>}Guides you
+                alongside your coach, never replaces them.
+              </p>
+            )}
           </div>
         </div>
       </div>
