@@ -569,12 +569,14 @@ async function aisensy(
   tpl?: { name: string; lang: string; params?: string[] },
 ) {
   if (!c.apiKey) throw new Error("AiSensy API key is not configured");
-  // A passed template name is treated as the AiSensy campaign name; otherwise
-  // fall back to the configured default campaign.
-  const campaignName = (tpl && tpl.name) || c.campaignName;
+  // The configured Default campaign name is the source of truth for AiSensy.
+  // An automation's "template name" (a Meta concept) is only a fallback, so a
+  // template name accidentally entered there can't override a valid campaign
+  // (which produced the "Campaign does not exist" error).
+  const campaignName = (c.campaignName || (tpl && tpl.name) || "").trim();
   if (!campaignName) {
     throw new Error(
-      "AiSensy campaign name is not configured — set a Default campaign name in Admin → WhatsApp, or pass a template name.",
+      "AiSensy campaign name is not configured — set a Default campaign name in Admin → WhatsApp.",
     );
   }
   const destination = to.replace(/[^0-9]/g, ""); // digits only, incl. country code
@@ -594,6 +596,13 @@ async function aisensy(
   });
   if (!r.ok) {
     const detail = await r.text();
+    if (/campaign.*does not exist/i.test(detail)) {
+      throw new Error(
+        `AiSensy: campaign "${campaignName}" does not exist. In Admin → WhatsApp set "Default campaign name" to the ` +
+          `exact name of a LIVE API campaign in AiSensy (Manage → API) — e.g. vkm_daily_reminder. That's the campaign ` +
+          `name, not the template name.`,
+      );
+    }
     // Turn AiSensy's opaque count-mismatch into an actionable instruction.
     if (/params.*does not match/i.test(detail)) {
       throw new Error(
