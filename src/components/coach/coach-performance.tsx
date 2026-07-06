@@ -23,6 +23,7 @@ import {
   MessageSquare,
   Calendar,
   Activity,
+  ClipboardCheck,
   LogIn,
   Radar,
   Layers3,
@@ -487,7 +488,7 @@ function ScoreboardTab({
       }
     >
       <div className="overflow-x-auto">
-        <table className="w-full min-w-[1040px] text-sm">
+        <table className="w-full min-w-[1140px] text-sm">
           <thead>
             <tr className="border-b border-border bg-muted/40 text-left text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
               <th className="px-4 py-3">Coach</th>
@@ -498,6 +499,7 @@ function ScoreboardTab({
               <th className="px-3 py-3 text-right">Active d</th>
               <th className="px-3 py-3 text-right">Coverage</th>
               <th className="px-3 py-3 text-right">Progress</th>
+              <th className="px-3 py-3 text-right">Habit %</th>
               <th className="px-3 py-3 text-right">At-risk</th>
               <th className="px-3 py-3 text-right">Last login</th>
               <th className="px-4 py-3 text-center">Score</th>
@@ -543,6 +545,11 @@ function ScoreboardTab({
                     </td>
                     <td className="px-3 py-3 text-right tabular-nums text-muted-foreground">{c.avgProgressPct}%</td>
                     <td className="px-3 py-3 text-right">
+                      <span className={cn("tabular-nums font-medium", c.caseloadActive3dPct >= 60 ? "text-emerald-600 dark:text-emerald-400" : c.caseloadActive3dPct >= 30 ? "text-amber-600 dark:text-amber-400" : "text-muted-foreground")} title="Share of this coach's participants active in their daily habits in the last 3 days">
+                        {c.caseloadActive3dPct}%
+                      </span>
+                    </td>
+                    <td className="px-3 py-3 text-right">
                       <span className={cn("tabular-nums font-medium", c.atRiskCount > 0 ? "text-destructive" : "text-emerald-600 dark:text-emerald-400")}>{c.atRiskCount}</span>
                     </td>
                     <td className="px-3 py-3 text-right text-xs"><RelTime iso={c.lastLoginAt} /></td>
@@ -551,7 +558,7 @@ function ScoreboardTab({
 
                   {isOpen && (
                     <tr key={`${c.id}-expand`} className="border-b border-border bg-muted/20">
-                      <td colSpan={11} className="px-4 pb-4 pt-3">
+                      <td colSpan={12} className="px-4 pb-4 pt-3">
                         <div className="grid gap-4 lg:grid-cols-[280px_1fr]">
                           <div className="rounded-xl border border-border bg-card p-3">
                             <p className="mb-2 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
@@ -627,6 +634,25 @@ function Stat({ n, label }: { n: string; label: string }) {
   );
 }
 
+function PerfTile({ label, value, sub, tone = "default" }: { label: string; value: string; sub?: string; tone?: "good" | "warn" | "danger" | "muted" | "default" }) {
+  const toneCls = {
+    good: "text-emerald-600 dark:text-emerald-400",
+    warn: "text-amber-600 dark:text-amber-400",
+    danger: "text-destructive",
+    muted: "text-muted-foreground",
+    default: "text-foreground",
+  }[tone];
+  return (
+    <div className="rounded-xl bg-secondary/50 p-3">
+      <p className="text-[11px] text-muted-foreground">{label}</p>
+      <p className={cn("mt-0.5 text-xl font-bold tabular-nums", toneCls)}>
+        {value}
+        {sub && <span className="ml-1 text-xs font-medium text-muted-foreground">{sub}</span>}
+      </p>
+    </div>
+  );
+}
+
 // ─── Coach Drill-down tab ────────────────────────────────────────────────────
 function DrillTab({
   coaches,
@@ -649,6 +675,36 @@ function DrillTab({
   const coachBatches = batchRows.filter((b) => b.coachId === effectiveId);
   const atRiskCount = coachParticipants.filter((p) => p.atRisk).length;
   const { rows: daily, loading: dailyLoading } = useCoachDailyActivity(effectiveId || null, 30);
+
+  // Coach's own daily REVIEW rhythm (reviewing treated as a daily habit).
+  const reviewRhythm = (() => {
+    const revs = daily.map((d) => d.reviews);
+    const today = revs.length ? revs[revs.length - 1] : 0;
+    const week = daily.slice(-7).reduce((n, d) => n + d.reviews, 0);
+    let streak = 0;
+    for (let i = daily.length - 1; i >= 0; i--) {
+      if (daily[i].reviews > 0) streak++;
+      else break;
+    }
+    const activeRevDays = daily.filter((d) => d.reviews > 0).length;
+    const total = revs.reduce((n, x) => n + x, 0);
+    const avgPerActive = activeRevDays ? total / activeRevDays : 0;
+    const busiest = revs.length ? Math.max(...revs) : 0;
+    return { today, week, streak, activeRevDays, avgPerActive, busiest, total };
+  })();
+
+  // Caseload daily-HABIT engagement (how the coach's participants are doing).
+  const habitAgg = (() => {
+    const n = coachParticipants.length;
+    const didToday = coachParticipants.filter((p) => p.habitsToday > 0).length;
+    const active3d = coachParticipants.filter((p) => p.habitActive3d).length;
+    const avgHabits = n ? coachParticipants.reduce((s, p) => s + p.habitsToday, 0) / n : 0;
+    return {
+      n, didToday, active3d, avgHabits,
+      pctToday: n ? Math.round((didToday / n) * 100) : 0,
+      pctActive: n ? Math.round((active3d / n) * 100) : 0,
+    };
+  })();
 
   async function doExport(kind: "excel" | "pdf") {
     if (!coach) return;
@@ -752,6 +808,56 @@ function DrillTab({
               </p>
               <DimensionBars dims={coach.dims} />
             </div>
+          </div>
+
+          {/* Daily review performance & habit engagement */}
+          <div className="grid gap-4 lg:grid-cols-2">
+            <SectionCard
+              title={<span className="flex items-center gap-2 text-sm font-semibold"><ClipboardCheck className="h-4 w-4 text-muted-foreground" /> Daily review performance</span>}
+              subtitle="How consistently this coach reviews proofs — reviewing as a daily habit (last 30 days)"
+            >
+              {dailyLoading ? (
+                <div className="flex justify-center py-6"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>
+              ) : (
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+                  <PerfTile label="Reviews today" value={String(reviewRhythm.today)} tone={reviewRhythm.today > 0 ? "good" : "muted"} />
+                  <PerfTile label="This week" value={String(reviewRhythm.week)} tone={reviewRhythm.week > 0 ? "good" : "muted"} />
+                  <PerfTile label="Review streak" value={`${reviewRhythm.streak}d`} tone={reviewRhythm.streak >= 3 ? "good" : reviewRhythm.streak > 0 ? "warn" : "muted"} />
+                  <PerfTile label="Active review days" value={`${reviewRhythm.activeRevDays}/30`} tone="default" />
+                  <PerfTile label="Avg / active day" value={reviewRhythm.avgPerActive ? reviewRhythm.avgPerActive.toFixed(1) : "—"} tone="default" />
+                  <PerfTile label="Busiest day" value={String(reviewRhythm.busiest)} tone="default" />
+                </div>
+              )}
+            </SectionCard>
+
+            <SectionCard
+              title={<span className="flex items-center gap-2 text-sm font-semibold"><Activity className="h-4 w-4 text-muted-foreground" /> Caseload daily-habit engagement</span>}
+              subtitle="How this coach's participants are doing on their daily habits (out of 6)"
+            >
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+                <PerfTile label="Did habits today" value={`${habitAgg.didToday}/${habitAgg.n}`} sub={`${habitAgg.pctToday}%`} tone={habitAgg.pctToday >= 60 ? "good" : habitAgg.pctToday >= 30 ? "warn" : "danger"} />
+                <PerfTile label="Active last 3d" value={`${habitAgg.active3d}/${habitAgg.n}`} sub={`${habitAgg.pctActive}%`} tone={habitAgg.pctActive >= 60 ? "good" : habitAgg.pctActive >= 30 ? "warn" : "danger"} />
+                <PerfTile label="Avg habits / participant" value={habitAgg.n ? `${habitAgg.avgHabits.toFixed(1)}/6` : "—"} tone="default" />
+              </div>
+              {habitAgg.n > 0 && (
+                <div className="mt-3 border-t border-border pt-3">
+                  <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Per-participant today</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {[...coachParticipants].sort((a, b) => b.habitsToday - a.habitsToday).map((p) => (
+                      <span key={p.participantId} className={cn(
+                        "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px]",
+                        p.habitsToday >= 4 ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400"
+                        : p.habitsToday > 0 ? "bg-amber-500/15 text-amber-700 dark:text-amber-400"
+                        : "bg-secondary text-muted-foreground",
+                      )} title={p.habitActive3d ? "Active in last 3 days" : "Idle 3+ days"}>
+                        <span className={cn("h-1.5 w-1.5 rounded-full", p.habitActive3d ? "bg-emerald-500" : "bg-muted-foreground/40")} />
+                        {p.participantName.split(" ")[0]} {p.habitsToday}/6
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </SectionCard>
           </div>
 
           {/* Activity heatmap */}

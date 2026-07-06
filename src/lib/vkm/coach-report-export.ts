@@ -51,6 +51,7 @@ export function buildCoachReportSpec(
         rows: [
           ["Reviews (total)", coach.reviews],
           ["Approved / Rejected", `${coach.approved} / ${coach.rejected}`],
+          ["Caseload doing daily habits (3d)", `${coach.caseloadActive3dPct}%`],
           ["Reviews last 7d", coach.reviews7d],
           ["Reviews last 30d", coach.reviews30d],
           ["Coaching notes", coach.notesCount],
