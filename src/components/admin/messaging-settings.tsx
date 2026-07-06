@@ -83,6 +83,11 @@ const PROVIDERS: Record<Chan, Record<string, Field[]>> = {
       { k: "accessToken", label: "Access token", secret: true },
       { k: "phoneNumberId", label: "Phone number ID" },
     ],
+    aisensy: [
+      { k: "apiKey", label: "API key", secret: true, placeholder: "AiSensy API key" },
+      { k: "campaignName", label: "Default campaign name", placeholder: "e.g. vkm_notify" },
+      { k: "senderName", label: "Contact name (optional)", placeholder: "VK Mentorship" },
+    ],
   },
 };
 
@@ -94,6 +99,7 @@ const PROVIDER_LABEL: Record<string, string> = {
   twilio: "Twilio",
   msg91: "MSG91",
   meta: "Meta Cloud API",
+  aisensy: "AiSensy",
 };
 
 type TabId = "email" | "sms" | "whatsapp" | "templates" | "login" | "log";
@@ -269,6 +275,15 @@ function ChannelTab({ channel }: { channel: Chan }) {
             </Field>
           ))}
         </div>
+
+        {provider === "aisensy" && (
+          <p className="rounded-lg border border-dashed border-border bg-secondary/30 px-3 py-2 text-xs text-muted-foreground">
+            AiSensy sends via <span className="font-medium text-foreground">approved WhatsApp templates</span> organised as
+            "campaigns". In AiSensy → Manage → API, create a live API campaign for your template and paste its exact name
+            above. A plain message fills the template's <span className="font-mono">{"{{1}}"}</span> variable; automation
+            reminders use the template/campaign name set on the Templates tab.
+          </p>
+        )}
 
         <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border pt-3">
           <div className="flex items-center gap-2">

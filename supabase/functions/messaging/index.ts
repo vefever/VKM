@@ -465,6 +465,7 @@ async function sendWhatsapp(
   const s = await loadSetting("whatsapp");
   if (!s.enabled) throw new Error("WhatsApp provider is not enabled");
   if (s.provider === "twilio") return twilio(s.config, to, body, true);
+  if (s.provider === "aisensy") return aisensy(s.config, to, body, tpl);
   if (s.provider === "meta") {
     const payload =
       tpl && tpl.name
@@ -500,6 +501,42 @@ async function sendWhatsapp(
     return;
   }
   throw new Error(`Unknown WhatsApp provider: ${s.provider}`);
+}
+
+// AiSensy Campaign API — template/campaign-based WhatsApp Business messaging.
+// A "campaign" in the AiSensy dashboard maps to a pre-approved WhatsApp template;
+// templateParams fill {{1}}, {{2}}… in order. Meta doesn't allow free text
+// outside the 24h session, so when no explicit template params are given we pass
+// the message body as the single template param (for a 1-variable template).
+async function aisensy(
+  c: Record<string, string>,
+  to: string,
+  body: string,
+  tpl?: { name: string; lang: string; params?: string[] },
+) {
+  if (!c.apiKey) throw new Error("AiSensy API key is not configured");
+  // A passed template name is treated as the AiSensy campaign name; otherwise
+  // fall back to the configured default campaign.
+  const campaignName = (tpl && tpl.name) || c.campaignName;
+  if (!campaignName) {
+    throw new Error(
+      "AiSensy campaign name is not configured — set a Default campaign name in Admin → WhatsApp, or pass a template name.",
+    );
+  }
+  const destination = to.replace(/[^0-9]/g, ""); // digits only, incl. country code
+  const templateParams = tpl && tpl.params && tpl.params.length ? tpl.params : body ? [body] : [];
+  const r = await fetch("https://backend.aisensy.com/campaign/t1/api/v2", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      apiKey: c.apiKey,
+      campaignName,
+      destination,
+      userName: c.senderName || "VK Mentorship",
+      templateParams,
+    }),
+  });
+  if (!r.ok) throw new Error(`AiSensy: ${await r.text()}`);
 }
 
 async function twilio(c: Record<string, string>, to: string, body: string, whatsapp: boolean) {
