@@ -72,6 +72,7 @@ import {
   type InviteRole,
   type CreatableRole,
 } from "@/lib/vkm/invites.functions";
+import { supabase } from "@/integrations/supabase/client";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
   DropdownMenu,
@@ -202,6 +203,9 @@ function UsersPage() {
   const [tab, setTab] = useState<"all" | InviteRole>("all");
   const [q, setQ] = useState("");
   const [batchFilter, setBatchFilter] = useState<string>("all");
+  // Real program batches (Batch 15, 16, …) from the batches table — used to
+  // populate the invite dialog's batch dropdown (no more free-text typing).
+  const [programBatches, setProgramBatches] = useState<string[]>([]);
   const [inviteOpen, setInviteOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
   const [detailUser, setDetailUser] = useState<{ email: string; name: string } | null>(null);
@@ -241,6 +245,18 @@ function UsersPage() {
   }
   useEffect(() => {
     refresh();
+  }, []);
+
+  // Load the real program batches for the invite dropdown (newest first).
+  useEffect(() => {
+    void supabase
+      .from("batches")
+      .select("name, start_date")
+      .order("start_date", { ascending: false, nullsFirst: false })
+      .then(({ data }) => {
+        const names = Array.from(new Set(((data ?? []) as { name: string }[]).map((b) => b.name).filter(Boolean)));
+        setProgramBatches(names);
+      });
   }, []);
 
   const counts = useMemo(
@@ -386,6 +402,7 @@ function UsersPage() {
       <InviteDialog
         open={inviteOpen}
         onOpenChange={setInviteOpen}
+        batchOptions={programBatches}
         onInvited={(r) => {
           setResultOpen(r);
           refresh();
@@ -1000,9 +1017,11 @@ function InviteDialog({
   open,
   onOpenChange,
   onInvited,
+  batchOptions,
 }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
+  batchOptions: string[];
   onInvited: (r: {
     name: string;
     email: string;
@@ -1018,16 +1037,24 @@ function InviteDialog({
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [role, setRole] = useState<CreatableRole>("participant");
-  const [batch, setBatch] = useState("Batch 16");
+  const [batch, setBatch] = useState("");
   const [submitting, setSubmitting] = useState(false);
-  const isCoAdminInvite = role === "co_admin";
+  // Only participants belong to a batch — coach/mentor/co-admin have none.
+  const isParticipantInvite = role === "participant";
+
+  // Default the batch to the newest program batch once options load / dialog opens.
+  useEffect(() => {
+    if (open && isParticipantInvite && !batch && batchOptions.length > 0) {
+      setBatch(batchOptions[0]);
+    }
+  }, [open, isParticipantInvite, batch, batchOptions]);
 
   function reset() {
     setName("");
     setEmail("");
     setPhone("");
     setRole("participant");
-    setBatch("Batch 16");
+    setBatch(batchOptions[0] ?? "");
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -1044,7 +1071,7 @@ function InviteDialog({
           email: email.trim(),
           phone: phone.trim() || undefined,
           role,
-          batch: isCoAdminInvite ? undefined : batch.trim() || undefined,
+          batch: isParticipantInvite ? batch.trim() || undefined : undefined,
         },
       });
       toast.success("Invite created", {
@@ -1094,7 +1121,7 @@ function InviteDialog({
                 <SelectItem value="co_admin">Co-Admin (full admin access)</SelectItem>
               </SelectContent>
             </Select>
-            {isCoAdminInvite && (
+            {role === "co_admin" && (
               <p className="text-[11px] text-amber-600 dark:text-amber-400">
                 A co-admin has the same full access as a Super Admin — they can manage users, batches,
                 content and settings. They're just labelled "Co-Admin".
@@ -1134,19 +1161,27 @@ function InviteDialog({
               className="h-11 rounded-xl"
             />
           </div>
-          {!isCoAdminInvite && (
+          {isParticipantInvite && (
             <div className="space-y-1.5">
-              <Label htmlFor="batch">Batch{role === "participant" ? "" : " (optional)"}</Label>
-              <Input
-                id="batch"
-                value={batch}
-                onChange={(e) => setBatch(e.target.value)}
-                placeholder="Batch 12"
-                className="h-11 rounded-xl"
-              />
+              <Label htmlFor="batch">Batch</Label>
+              {batchOptions.length > 0 ? (
+                <Select value={batch} onValueChange={setBatch}>
+                  <SelectTrigger className="h-11 rounded-xl">
+                    <SelectValue placeholder="Select a batch" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {batchOptions.map((b) => (
+                      <SelectItem key={b} value={b}>{b}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              ) : (
+                <p className="rounded-xl border border-dashed border-border px-3 py-2.5 text-xs text-muted-foreground">
+                  No batches yet — create one in <span className="font-medium">Academy → Batches</span> first.
+                </p>
+              )}
               <p className="text-xs text-muted-foreground">
-                Creates the batch if it's new and links this user to it (e.g. Batch 12, 13, 14).
-                Participants also become visible in the Community directory.
+                Links this participant to the batch and makes them visible in the Community directory.
               </p>
             </div>
           )}
