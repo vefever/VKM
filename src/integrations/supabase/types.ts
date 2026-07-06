@@ -1995,6 +1995,42 @@ export type Database = {
           },
         ]
       }
+      whatsapp_log: {
+        Row: {
+          body: string | null
+          created_at: string
+          detail: string | null
+          id: number
+          kind: string
+          provider: string | null
+          status: string
+          to_phone: string
+          user_id: string | null
+        }
+        Insert: {
+          body?: string | null
+          created_at?: string
+          detail?: string | null
+          id?: never
+          kind: string
+          provider?: string | null
+          status: string
+          to_phone: string
+          user_id?: string | null
+        }
+        Update: {
+          body?: string | null
+          created_at?: string
+          detail?: string | null
+          id?: never
+          kind?: string
+          provider?: string | null
+          status?: string
+          to_phone?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       workout_logs: {
         Row: {
           created_at: string

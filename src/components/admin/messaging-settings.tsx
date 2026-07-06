@@ -32,6 +32,7 @@ import {
   type MessageTemplate,
 } from "@/components/admin/messaging-data";
 import { EmailLogPanel } from "@/components/admin/email-log-panel";
+import { WhatsappLogPanel } from "@/components/admin/whatsapp-log-panel";
 
 type Field = { k: string; label: string; secret?: boolean; placeholder?: string };
 type Chan = "email" | "sms" | "whatsapp";
@@ -103,7 +104,7 @@ const PROVIDER_LABEL: Record<string, string> = {
   aisensy: "AiSensy",
 };
 
-type TabId = "email" | "sms" | "whatsapp" | "templates" | "login" | "log";
+type TabId = "email" | "sms" | "whatsapp" | "templates" | "login" | "log" | "wlog";
 const TABS: { id: TabId; label: string; icon: typeof Mail }[] = [
   { id: "email", label: "Email", icon: Mail },
   { id: "sms", label: "SMS", icon: Phone },
@@ -111,6 +112,7 @@ const TABS: { id: TabId; label: string; icon: typeof Mail }[] = [
   { id: "templates", label: "Templates", icon: FileText },
   { id: "login", label: "Login (OTP)", icon: KeyRound },
   { id: "log", label: "Email log", icon: ScrollText },
+  { id: "wlog", label: "WhatsApp log", icon: MessageSquareMore },
 ];
 
 export function MessagingSettings({ defaultTab = "email" }: { defaultTab?: TabId }) {
@@ -155,6 +157,7 @@ export function MessagingSettings({ defaultTab = "email" }: { defaultTab?: TabId
       {tab === "templates" && <TemplatesTab />}
       {tab === "login" && <LoginTab />}
       {tab === "log" && <EmailLogPanel />}
+      {tab === "wlog" && <WhatsappLogPanel />}
     </motion.div>
   );
 }

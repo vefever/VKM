@@ -64,6 +64,48 @@ export function useEmailLog(limit = 200) {
   return { rows, loading, reload: load };
 }
 
+export type WhatsappLogRow = {
+  id: number;
+  to_phone: string;
+  body: string | null;
+  kind: string; // reminder | admin | test
+  status: "sent" | "failed";
+  detail: string | null;
+  provider: string | null;
+  user_id: string | null;
+  created_at: string;
+};
+
+// Every WhatsApp message the platform has sent (super-admin readable via RLS),
+// newest first, live-updating. Mirrors useEmailLog.
+export function useWhatsappLog(limit = 200) {
+  const [rows, setRows] = useState<WhatsappLogRow[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const load = useCallback(async () => {
+    const { data } = await supabase
+      .from("whatsapp_log")
+      .select("id, to_phone, body, kind, status, detail, provider, user_id, created_at")
+      .order("created_at", { ascending: false })
+      .limit(limit);
+    setRows((data ?? []) as WhatsappLogRow[]);
+    setLoading(false);
+  }, [limit]);
+
+  useEffect(() => {
+    void load();
+    const ch = supabase
+      .channel("whatsapp-log")
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "whatsapp_log" }, () => void load())
+      .subscribe();
+    return () => {
+      void supabase.removeChannel(ch);
+    };
+  }, [load]);
+
+  return { rows, loading, reload: load };
+}
+
 /** Call the `messaging` edge function; throws on { ok:false }. */
 export async function invokeMessaging(action: string, payload: Record<string, unknown> = {}) {
   const { data, error } = await supabase.functions.invoke("messaging", {

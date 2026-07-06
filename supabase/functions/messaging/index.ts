@@ -464,8 +464,14 @@ async function sendWhatsapp(
 ) {
   const s = await loadSetting("whatsapp");
   if (!s.enabled) throw new Error("WhatsApp provider is not enabled");
-  if (s.provider === "twilio") return twilio(s.config, to, body, true);
-  if (s.provider === "aisensy") return aisensy(s.config, to, body, tpl);
+  if (s.provider === "twilio") {
+    await twilio(s.config, to, body, true);
+    return "twilio";
+  }
+  if (s.provider === "aisensy") {
+    await aisensy(s.config, to, body, tpl);
+    return "aisensy";
+  }
   if (s.provider === "meta") {
     const payload =
       tpl && tpl.name
@@ -498,9 +504,51 @@ async function sendWhatsapp(
       body: JSON.stringify(payload),
     });
     if (!r.ok) throw new Error(`Meta WhatsApp: ${await r.text()}`);
-    return;
+    return "meta";
   }
   throw new Error(`Unknown WhatsApp provider: ${s.provider}`);
+}
+
+async function logWhatsapp(
+  to: string,
+  body: string,
+  kind: string,
+  status: "sent" | "failed",
+  detail?: string | null,
+  userId?: string | null,
+  provider?: string | null,
+) {
+  try {
+    await admin.from("whatsapp_log").insert({
+      to_phone: to,
+      body: (body ?? "").slice(0, 500),
+      kind,
+      status,
+      detail: detail ?? null,
+      user_id: userId ?? null,
+      provider: provider ?? null,
+    });
+  } catch (e) {
+    console.error("logWhatsapp failed:", (e as Error).message);
+  }
+}
+
+// Drop-in wrapper for sendWhatsapp that records the outcome in whatsapp_log,
+// then RE-THROWS on failure so every call site's existing try/catch is unchanged.
+async function sendWhatsappLogged(
+  to: string,
+  body: string,
+  kind: string,
+  tpl?: { name: string; lang: string; params?: string[] },
+  userId?: string | null,
+) {
+  try {
+    const provider = await sendWhatsapp(to, body, tpl);
+    await logWhatsapp(to, body, kind, "sent", null, userId ?? null, provider);
+  } catch (e) {
+    await logWhatsapp(to, body, kind, "failed", (e as Error).message, userId ?? null, null);
+    throw e;
+  }
 }
 
 // AiSensy Campaign API — template/campaign-based WhatsApp Business messaging.
@@ -864,7 +912,7 @@ Deno.serve(async (req) => {
                     params: [name, String(remaining)],
                   }
                 : undefined;
-              await sendWhatsapp(phone, msg, tpl);
+              await sendWhatsappLogged(phone, msg, "reminder", tpl, t.user_id);
               whatsapp.sent++;
               await logReminder(t.user_id, target, "whatsapp", "sent");
             } catch (e) {
@@ -909,7 +957,7 @@ Deno.serve(async (req) => {
                 params: [p.name || "there", "3"],
               }
             : undefined;
-          await sendWhatsapp(phone, msg, tpl);
+          await sendWhatsappLogged(phone, msg, "test", tpl, null);
         } else {
           return json({ ok: false, error: "Unknown channel." }, 400, cors);
         }
@@ -1005,7 +1053,7 @@ Deno.serve(async (req) => {
         return json({ ok: true }, 200, cors);
       }
       if (action === "send_whatsapp") {
-        await sendWhatsapp(p.to, p.body);
+        await sendWhatsappLogged(p.to, p.body, "admin");
         return json({ ok: true }, 200, cors);
       }
       if (action === "test") {
@@ -1020,7 +1068,7 @@ Deno.serve(async (req) => {
           );
         else if (p.channel === "sms") await sendSms(to, "✅ VKM SMS test — your provider works.");
         else if (p.channel === "whatsapp")
-          await sendWhatsapp(to, "✅ VKM WhatsApp test — your provider works.");
+          await sendWhatsappLogged(to, "✅ VKM WhatsApp test — your provider works.", "test");
         else return json({ ok: false, error: "Unknown channel" }, 400, cors);
         return json({ ok: true }, 200, cors);
       }
