@@ -167,9 +167,11 @@ function VKMSidebar({ role }: { role: AppRole }) {
 }
 
 function RoleSwitcher() {
-  const { roles, primaryRole } = useAuth();
+  const { roles, primaryRole, isCoAdmin } = useAuth();
   const navigate = useNavigate();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
+  // A co-admin has the super_admin role but is labelled "Co-Admin".
+  const labelFor = (r: AppRole) => (r === "super_admin" && isCoAdmin ? "Co-Admin" : ROLE_LABEL[r]);
   // Detect current portal from path
   const current: AppRole = pathname.startsWith("/admin")
     ? "super_admin"
@@ -182,7 +184,7 @@ function RoleSwitcher() {
   if (roles.length <= 1) {
     return (
       <span className="hidden rounded-full border border-border bg-card px-3 py-1 text-xs font-medium text-muted-foreground shadow-vkm md:inline-flex">
-        {ROLE_LABEL[primaryRole ?? "participant"]} portal
+        {labelFor(primaryRole ?? "participant")} portal
       </span>
     );
   }
@@ -191,7 +193,7 @@ function RoleSwitcher() {
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button variant="outline" size="sm" className="hidden rounded-full md:inline-flex">
-          {ROLE_LABEL[current]} portal
+          {labelFor(current)} portal
           <ChevronsUpDown className="ml-1.5 h-3.5 w-3.5 opacity-60" />
         </Button>
       </DropdownMenuTrigger>

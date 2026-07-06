@@ -70,6 +70,7 @@ import {
   resendInvite,
   bulkResendInvites,
   type InviteRole,
+  type CreatableRole,
 } from "@/lib/vkm/invites.functions";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -124,6 +125,18 @@ const ROLE_BADGE: Record<InviteRole, string> = {
   coach: "bg-[oklch(0.95_0.08_85)] text-[oklch(0.4_0.14_70)]",
   mentor: "bg-[oklch(0.93_0.06_160)] text-[oklch(0.35_0.12_160)]",
 };
+const CO_ADMIN_BADGE = "bg-[oklch(0.92_0.07_20)] text-[oklch(0.4_0.16_25)]";
+
+// A co-admin invite stores role='super_admin' + is_co_admin=true — label & badge
+// it as "Co-Admin" rather than the generic role.
+function inviteRoleLabel(u: { role: string; is_co_admin?: boolean | null }): string {
+  if (u.is_co_admin || u.role === "super_admin") return "Co-Admin";
+  return ROLE_LABEL[u.role as InviteRole] ?? u.role;
+}
+function inviteRoleBadge(u: { role: string; is_co_admin?: boolean | null }): string {
+  if (u.is_co_admin || u.role === "super_admin") return CO_ADMIN_BADGE;
+  return ROLE_BADGE[u.role as InviteRole] ?? "bg-secondary text-muted-foreground";
+}
 
 const CSV_TEMPLATE =
   "name,email,role,phone,batch\nRiya Sharma,riya@example.com,participant,+91-9000000001,Batch 16\nKavya Reddy,kavya@example.com,coach,,\nSoumya Iyer,soumya@example.com,mentor,,\n";
@@ -195,7 +208,7 @@ function UsersPage() {
   const [resultOpen, setResultOpen] = useState<null | {
     name: string;
     email: string;
-    role: InviteRole;
+    role: CreatableRole;
     inviteUrl: string;
     tempPassword: string;
     emailSent: boolean;
@@ -269,7 +282,7 @@ function UsersPage() {
         eyebrow="Users & Access"
         icon={Users}
         title="User Management"
-        description="Invite Users, Coaches, and Mentors with secure, expiring invite links + temporary passwords. New users are forced to reset on first login."
+        description="Invite Users, Coaches, Mentors, and Co-Admins with secure, expiring invite links + temporary passwords. New users are forced to reset on first login."
         actions={
           <>
             <Button variant="outline" className="rounded-xl" onClick={() => setImportOpen(true)}>
@@ -791,10 +804,10 @@ function UsersTable({
                     <span
                       className={cn(
                         "inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium",
-                        ROLE_BADGE[u.role as InviteRole],
+                        inviteRoleBadge(u),
                       )}
                     >
-                      {ROLE_LABEL[u.role as InviteRole]}
+                      {inviteRoleLabel(u)}
                     </span>
                   </TableCell>
                   <TableCell className="text-sm text-muted-foreground">{u.batch || "—"}</TableCell>
@@ -993,7 +1006,7 @@ function InviteDialog({
   onInvited: (r: {
     name: string;
     email: string;
-    role: InviteRole;
+    role: CreatableRole;
     inviteUrl: string;
     tempPassword: string;
     emailSent: boolean;
@@ -1004,9 +1017,10 @@ function InviteDialog({
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
-  const [role, setRole] = useState<InviteRole>("participant");
+  const [role, setRole] = useState<CreatableRole>("participant");
   const [batch, setBatch] = useState("Batch 16");
   const [submitting, setSubmitting] = useState(false);
+  const isCoAdminInvite = role === "co_admin";
 
   function reset() {
     setName("");
@@ -1030,7 +1044,7 @@ function InviteDialog({
           email: email.trim(),
           phone: phone.trim() || undefined,
           role,
-          batch: batch.trim() || undefined,
+          batch: isCoAdminInvite ? undefined : batch.trim() || undefined,
         },
       });
       toast.success("Invite created", {
@@ -1069,7 +1083,7 @@ function InviteDialog({
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-1.5">
             <Label>Role</Label>
-            <Select value={role} onValueChange={(v) => setRole(v as InviteRole)}>
+            <Select value={role} onValueChange={(v) => setRole(v as CreatableRole)}>
               <SelectTrigger className="h-11 rounded-xl">
                 <SelectValue />
               </SelectTrigger>
@@ -1077,8 +1091,15 @@ function InviteDialog({
                 <SelectItem value="participant">User (Participant)</SelectItem>
                 <SelectItem value="coach">Coach</SelectItem>
                 <SelectItem value="mentor">Mentor</SelectItem>
+                <SelectItem value="co_admin">Co-Admin (full admin access)</SelectItem>
               </SelectContent>
             </Select>
+            {isCoAdminInvite && (
+              <p className="text-[11px] text-amber-600 dark:text-amber-400">
+                A co-admin has the same full access as a Super Admin — they can manage users, batches,
+                content and settings. They're just labelled "Co-Admin".
+              </p>
+            )}
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
@@ -1113,20 +1134,22 @@ function InviteDialog({
               className="h-11 rounded-xl"
             />
           </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="batch">Batch{role === "participant" ? "" : " (optional)"}</Label>
-            <Input
-              id="batch"
-              value={batch}
-              onChange={(e) => setBatch(e.target.value)}
-              placeholder="Batch 12"
-              className="h-11 rounded-xl"
-            />
-            <p className="text-xs text-muted-foreground">
-              Creates the batch if it's new and links this user to it (e.g. Batch 12, 13, 14).
-              Participants also become visible in the Community directory.
-            </p>
-          </div>
+          {!isCoAdminInvite && (
+            <div className="space-y-1.5">
+              <Label htmlFor="batch">Batch{role === "participant" ? "" : " (optional)"}</Label>
+              <Input
+                id="batch"
+                value={batch}
+                onChange={(e) => setBatch(e.target.value)}
+                placeholder="Batch 12"
+                className="h-11 rounded-xl"
+              />
+              <p className="text-xs text-muted-foreground">
+                Creates the batch if it's new and links this user to it (e.g. Batch 12, 13, 14).
+                Participants also become visible in the Community directory.
+              </p>
+            </div>
+          )}
           <DialogFooter>
             <Button
               type="button"
@@ -1162,7 +1185,7 @@ function InviteResultDialog({
   data: {
     name: string;
     email: string;
-    role: InviteRole;
+    role: CreatableRole;
     inviteUrl: string;
     tempPassword: string;
     emailSent: boolean;
@@ -1179,7 +1202,7 @@ function InviteResultDialog({
   // Ready-to-send message so "share manually" is one tap, not compose-your-own.
   const firstName = (data.name || "there").trim().split(/\s+/)[0];
   const shareMessage = [
-    `Hi ${firstName}, you've been invited to VK Mentorship as ${ROLE_LABEL[data.role]}.`,
+    `Hi ${firstName}, you've been invited to VK Mentorship as ${data.role === "co_admin" ? "Co-Admin" : ROLE_LABEL[data.role]}.`,
     ``,
     `1. Open your invite: ${data.inviteUrl}`,
     `2. Sign in with this temporary password: ${data.tempPassword}`,

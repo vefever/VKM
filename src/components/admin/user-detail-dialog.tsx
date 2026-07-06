@@ -20,6 +20,8 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/hooks/use-auth";
+import { supabase } from "@/integrations/supabase/client";
 import { useParticipantTeam } from "@/components/coach/coach-data";
 import {
   getUserDetail, adminResetPassword, adminSetUserBatch, impersonateUser,
@@ -79,13 +81,17 @@ export function UserDetailDialog({
   const [batchInput, setBatchInput] = useState("");
   const [coaches, setCoaches] = useState<CoachOpt[]>([]);
   const [coachToAdd, setCoachToAdd] = useState<string>("");
-  const [busy, setBusy] = useState<null | "batch" | "reset" | "login" | "coach" | "block" | "delete">(null);
+  const [busy, setBusy] = useState<null | "batch" | "reset" | "login" | "coach" | "block" | "delete" | "coadmin">(null);
   const [tempPw, setTempPw] = useState<string | null>(null);
   const [loginLink, setLoginLink] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
 
+  const { user: currentUser } = useAuth();
   const isParticipant = !!detail?.roles.includes("participant");
   const isSuperAdmin = !!detail?.roles.includes("super_admin");
+  const isCoAdmin = !!detail?.profile?.is_co_admin;
+  const isOriginalAdmin = isSuperAdmin && !isCoAdmin; // a protected, non-co-admin super admin
+  const isSelf = !!detail && detail.user_id === currentUser?.id;
   const isBlocked = !!detail?.auth.is_banned;
   const { members: team } = useParticipantTeam(detail?.user_id ?? null);
 
@@ -165,6 +171,31 @@ export function UserDetailDialog({
       setLoginLink(r.actionLink);
     } catch (e) { toast.error("Could not create login link", { description: (e as Error).message }); }
     finally { setBusy(null); }
+  }
+
+  async function handleToggleCoAdmin(value: boolean) {
+    if (!email || !detail) return;
+    setBusy("coadmin");
+    try {
+      // SECURITY DEFINER RPC — enforces super-admin caller, blocks self-change,
+      // and refuses to strip an original super admin.
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { error } = await (supabase.rpc as any)("admin_set_co_admin", {
+        _user_id: detail.user_id,
+        _value: value,
+      });
+      if (error) throw error;
+      toast.success(value ? "Promoted to Co-Admin" : "Co-Admin access revoked", {
+        description: value ? `${name} now has full admin access.` : `${name} is no longer an admin.`,
+      });
+      const d = await fetchDetail({ data: { email } });
+      setDetail(d);
+      onChanged();
+    } catch (e) {
+      toast.error("Could not update admin access", { description: (e as Error).message });
+    } finally {
+      setBusy(null);
+    }
   }
 
   async function handleToggleBlock() {
@@ -454,6 +485,36 @@ export function UserDetailDialog({
                         <LogIn className="h-4 w-4" /> Open
                       </Button>
                     </div>
+                  )}
+                </div>
+
+                {/* Admin access — promote to / revoke Co-Admin */}
+                <div className="space-y-2 rounded-xl border border-border p-4">
+                  <Label className="flex items-center gap-1.5 text-sm font-semibold"><ShieldCheck className="h-4 w-4" /> Admin access</Label>
+                  {isSelf ? (
+                    <p className="text-xs text-muted-foreground">This is your own account — you can't change your own admin status here.</p>
+                  ) : isOriginalAdmin ? (
+                    <p className="text-xs text-muted-foreground">This account is a Super Admin and is protected — their admin access can't be changed here.</p>
+                  ) : isCoAdmin ? (
+                    <>
+                      <p className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                        <Badge className="bg-[oklch(0.92_0.07_20)] text-[oklch(0.4_0.16_25)]">Co-Admin</Badge>
+                        Has the same full access as a Super Admin.
+                      </p>
+                      <Button variant="outline" onClick={() => handleToggleCoAdmin(false)} disabled={busy === "coadmin"} className="rounded-xl border-amber-500/50 text-amber-600">
+                        {busy === "coadmin" ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShieldAlert className="h-4 w-4" />} Revoke co-admin access
+                      </Button>
+                    </>
+                  ) : (
+                    <>
+                      <p className="text-xs text-muted-foreground">
+                        Promote to <span className="font-medium text-foreground">Co-Admin</span> — the same full access as a Super Admin
+                        (manage users, batches, content and settings). They'll be labelled "Co-Admin".
+                      </p>
+                      <Button variant="outline" onClick={() => handleToggleCoAdmin(true)} disabled={busy === "coadmin"} className="rounded-xl">
+                        {busy === "coadmin" ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShieldCheck className="h-4 w-4" />} Make co-admin
+                      </Button>
+                    </>
                   )}
                 </div>
 

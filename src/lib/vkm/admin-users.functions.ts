@@ -545,6 +545,7 @@ export type AdminUserDetail = {
     avatar_url: string | null;
     phone: string | null;
     must_reset_password: boolean | null;
+    is_co_admin: boolean | null;
   } | null;
   assigned_coaches: { coach_id: string; name: string | null; email: string | null }[];
   auth: {

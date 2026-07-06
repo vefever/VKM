@@ -1241,6 +1241,7 @@ export type Database = {
           full_name: string | null
           id: string
           is_alumni: boolean
+          is_co_admin: boolean
           mfa_email_otp_opt_in: boolean
           mfa_totp_opt_in: boolean
           must_reset_password: boolean
@@ -1253,6 +1254,7 @@ export type Database = {
           full_name?: string | null
           id: string
           is_alumni?: boolean
+          is_co_admin?: boolean
           mfa_email_otp_opt_in?: boolean
           mfa_totp_opt_in?: boolean
           must_reset_password?: boolean
@@ -1265,6 +1267,7 @@ export type Database = {
           full_name?: string | null
           id?: string
           is_alumni?: boolean
+          is_co_admin?: boolean
           mfa_email_otp_opt_in?: boolean
           mfa_totp_opt_in?: boolean
           must_reset_password?: boolean
@@ -1736,6 +1739,7 @@ export type Database = {
           expires_at: string
           id: string
           invited_by: string | null
+          is_co_admin: boolean
           name: string
           phone: string | null
           revoked_at: string | null
@@ -1754,6 +1758,7 @@ export type Database = {
           expires_at?: string
           id?: string
           invited_by?: string | null
+          is_co_admin?: boolean
           name: string
           phone?: string | null
           revoked_at?: string | null
@@ -1772,6 +1777,7 @@ export type Database = {
           expires_at?: string
           id?: string
           invited_by?: string | null
+          is_co_admin?: boolean
           name?: string
           phone?: string | null
           revoked_at?: string | null
@@ -2178,6 +2184,10 @@ export type Database = {
       }
       admin_resolve_user_id: { Args: { _email: string }; Returns: string }
       admin_set_alumni: {
+        Args: { _user_id: string; _value: boolean }
+        Returns: undefined
+      }
+      admin_set_co_admin: {
         Args: { _user_id: string; _value: boolean }
         Returns: undefined
       }

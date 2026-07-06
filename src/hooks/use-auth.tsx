@@ -8,6 +8,7 @@ type Profile = {
   id: string;
   full_name: string | null;
   avatar_url: string | null;
+  is_co_admin?: boolean | null;
 };
 
 type AuthContextValue = {
@@ -16,6 +17,8 @@ type AuthContextValue = {
   profile: Profile | null;
   roles: AppRole[];
   primaryRole: AppRole | null;
+  // A co-admin holds the super_admin role but is labelled "Co-Admin".
+  isCoAdmin: boolean;
   loading: boolean;
   hasRole: (role: AppRole) => boolean;
   refreshProfile: () => Promise<void>;
@@ -40,7 +43,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const loadExtras = useCallback(async (uid: string) => {
     const [{ data: p }, { data: r }] = await Promise.all([
-      supabase.from("profiles").select("id, full_name, avatar_url").eq("id", uid).maybeSingle(),
+      supabase.from("profiles").select("id, full_name, avatar_url, is_co_admin").eq("id", uid).maybeSingle(),
       supabase.from("user_roles").select("role").eq("user_id", uid),
     ]);
     setProfile(p ?? null);
@@ -57,7 +60,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const loadIfMounted = async (uid: string) => {
       const [{ data: p }, { data: r }] = await Promise.all([
-        supabase.from("profiles").select("id, full_name, avatar_url").eq("id", uid).maybeSingle(),
+        supabase.from("profiles").select("id, full_name, avatar_url, is_co_admin").eq("id", uid).maybeSingle(),
         supabase.from("user_roles").select("role").eq("user_id", uid),
       ]);
       if (!mounted) return;
@@ -144,6 +147,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     profile,
     roles,
     primaryRole: pickPrimary(roles),
+    isCoAdmin: Boolean(profile?.is_co_admin) && roles.includes("super_admin"),
     loading,
     hasRole: (r) => roles.includes(r),
     refreshProfile,

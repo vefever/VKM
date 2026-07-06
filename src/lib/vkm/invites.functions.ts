@@ -4,6 +4,10 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import type { Database } from "@/integrations/supabase/types";
 
 export type InviteRole = "participant" | "coach" | "mentor";
+// A co-admin is created through the same invite flow but is granted the real
+// `super_admin` role (full powers) + the is_co_admin tag. Kept out of InviteRole
+// so CSV bulk-import and the role tabs stay participant/coach/mentor only.
+export type CreatableRole = InviteRole | "co_admin";
 
 const SITE_URL = "https://vkmentorship.com";
 
@@ -31,7 +35,7 @@ function genTempPassword(): string {
   return "VKM-" + out.slice(0, 4) + "-" + out.slice(4, 8) + "-" + out.slice(8);
 }
 
-const ROLE_COPY: Record<InviteRole, { label: string; line: string }> = {
+const ROLE_COPY: Record<CreatableRole, { label: string; line: string }> = {
   participant: {
     label: "Participant",
     line: "You've been invited to join the VK Mentorship program — your 4-month business transformation starts here.",
@@ -44,6 +48,10 @@ const ROLE_COPY: Record<InviteRole, { label: string; line: string }> = {
     label: "Mentor",
     line: "You've been invited to VK Mentorship as a Mentor — leading classes and overseeing the cohort.",
   },
+  co_admin: {
+    label: "Co-Admin",
+    line: "You've been invited to VK Mentorship as a Co-Admin — full administrator access to run the platform.",
+  },
 };
 
 const esc = (s: string) =>
@@ -53,7 +61,7 @@ const esc = (s: string) =>
 // navy/gold identity. Returns subject + html + plain-text fallback.
 function buildInviteEmail(args: {
   name: string;
-  role: InviteRole;
+  role: CreatableRole;
   inviteUrl: string;
   tempPassword: string;
   expiresAt: string;
@@ -172,7 +180,7 @@ async function sendInviteEmail(
   args: {
     to: string;
     name: string;
-    role: InviteRole;
+    role: CreatableRole;
     inviteUrl: string;
     tempPassword: string;
     expiresAt: string;
@@ -197,7 +205,7 @@ async function sendInviteEmail(
 export const createInvite = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .validator(
-    (input: { email: string; name: string; role: InviteRole; phone?: string; batch?: string }) =>
+    (input: { email: string; name: string; role: CreatableRole; phone?: string; batch?: string }) =>
       input,
   )
   .handler(async ({ data, context }) => {
@@ -260,16 +268,22 @@ export const createInvite = createServerFn({ method: "POST" })
       if (updErr) throw new Error(updErr.message);
     }
 
+    // A co-admin holds the real super_admin role (full powers); is_co_admin is
+    // just the label. Everything else in the flow is identical.
+    const isCoAdmin = data.role === "co_admin";
+    const dbRole: InviteRole | "super_admin" = isCoAdmin ? "super_admin" : (data.role as InviteRole);
+
     // Ensure profile + role + force-reset flag
     await supabaseAdmin.from("profiles").upsert({
       id: authUserId,
       full_name: data.name,
       phone: data.phone || null,
       must_reset_password: true,
+      is_co_admin: isCoAdmin,
     });
     await supabaseAdmin
       .from("user_roles")
-      .upsert({ user_id: authUserId, role: data.role }, { onConflict: "user_id,role" });
+      .upsert({ user_id: authUserId, role: dbRole }, { onConflict: "user_id,role" });
 
     // Insert invite record
     const { data: invite, error: invErr } = await supabaseAdmin
@@ -277,7 +291,8 @@ export const createInvite = createServerFn({ method: "POST" })
       .insert({
         email,
         name: data.name,
-        role: data.role,
+        role: dbRole,
+        is_co_admin: isCoAdmin,
         phone: data.phone || null,
         batch: data.batch || null,
         token,
@@ -294,7 +309,7 @@ export const createInvite = createServerFn({ method: "POST" })
     // A free-text batch label on the invite isn't enough: coaches are scoped to
     // their batch via batch_members, and the community directory reads
     // member_profiles. Link both here so imported/invited users actually show up.
-    const batchName = data.batch?.trim();
+    const batchName = isCoAdmin ? undefined : data.batch?.trim();
     if (batchName) {
       // Find-or-create the batch by name (case-insensitive) so "Batch 12" isn't
       // duplicated as "batch 12".
@@ -319,7 +334,7 @@ export const createInvite = createServerFn({ method: "POST" })
         await supabaseAdmin
           .from("batch_members")
           .upsert(
-            { batch_id: batchId, user_id: authUserId, role: data.role },
+            { batch_id: batchId, user_id: authUserId, role: dbRole },
             { onConflict: "batch_id,user_id,role", ignoreDuplicates: true },
           );
       }
@@ -371,7 +386,7 @@ export const listInvites = createServerFn({ method: "GET" })
     const { data, error } = await supabase
       .from("user_invites")
       .select(
-        "id, email, name, role, phone, batch, token, status, expires_at, accepted_at, revoked_at, created_at",
+        "id, email, name, role, is_co_admin, phone, batch, token, status, expires_at, accepted_at, revoked_at, created_at",
       )
       .order("created_at", { ascending: false });
     if (error) throw new Error(error.message);
@@ -419,7 +434,7 @@ export const resendInvite = createServerFn({ method: "POST" })
     const result = await sendInviteEmail(supabase, {
       to: inv.email,
       name: inv.name,
-      role: inv.role as InviteRole,
+      role: (inv.is_co_admin ? "co_admin" : inv.role) as CreatableRole,
       inviteUrl,
       tempPassword: inv.temp_password,
       expiresAt: inv.expires_at,
@@ -451,7 +466,7 @@ export const bulkResendInvites = createServerFn({ method: "POST" })
       const result = await sendInviteEmail(supabase, {
         to: inv.email,
         name: inv.name,
-        role: inv.role as InviteRole,
+        role: (inv.is_co_admin ? "co_admin" : inv.role) as CreatableRole,
         inviteUrl: `${SITE_URL}/invite/${inv.token}`,
         tempPassword: inv.temp_password,
         expiresAt: inv.expires_at,
