@@ -86,6 +86,7 @@ const PROVIDERS: Record<Chan, Record<string, Field[]>> = {
     aisensy: [
       { k: "apiKey", label: "API key", secret: true, placeholder: "AiSensy API key" },
       { k: "campaignName", label: "Default campaign name", placeholder: "e.g. vkm_notify" },
+      { k: "templateParams", label: "Template variables (| separated)", placeholder: "blank = none · e.g. Riya | 3" },
       { k: "senderName", label: "Contact name (optional)", placeholder: "VK Mentorship" },
     ],
   },
@@ -278,10 +279,13 @@ function ChannelTab({ channel }: { channel: Chan }) {
 
         {provider === "aisensy" && (
           <p className="rounded-lg border border-dashed border-border bg-secondary/30 px-3 py-2 text-xs text-muted-foreground">
-            AiSensy sends via <span className="font-medium text-foreground">approved WhatsApp templates</span> organised as
-            "campaigns". In AiSensy → Manage → API, create a live API campaign for your template and paste its exact name
-            above. A plain message fills the template's <span className="font-mono">{"{{1}}"}</span> variable; automation
-            reminders use the template/campaign name set on the Templates tab.
+            AiSensy only sends <span className="font-medium text-foreground">approved WhatsApp templates</span> (organised as
+            "campaigns") — the message text lives in the template, so you send the <span className="font-medium text-foreground">variable values</span>, not the text.
+            In AiSensy → Manage → API, create a live API campaign and paste its exact name above. Put your template's variable
+            values in <span className="font-medium text-foreground">Template variables</span> (separated by <span className="font-mono">|</span>) so the count matches the template —
+            <span className="font-mono"> Riya | 3</span> for two variables, or leave it blank for a template with no variables.
+            A mismatch is AiSensy's <span className="font-mono">"Template params does not match the campaign"</span> error.
+            Automation reminders send two variables (participant name, tasks left) — use a 2-variable template for those.
           </p>
         )}
 

@@ -504,14 +504,20 @@ async function sendWhatsapp(
 }
 
 // AiSensy Campaign API — template/campaign-based WhatsApp Business messaging.
-// A "campaign" in the AiSensy dashboard maps to a pre-approved WhatsApp template;
-// templateParams fill {{1}}, {{2}}… in order. Meta doesn't allow free text
-// outside the 24h session, so when no explicit template params are given we pass
-// the message body as the single template param (for a 1-variable template).
+// A "campaign" maps to a pre-approved WhatsApp template; `templateParams` fill
+// {{1}}, {{2}}… in order and their COUNT must match the template exactly (an
+// mismatch is AiSensy's "Template params does not match the campaign" error).
+//
+// The message text itself lives in the approved template — AiSensy can't send
+// free text — so we don't send `body`; we send the variable VALUES:
+//   • automation (reminders) passes explicit params (name, tasks left);
+//   • everything else (test / ad-hoc) uses the admin-configured sample values
+//     from `templateParams` (pipe-separated; blank = a template with no
+//     variables → []).
 async function aisensy(
   c: Record<string, string>,
   to: string,
-  body: string,
+  _body: string,
   tpl?: { name: string; lang: string; params?: string[] },
 ) {
   if (!c.apiKey) throw new Error("AiSensy API key is not configured");
@@ -524,7 +530,9 @@ async function aisensy(
     );
   }
   const destination = to.replace(/[^0-9]/g, ""); // digits only, incl. country code
-  const templateParams = tpl && tpl.params && tpl.params.length ? tpl.params : body ? [body] : [];
+  const raw = (c.templateParams || "").trim();
+  const configParams = raw ? raw.split("|").map((s) => s.trim()) : [];
+  const templateParams = tpl && tpl.params && tpl.params.length ? tpl.params : configParams;
   const r = await fetch("https://backend.aisensy.com/campaign/t1/api/v2", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
