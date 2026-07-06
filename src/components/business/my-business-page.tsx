@@ -424,21 +424,24 @@ function useScrollSpy(ids: string[]) {
   const activeRef = useRef(ids[0]);
   const lockUntil = useRef(0);
 
+  // Only updates the highlighted tab. It deliberately does NOT rewrite the URL
+  // hash on scroll — doing that per section change churned history.replaceState
+  // during scroll (visible URL flicker + extra main-thread work). The hash still
+  // updates when a tab is clicked (the <a href="#id"> does that natively).
   function set(id: string) {
     if (id !== activeRef.current) {
       activeRef.current = id;
       setActive(id);
     }
-    try {
-      window.history.replaceState(null, "", `#${id}`);
-    } catch {
-      /* ignore */
-    }
   }
 
   useEffect(() => {
-    function onScroll() {
-      // A recent click owns the active tab; ignore the jump's own scroll events.
+    let ticking = false;
+    // The section math reads layout (getBoundingClientRect), so run it at most
+    // once per frame via rAF instead of on every scroll event — this removes the
+    // per-event forced-reflow that was making scrolling janky.
+    function compute() {
+      ticking = false;
       if (Date.now() < lockUntil.current) return;
       let current = ids[0];
       for (const id of ids) {
@@ -454,7 +457,12 @@ function useScrollSpy(ids: string[]) {
       }
       set(current);
     }
-    onScroll();
+    function onScroll() {
+      if (ticking) return;
+      ticking = true;
+      requestAnimationFrame(compute);
+    }
+    compute();
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
   }, [ids]);

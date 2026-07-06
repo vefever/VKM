@@ -1,9 +1,15 @@
 import { useEffect, useRef, useState } from "react";
 
+// Values that have already played their count-up this session. A duplicate card
+// with the same value (e.g. the two "Revenue (mo)" tiles on My Business) — or a
+// card that unmounts and remounts while scrolling — snaps straight to the number
+// instead of re-running the 0→value animation, which read as jank on scroll.
+const playedValues = new Set<string>();
+
 /**
  * Count-up number animation. Parses a leading number (keeps any prefix/suffix
- * like "₹48L" or "92%"), animates 0→value when first scrolled into view, and
- * re-animates from the current value whenever it changes. Honors
+ * like "₹48L" or "92%"), animates 0→value the first time that value is scrolled
+ * into view, and re-animates from the current value whenever it changes. Honors
  * prefers-reduced-motion (snaps instead of animating).
  */
 export function AnimatedCounter({
@@ -50,14 +56,25 @@ export function AnimatedCounter({
       raf.current = requestAnimationFrame(tick);
     };
 
+    const key = `${prefix}${target}${suffix}`;
+
     // After the first reveal, value changes animate immediately.
     if (started.current) {
+      playedValues.add(key);
       run();
+      return;
+    }
+    // This value already animated elsewhere (duplicate tile / remount on scroll)
+    // — snap to it instead of re-running the count-up.
+    if (playedValues.has(key)) {
+      started.current = true;
+      setN(target);
       return;
     }
     const el = ref.current;
     if (!el) {
       started.current = true;
+      playedValues.add(key);
       run();
       return;
     }
@@ -66,6 +83,7 @@ export function AnimatedCounter({
         for (const e of entries) {
           if (e.isIntersecting && !started.current) {
             started.current = true;
+            playedValues.add(key);
             run();
             obs.disconnect();
           }
@@ -75,7 +93,7 @@ export function AnimatedCounter({
     );
     obs.observe(el);
     return () => obs.disconnect();
-  }, [target, isNumeric, duration]);
+  }, [target, isNumeric, duration, prefix, suffix]);
 
   useEffect(
     () => () => {

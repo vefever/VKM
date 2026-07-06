@@ -7,6 +7,7 @@ A running log of platform updates. Newest first. Ask any time for a **PDF** of t
 ## 2026-07-07
 
 ### Fixed
+- **Smoother scrolling on My Business** — the section tracker was measuring every section's position on *every* scroll event (forcing the browser to recalculate layout constantly) and rewriting the page URL on each section change. That caused the choppy scrolling, the flickering `#section` in the address bar, and the momentary "double header" tearing. It now measures at most once per frame and no longer churns the URL while you scroll. Also fixed the stat cards (e.g. "Revenue (mo)") re-playing their count-up animation as you scrolled past duplicate copies — each value now animates once.
 - **Scrolling in bottom-sheet drawers** — the "Update snapshot" form on **My Business** (and other mobile bottom-sheets) could get clipped at the bottom on smaller screens, so you couldn't scroll down to the Save button. Fixed the drawer body to scroll properly within its height — affects the business snapshot editor, the mobile "All sections" menu, and KPI detail sheets.
 
 ### Added
