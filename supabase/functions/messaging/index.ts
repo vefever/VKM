@@ -544,7 +544,19 @@ async function aisensy(
       templateParams,
     }),
   });
-  if (!r.ok) throw new Error(`AiSensy: ${await r.text()}`);
+  if (!r.ok) {
+    const detail = await r.text();
+    // Turn AiSensy's opaque count-mismatch into an actionable instruction.
+    if (/params.*does not match/i.test(detail)) {
+      throw new Error(
+        `AiSensy: your template needs a different number of variables than the ${templateParams.length} sent` +
+          `${templateParams.length ? ` (${JSON.stringify(templateParams)})` : ""}. ` +
+          `In Admin → WhatsApp, "Template variables" must hold the VALUES separated by | ` +
+          `(e.g. "Riya | 3" for a 2-variable template), NOT the template name — leave it blank for a template with no variables.`,
+      );
+    }
+    throw new Error(`AiSensy: ${detail}`);
+  }
 }
 
 async function twilio(c: Record<string, string>, to: string, body: string, whatsapp: boolean) {

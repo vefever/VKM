@@ -85,8 +85,8 @@ const PROVIDERS: Record<Chan, Record<string, Field[]>> = {
     ],
     aisensy: [
       { k: "apiKey", label: "API key", secret: true, placeholder: "AiSensy API key" },
-      { k: "campaignName", label: "Default campaign name", placeholder: "e.g. vkm_notify" },
-      { k: "templateParams", label: "Template variables (| separated)", placeholder: "blank = none · e.g. Riya | 3" },
+      { k: "campaignName", label: "Default campaign name", placeholder: "e.g. vkm_daily_reminder" },
+      { k: "templateParams", label: "Template variable VALUES for test (| separated)", placeholder: "e.g. Riya | 3 — NOT the template name" },
       { k: "senderName", label: "Contact name (optional)", placeholder: "VK Mentorship" },
     ],
   },
@@ -280,12 +280,12 @@ function ChannelTab({ channel }: { channel: Chan }) {
         {provider === "aisensy" && (
           <p className="rounded-lg border border-dashed border-border bg-secondary/30 px-3 py-2 text-xs text-muted-foreground">
             AiSensy only sends <span className="font-medium text-foreground">approved WhatsApp templates</span> (organised as
-            "campaigns") — the message text lives in the template, so you send the <span className="font-medium text-foreground">variable values</span>, not the text.
-            In AiSensy → Manage → API, create a live API campaign and paste its exact name above. Put your template's variable
-            values in <span className="font-medium text-foreground">Template variables</span> (separated by <span className="font-mono">|</span>) so the count matches the template —
-            <span className="font-mono"> Riya | 3</span> for two variables, or leave it blank for a template with no variables.
-            A mismatch is AiSensy's <span className="font-mono">"Template params does not match the campaign"</span> error.
-            Automation reminders send two variables (participant name, tasks left) — use a 2-variable template for those.
+            "campaigns"). Paste the <span className="font-medium text-foreground">campaign name</span> above (e.g. <span className="font-mono">vkm_daily_reminder</span>) — you never enter the
+            template name; AiSensy finds it from the campaign. In <span className="font-medium text-foreground">Template variable values</span> put the actual VALUES that fill your
+            template's <span className="font-mono">{"{{1}}"}</span>, <span className="font-mono">{"{{2}}"}</span>… — e.g. a template like
+            <span className="italic"> "Hi {"{{1}}"}, you have {"{{2}}"} tasks left"</span> takes <span className="font-mono">Riya | 3</span> (two values). Leave it blank for a template with no variables.
+            Sending the wrong count is AiSensy's <span className="font-mono">"Template params does not match the campaign"</span> error.
+            Daily-reminder automation fills its own two values (participant name, tasks left), so use a 2-variable template.
           </p>
         )}
 
