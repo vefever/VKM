@@ -14,6 +14,43 @@ import {
 } from "lucide-react";
 import { resolveVideoSource, withAutoplay, isHlsUrl, type VideoKind } from "@/lib/video-source";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/hooks/use-auth";
+
+// A faint, slowly-drifting identity watermark burned over the video. It can't be
+// removed from a screen-recording, so any leaked copy is traceable to the viewer
+// — the standard deterrent when true DRM isn't available. pointer-events-none so
+// it never blocks the controls.
+function Watermark() {
+  const { user, profile } = useAuth();
+  const label = user?.email || profile?.full_name || "";
+  const [pos, setPos] = useState({ top: "12%", left: "8%" });
+  useEffect(() => {
+    if (!label) return;
+    const spots = [
+      { top: "12%", left: "8%" },
+      { top: "70%", left: "12%" },
+      { top: "40%", left: "62%" },
+      { top: "82%", left: "58%" },
+      { top: "22%", left: "48%" },
+    ];
+    let i = 0;
+    const t = setInterval(() => {
+      i = (i + 1) % spots.length;
+      setPos(spots[i]);
+    }, 7000);
+    return () => clearInterval(t);
+  }, [label]);
+  if (!label) return null;
+  return (
+    <div
+      aria-hidden
+      className="pointer-events-none absolute z-10 select-none text-[11px] font-medium tracking-wide text-white/25 transition-all duration-1000 sm:text-xs"
+      style={{ top: pos.top, left: pos.left, textShadow: "0 1px 2px rgba(0,0,0,0.4)" }}
+    >
+      {label}
+    </div>
+  );
+}
 
 type Props = {
   url: string;
@@ -510,18 +547,14 @@ function FilePlayer({
         <track kind="captions" />
       </video>
 
-      {/* Error state */}
+      {/* Identity watermark (leak deterrent) */}
+      <Watermark />
+
+      {/* Error state — no raw-URL link (that would hand out a downloadable file) */}
       {error && (
         <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-black/80 px-4 text-center">
           <p className="text-sm font-medium text-white">{error}</p>
-          <a
-            href={src}
-            target="_blank"
-            rel="noreferrer"
-            className="rounded-lg bg-white/15 px-3 py-1.5 text-xs font-semibold text-white hover:bg-white/25"
-          >
-            Open in a new tab
-          </a>
+          <p className="text-xs text-white/60">Please refresh, or contact support if it persists.</p>
         </div>
       )}
 
