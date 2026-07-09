@@ -41,6 +41,17 @@ const MODEL_CATALOG: {
   models: { id: string; label: string; badge?: string; caps: string; unavailable?: boolean }[];
 }[] = [
   {
+    group: "Abhibots (flagship)",
+    models: [
+      {
+        id: "abhibots-model",
+        label: "Abhibots Model (abhi)",
+        badge: "Recommended · 1M context",
+        caps: "Multi-model · Web search · Vision · Tools · Image gen",
+      },
+    ],
+  },
+  {
     group: "Claude",
     models: [
       { id: "claude-opus-4-7", label: "Opus 4.7", caps: "Vision · Tools · Streaming" },
@@ -316,7 +327,7 @@ export function AiSettings() {
             </SectionCard>
           )}
 
-          <VoiceTestPanel />
+          <VoiceTestPanel model={model === CUSTOM_MODEL ? customModel : model} />
         </>
       )}
     </motion.div>

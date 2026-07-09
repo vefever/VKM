@@ -38,7 +38,7 @@ const PRESET: Record<TtsProvider, { voice: string; hint: string; voices: string 
   },
 };
 
-export function VoiceTestPanel() {
+export function VoiceTestPanel({ model }: { model?: string }) {
   const ask = useServerFn(aiVoiceReply);
   const tts = useServerFn(ttsSynthesize);
 
@@ -149,7 +149,7 @@ export function VoiceTestPanel() {
     setBusy(true);
     setReply("");
     try {
-      const r = await ask({ data: { text: input.trim() } });
+      const r = await ask({ data: { text: input.trim(), model: model || undefined } });
       if (!r.ok) {
         toast.error("AI reply failed", { description: r.error });
         return;
@@ -173,6 +173,10 @@ export function VoiceTestPanel() {
       subtitle="Type a message → the AI replies in spoken-style Telugu → it's read aloud with your chosen voice engine"
     >
       <div className="space-y-3">
+        <p className="text-[11px] text-muted-foreground">
+          Brain model: <span className="font-mono font-medium text-foreground">{model || "saved default"}</span>
+          <span className="text-muted-foreground"> (from the model picker above — pick abhibots-model there to test it)</span>
+        </p>
         <textarea
           value={input}
           onChange={(e) => setInput(e.target.value)}

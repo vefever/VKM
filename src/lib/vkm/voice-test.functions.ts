@@ -8,7 +8,10 @@ import { loadAiConfig, callAi } from "@/lib/vkm/ai-provider";
 // can't return audio. Super-admin only.
 export const aiVoiceReply = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .validator((input: { text?: string }) => ({ text: String(input?.text ?? "").slice(0, 800) }))
+  .validator((input: { text?: string; model?: string }) => ({
+    text: String(input?.text ?? "").slice(0, 800),
+    model: input?.model ? String(input.model).slice(0, 100).trim() : "",
+  }))
   .handler(async ({ data, context }) => {
     const { data: isAdmin } = await context.supabase.rpc("has_role", {
       _user_id: context.userId,
@@ -16,7 +19,10 @@ export const aiVoiceReply = createServerFn({ method: "POST" })
     });
     if (!isAdmin) throw new Error("Forbidden: super admins only");
 
-    const cfg = await loadAiConfig();
+    const loaded = await loadAiConfig();
+    // Use the model picked in the settings form (e.g. abhibots-model), overriding
+    // the saved one so the admin can test a model before saving it.
+    const cfg = data.model ? { ...loaded, model: data.model } : loaded;
     if (!cfg.enabled || !cfg.apiKey) {
       return { ok: false, error: "AI provider isn't configured — set it up above first.", text: "" };
     }
