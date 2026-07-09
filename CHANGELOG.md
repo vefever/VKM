@@ -7,6 +7,7 @@ A running log of platform updates. Newest first. Ask any time for a **PDF** of t
 ## 2026-07-07
 
 ### Added
+- **AI voice test (Telugu) in Admin → AI Configurations** — a new panel to test the AI model with spoken Telugu: type a message, the AI replies in natural conversational Telugu (using your existing AI gateway), and your browser reads it aloud. Pick the system voice, adjust rate & pitch, replay. Note: browser voices are free but robotic — the panel flags that a natural, human-like Telugu voice needs a dedicated TTS provider (e.g. Sarvam AI), which can be wired in on request.
 - **Class-video protection (step 1)** — the video player now carries an on-screen **identity watermark** (the viewer's email drifting faintly over the video), so any screen-recorded or leaked copy is traceable to the person who recorded it. Combined with the existing hardening — right-click "Save video" blocked, the browser's download button / Picture-in-Picture / casting disabled, and no raw video link exposed anywhere (removed the old "Open in a new tab" fallback that leaked the direct file URL). Full downloader-proofing (blocking IDM-style tools) is a follow-up that moves class videos to private, auth-gated streaming.
 
 ### Fixed

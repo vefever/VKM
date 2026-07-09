@@ -20,6 +20,7 @@ import {
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { testAiProvider } from "@/lib/vkm/advisor.functions";
+import { VoiceTestPanel } from "@/components/admin/voice-test-panel";
 
 type Provider = "openai" | "anthropic";
 
@@ -314,6 +315,8 @@ export function AiSettings() {
               <p className="whitespace-pre-wrap text-sm text-foreground">{testReply}</p>
             </SectionCard>
           )}
+
+          <VoiceTestPanel />
         </>
       )}
     </motion.div>
