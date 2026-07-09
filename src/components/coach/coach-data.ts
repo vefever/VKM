@@ -283,6 +283,7 @@ export type MyWeek = {
   week_no: number;
   proof_url: string | null;
   proof_files: Attachment[];
+  proof_note: string | null;
   proof_status: string;
   coach_note: string | null;
 };
@@ -296,7 +297,7 @@ export function useMyProofs() {
     if (!user) return;
     const { data } = await supabase
       .from("weekly_progress")
-      .select("week_no, proof_url, proof_files, proof_status, coach_note")
+      .select("week_no, proof_url, proof_files, proof_note, proof_status, coach_note")
       .eq("user_id", user.id)
       .order("week_no", { ascending: true });
     setWeeks((data ?? []) as MyWeek[]);

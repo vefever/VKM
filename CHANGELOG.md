@@ -6,6 +6,9 @@ A running log of platform updates. Newest first. Ask any time for a **PDF** of t
 
 ## 2026-07-07
 
+### Changed
+- **Weekly proof: keep your files and add more** — resubmitting a week's proof no longer wipes what you uploaded before. When you open a week you've already submitted, its files now show up (marked "Uploaded") along with your saved proof link and notes — you can **add more files**, remove individual ones with ×, and hit **Save changes**. Nothing is deleted until you save, so you can build up a week's evidence over time instead of replacing it each time.
+
 ### Added
 - **Digital Venu Kalyan brain — RAG Phase 1** — the AI Advisor can now answer from Venu's *actual teaching*, not just his style. A new **Admin → VK Knowledge Base** lets you paste a framework, a real member Q&A, or session notes (with program/topic/language tags); it's automatically chunked, embedded (Supabase gte-small, free) and stored. When a member asks a question, the advisor retrieves the most relevant chunks and grounds its answer in them — and there's a "Test retrieval" box to see exactly which chunks a question pulls and their match score. If nothing relevant is found, it honestly falls back to general principle instead of inventing teaching. (Verified: a Tenglish price-objection question matched the right teaching at 89%.) This is Phase 1 — English/Tenglish embeddings and text ingestion; multilingual embeddings and audio/PDF ingestion are later phases.
 

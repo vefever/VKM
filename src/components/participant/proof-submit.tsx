@@ -22,7 +22,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { useMyProofs } from "@/components/coach/coach-data";
 import { useEnrollment, weekFromStart } from "@/components/participant/enrollment-data";
 import { uploadAttachment, type Attachment } from "@/components/chat/chat-data";
-import { LocalPreviewTile, FilePickerZone } from "@/components/participant/proof-attachments";
+import { LocalPreviewTile, ExistingFileTile, FilePickerZone } from "@/components/participant/proof-attachments";
 import { haptic } from "@/lib/haptics";
 import { flyPoints } from "@/lib/fly-points";
 
@@ -54,6 +54,10 @@ export function ProofSubmit() {
   const [url, setUrl] = useState("");
   const [note, setNote] = useState("");
   const [staged, setStaged] = useState<Staged[]>([]);
+  // Files already submitted for the selected week — shown so the participant can
+  // keep, remove or add to them instead of replacing everything on resubmit.
+  const [existingFiles, setExistingFiles] = useState<Attachment[]>([]);
+  const loadedSig = useRef<string>("");
   const [busy, setBusy] = useState(false);
 
   // Revoke any still-staged blob URLs if the user navigates away without
@@ -69,6 +73,27 @@ export function ProofSubmit() {
     weeks.forEach((x) => (m[x.week_no] = x));
     return m;
   }, [weeks]);
+
+  // Load the selected week's saved proof into the form when the week changes (or
+  // its data first arrives). The signature guards against re-loading — and thus
+  // clobbering the participant's in-progress edits — while they're on that week.
+  useEffect(() => {
+    const rec = byWeek[week];
+    const sig = `${week}:${rec ? "y" : "n"}`;
+    if (loadedSig.current === sig) return;
+    loadedSig.current = sig;
+    setExistingFiles(rec?.proof_files ?? []);
+    setUrl(rec?.proof_url ?? "");
+    setNote(rec?.proof_note ?? "");
+    setStaged((s) => {
+      s.forEach((x) => URL.revokeObjectURL(x.url));
+      return [];
+    });
+  }, [week, byWeek]);
+
+  function removeExisting(idx: number) {
+    setExistingFiles((f) => f.filter((_, i) => i !== idx));
+  }
 
   function onFiles(files: FileList | null) {
     if (!files) return;
@@ -87,28 +112,33 @@ export function ProofSubmit() {
     });
   }
 
+  const hasSubmission = !!byWeek[week];
+
   async function onSubmit() {
-    if (!url.trim() && staged.length === 0) {
-      toast.error("Add a proof link or upload at least one file.");
+    if (!url.trim() && staged.length === 0 && existingFiles.length === 0) {
+      toast.error("Add a proof link or at least one file.");
       return;
     }
     setBusy(true);
     try {
-      let attachments: Attachment[] = [];
+      let newUploads: Attachment[] = [];
       if (staged.length && user) {
-        attachments = await Promise.all(staged.map((s) => uploadAttachment(user.id, s.file)));
+        newUploads = await Promise.all(staged.map((s) => uploadAttachment(user.id, s.file)));
       }
-      const { error } = await submit(week, url, note, attachments);
+      // Keep the files already submitted (minus any removed) and append the new
+      // uploads — so resubmitting adds to the week's proof instead of wiping it.
+      const finalFiles = [...existingFiles, ...newUploads];
+      const { error } = await submit(week, url, note, finalFiles);
       if (error) {
         toast.error("Could not submit", { description: error });
       } else {
         haptic("success");
-        if (week <= 14) flyPoints(250);
-        toast.success(`Week ${week} proof submitted`, {
+        if (week <= 14 && !hasSubmission) flyPoints(250);
+        toast.success(hasSubmission ? `Week ${week} proof updated` : `Week ${week} proof submitted`, {
           description: "Your coach will review it shortly.",
         });
-        setUrl("");
-        setNote("");
+        // The merged set is now the saved proof — keep it on screen; drop staged.
+        setExistingFiles(finalFiles);
         staged.forEach((s) => URL.revokeObjectURL(s.url));
         setStaged([]);
       }
@@ -234,8 +264,16 @@ export function ProofSubmit() {
                 <span className="text-muted-foreground/60">(images, video, PDF, docs)</span>
               </label>
               <FilePickerZone onFiles={onFiles} />
-              {staged.length > 0 && (
+              {(existingFiles.length > 0 || staged.length > 0) && (
                 <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3">
+                  {existingFiles.map((f, i) => (
+                    <ExistingFileTile
+                      key={`ex-${i}-${f.url}`}
+                      file={f}
+                      disabled={busy}
+                      onRemove={() => removeExisting(i)}
+                    />
+                  ))}
                   {staged.map((s) => (
                     <LocalPreviewTile
                       key={s.id}
@@ -248,7 +286,9 @@ export function ProofSubmit() {
                 </div>
               )}
               <p className="text-[11px] text-muted-foreground">
-                Previews are from your device — files upload only when you submit.
+                {existingFiles.length > 0
+                  ? "Green “Uploaded” files are already submitted. Add more, or tap × to remove — nothing is lost until you submit."
+                  : "Previews are from your device — files upload only when you submit."}
               </p>
             </div>
 
@@ -281,7 +321,7 @@ export function ProofSubmit() {
                 className="rounded-xl bg-gradient-navy shadow-vkm"
               >
                 {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-                {byWeek[week] ? "Resubmit" : "Submit for review"}
+                {hasSubmission ? "Save changes" : "Submit for review"}
               </Button>
             </div>
           </div>

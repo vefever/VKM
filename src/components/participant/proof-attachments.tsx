@@ -343,6 +343,52 @@ export function LocalPreviewTile({
   );
 }
 
+// A tile for a proof file that's ALREADY uploaded (edit mode) — shows the stored
+// image/video/doc with an "Uploaded" badge and a remove button, so a participant
+// can keep, drop or add to what they submitted before.
+export function ExistingFileTile({
+  file,
+  onRemove,
+  disabled,
+}: {
+  file: Attachment;
+  onRemove: () => void;
+  disabled?: boolean;
+}) {
+  const isImage = isImageAttachment(file);
+  const isVideo =
+    file.kind === "video" ||
+    /\.(mp4|webm|mov|m4v|ogg)(\?|#|$)/i.test(file.url) ||
+    /\.(mp4|webm|mov|m4v|ogg)$/i.test(file.name || "");
+  return (
+    <div className="group relative overflow-hidden rounded-xl border border-border">
+      {isImage ? (
+        <SmartImage url={file.url} alt={file.name || "proof"} className="h-28 w-full object-cover" />
+      ) : isVideo ? (
+        <video src={file.url} className="h-28 w-full bg-black object-contain" />
+      ) : (
+        <div className="flex h-28 flex-col items-center justify-center gap-1.5 bg-secondary/40 p-2 text-center">
+          <FileText className="h-7 w-7 text-muted-foreground" />
+          <span className="line-clamp-2 text-[11px] text-foreground">{file.name || "file"}</span>
+        </div>
+      )}
+      <span className="absolute left-1 top-1 rounded bg-[oklch(0.5_0.14_160)]/90 px-1.5 py-0.5 text-[9px] font-semibold text-white">
+        Uploaded
+      </span>
+      {!disabled && (
+        <button
+          type="button"
+          onClick={onRemove}
+          className="absolute right-1 top-1 inline-flex h-6 w-6 items-center justify-center rounded-md bg-black/60 text-white"
+          aria-label="Remove"
+        >
+          ×
+        </button>
+      )}
+    </div>
+  );
+}
+
 // #32 — file picker. On touch: Camera / Photos / Files buttons (camera uses
 // `capture`). On desktop: the drag-and-drop zone.
 export function FilePickerZone({ onFiles }: { onFiles: (files: FileList | null) => void }) {
