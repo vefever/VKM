@@ -5,6 +5,7 @@ import type { Database } from "@/integrations/supabase/types";
 import { loadAiConfig, callAi, streamAi, type AiConfig, type ChatMsg } from "@/lib/vkm/ai-provider";
 import { buildBrainContext } from "@/lib/vkm/business-context";
 import { weekByNumber } from "@/lib/vkm/program";
+import { retrieveVkKnowledge } from "@/lib/vkm/knowledge-retrieval";
 
 export type { ChatMsg };
 
@@ -70,6 +71,7 @@ function programProgress(startedAt: string | null | undefined, totalWeeks: numbe
 async function buildAdvisorSystem(
   supabase: SupabaseClient<Database>,
   userId: string,
+  query?: string,
 ): Promise<string> {
   const [{ data: brain }, { data: snaps }, { data: prof }, { data: enr }] = await Promise.all([
     supabase.from("business_brains").select("*").eq("user_id", userId).maybeSingle(),
@@ -103,7 +105,29 @@ async function buildAdvisorSystem(
     phase,
   });
 
-  return [persona, VENU_THINKING, LANGUAGE_DIRECTIVE, businessContext].filter(Boolean).join("\n\n");
+  // RAG (Job 1 — the Brain): retrieve Venu's real teaching relevant to the
+  // question and ground the answer in it. Confidence-gated: weak matches trigger
+  // the honest fallback rather than pretending it's VK's teaching (blueprint §12).
+  let knowledgeBlock = "";
+  if (query && query.trim()) {
+    const chunks = await retrieveVkKnowledge(supabase, query, 5);
+    const relevant = chunks.filter((c) => (c.similarity ?? 0) >= 0.68);
+    if (relevant.length) {
+      const body = relevant
+        .map((c) => `[source: ${c.source_title || "VK teaching"}${c.topic ? " · " + c.topic : ""}]\n${c.content}`)
+        .join("\n\n");
+      knowledgeBlock =
+        `--- VK KNOWLEDGE (Venu's real teaching — ground your answer in this and reference it naturally) ---\n${body}\n--- END VK KNOWLEDGE ---\n` +
+        `Use the VK KNOWLEDGE above as the PRIMARY basis for your answer. If it doesn't fully cover the question, say so plainly and clearly mark any extra advice as general business principle (honest fallback).`;
+    } else {
+      knowledgeBlock =
+        "NOTE: No specific Venu teaching was retrieved for this question. Answer from VK's method and the owner's real data, and be honest that this is general business principle — not a direct VK teaching.";
+    }
+  }
+
+  return [persona, VENU_THINKING, LANGUAGE_DIRECTIVE, knowledgeBlock, businessContext]
+    .filter(Boolean)
+    .join("\n\n");
 }
 
 // Lightweight status check the chat page calls on load.
@@ -175,10 +199,11 @@ export const askAdvisor = createServerFn({ method: "POST" })
       return { activated: false, content: NOT_ACTIVATED };
     }
 
-    const system = await buildAdvisorSystem(context.supabase, context.userId);
-
     // Keep the last 12 turns for context without blowing the token budget.
     const recent = data.messages.slice(-12).map((m) => ({ role: m.role, content: m.content }));
+    const lastUser = [...recent].reverse().find((m) => m.role === "user");
+    // RAG: ground the prompt in Venu's teaching relevant to this question.
+    const system = await buildAdvisorSystem(context.supabase, context.userId, lastUser?.content);
 
     try {
       const r = await callAi(cfg, system, recent);
@@ -194,7 +219,6 @@ export const askAdvisor = createServerFn({ method: "POST" })
       }
       const content = r.content || "I couldn't generate a reply just now — please try again.";
 
-      const lastUser = [...recent].reverse().find((m) => m.role === "user");
       if (lastUser) logTurn(context.supabase, context.userId, lastUser.content, content);
 
       return { activated: true, content };
@@ -228,9 +252,9 @@ export const askAdvisorStream = createServerFn({ method: "POST" })
       return new Response(NOT_ACTIVATED, { headers });
     }
 
-    const system = await buildAdvisorSystem(context.supabase, context.userId);
     const recent = data.messages.slice(-12).map((m) => ({ role: m.role, content: m.content }));
     const lastUser = [...recent].reverse().find((m) => m.role === "user");
+    const system = await buildAdvisorSystem(context.supabase, context.userId, lastUser?.content);
 
     const stream = streamAi(cfg, system, recent, {
       onDone: (full) => {

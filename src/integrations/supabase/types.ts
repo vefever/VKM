@@ -1897,6 +1897,60 @@ export type Database = {
         }
         Relationships: []
       }
+      vk_knowledge: {
+        Row: {
+          chunk_index: number | null
+          content: string
+          created_at: string
+          created_by: string | null
+          embedding: string | null
+          id: string
+          is_active: boolean
+          language: string | null
+          module: string | null
+          priority: string | null
+          program: string | null
+          source_title: string | null
+          source_type: string | null
+          tags: string[] | null
+          topic: string | null
+        }
+        Insert: {
+          chunk_index?: number | null
+          content: string
+          created_at?: string
+          created_by?: string | null
+          embedding?: string | null
+          id?: string
+          is_active?: boolean
+          language?: string | null
+          module?: string | null
+          priority?: string | null
+          program?: string | null
+          source_title?: string | null
+          source_type?: string | null
+          tags?: string[] | null
+          topic?: string | null
+        }
+        Update: {
+          chunk_index?: number | null
+          content?: string
+          created_at?: string
+          created_by?: string | null
+          embedding?: string | null
+          id?: string
+          is_active?: boolean
+          language?: string | null
+          module?: string | null
+          priority?: string | null
+          program?: string | null
+          source_title?: string | null
+          source_type?: string | null
+          tags?: string[] | null
+          topic?: string | null
+        }
+        Relationships: []
+      }
       water_events: {
         Row: {
           created_at: string
@@ -2405,6 +2459,18 @@ export type Database = {
       is_meeting_host: { Args: { _meeting: string }; Returns: boolean }
       is_staff: { Args: never; Returns: boolean }
       is_support_staff: { Args: never; Returns: boolean }
+      match_vk_knowledge: {
+        Args: { match_count?: number; query_embedding: string }
+        Returns: {
+          content: string
+          id: string
+          language: string
+          program: string
+          similarity: number
+          source_title: string
+          topic: string
+        }[]
+      }
       my_participants: {
         Args: never
         Returns: {

@@ -294,6 +294,7 @@ export const ADMIN_NAV: NavGroup[] = [
       { label: "Participants", to: "/admin/participants", icon: Users },
       { label: "Coach Performance", to: "/admin/coach-performance", icon: TrendingUp },
       { label: "AI Configurations", to: "/admin/ai", icon: Bot },
+      { label: "VK Knowledge Base", to: "/admin/knowledge", icon: BookOpen },
       { label: "Integrations", to: "/admin/integrations", icon: Plug },
       { label: "Workflow & Automation", to: "/admin/automation", icon: Workflow },
       { label: "Installable App", to: "/admin/pwa", icon: Smartphone },

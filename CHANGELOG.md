@@ -6,6 +6,9 @@ A running log of platform updates. Newest first. Ask any time for a **PDF** of t
 
 ## 2026-07-07
 
+### Added
+- **Digital Venu Kalyan brain — RAG Phase 1** — the AI Advisor can now answer from Venu's *actual teaching*, not just his style. A new **Admin → VK Knowledge Base** lets you paste a framework, a real member Q&A, or session notes (with program/topic/language tags); it's automatically chunked, embedded (Supabase gte-small, free) and stored. When a member asks a question, the advisor retrieves the most relevant chunks and grounds its answer in them — and there's a "Test retrieval" box to see exactly which chunks a question pulls and their match score. If nothing relevant is found, it honestly falls back to general principle instead of inventing teaching. (Verified: a Tenglish price-objection question matched the right teaching at 89%.) This is Phase 1 — English/Tenglish embeddings and text ingestion; multilingual embeddings and audio/PDF ingestion are later phases.
+
 ### Changed
 - **AI Business Advisor now thinks like Venu Kalyan** — the advisor's reasoning was upgraded to follow the "Digital Venu Kalyan" blueprint: it finds the *real* problem first, challenges weak assumptions, thinks like a CEO (systems, KPIs, accountability), explains *why* and the consequence, and ends by pushing you to act. For vague or high-stakes questions it asks one sharp clarifying question first — like a real discovery call — and it follows Venu's 10-step consultation order (problem → root cause → framework → concrete actions → mistakes → example → next steps → long-term system → reflection question) as a natural flow, not rigid headings, so quick questions still get quick answers. It stays grounded in your real business numbers, won't invent figures, and is honest when something is outside the method. (This is the "voice" layer; a full retrieval knowledge base of Venu's teaching is a later phase.)
 

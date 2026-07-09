@@ -137,6 +137,7 @@ import { Route as AuthenticatedAdminPaymentsRouteImport } from './routes/_authen
 import { Route as AuthenticatedAdminParticipantsRouteImport } from './routes/_authenticated/admin/participants'
 import { Route as AuthenticatedAdminNotificationsRouteImport } from './routes/_authenticated/admin/notifications'
 import { Route as AuthenticatedAdminLmsRouteImport } from './routes/_authenticated/admin/lms'
+import { Route as AuthenticatedAdminKnowledgeRouteImport } from './routes/_authenticated/admin/knowledge'
 import { Route as AuthenticatedAdminInvoicesRouteImport } from './routes/_authenticated/admin/invoices'
 import { Route as AuthenticatedAdminIntegrationsRouteImport } from './routes/_authenticated/admin/integrations'
 import { Route as AuthenticatedAdminFilesRouteImport } from './routes/_authenticated/admin/files'
@@ -920,6 +921,12 @@ const AuthenticatedAdminLmsRoute = AuthenticatedAdminLmsRouteImport.update({
   path: '/lms',
   getParentRoute: () => AuthenticatedAdminRouteRoute,
 } as any)
+const AuthenticatedAdminKnowledgeRoute =
+  AuthenticatedAdminKnowledgeRouteImport.update({
+    id: '/knowledge',
+    path: '/knowledge',
+    getParentRoute: () => AuthenticatedAdminRouteRoute,
+  } as any)
 const AuthenticatedAdminInvoicesRoute =
   AuthenticatedAdminInvoicesRouteImport.update({
     id: '/invoices',
@@ -1186,6 +1193,7 @@ export interface FileRoutesByFullPath {
   '/admin/files': typeof AuthenticatedAdminFilesRoute
   '/admin/integrations': typeof AuthenticatedAdminIntegrationsRoute
   '/admin/invoices': typeof AuthenticatedAdminInvoicesRoute
+  '/admin/knowledge': typeof AuthenticatedAdminKnowledgeRoute
   '/admin/lms': typeof AuthenticatedAdminLmsRoute
   '/admin/notifications': typeof AuthenticatedAdminNotificationsRoute
   '/admin/participants': typeof AuthenticatedAdminParticipantsRoute
@@ -1351,6 +1359,7 @@ export interface FileRoutesByTo {
   '/admin/files': typeof AuthenticatedAdminFilesRoute
   '/admin/integrations': typeof AuthenticatedAdminIntegrationsRoute
   '/admin/invoices': typeof AuthenticatedAdminInvoicesRoute
+  '/admin/knowledge': typeof AuthenticatedAdminKnowledgeRoute
   '/admin/lms': typeof AuthenticatedAdminLmsRoute
   '/admin/notifications': typeof AuthenticatedAdminNotificationsRoute
   '/admin/participants': typeof AuthenticatedAdminParticipantsRoute
@@ -1522,6 +1531,7 @@ export interface FileRoutesById {
   '/_authenticated/admin/files': typeof AuthenticatedAdminFilesRoute
   '/_authenticated/admin/integrations': typeof AuthenticatedAdminIntegrationsRoute
   '/_authenticated/admin/invoices': typeof AuthenticatedAdminInvoicesRoute
+  '/_authenticated/admin/knowledge': typeof AuthenticatedAdminKnowledgeRoute
   '/_authenticated/admin/lms': typeof AuthenticatedAdminLmsRoute
   '/_authenticated/admin/notifications': typeof AuthenticatedAdminNotificationsRoute
   '/_authenticated/admin/participants': typeof AuthenticatedAdminParticipantsRoute
@@ -1693,6 +1703,7 @@ export interface FileRouteTypes {
     | '/admin/files'
     | '/admin/integrations'
     | '/admin/invoices'
+    | '/admin/knowledge'
     | '/admin/lms'
     | '/admin/notifications'
     | '/admin/participants'
@@ -1858,6 +1869,7 @@ export interface FileRouteTypes {
     | '/admin/files'
     | '/admin/integrations'
     | '/admin/invoices'
+    | '/admin/knowledge'
     | '/admin/lms'
     | '/admin/notifications'
     | '/admin/participants'
@@ -2028,6 +2040,7 @@ export interface FileRouteTypes {
     | '/_authenticated/admin/files'
     | '/_authenticated/admin/integrations'
     | '/_authenticated/admin/invoices'
+    | '/_authenticated/admin/knowledge'
     | '/_authenticated/admin/lms'
     | '/_authenticated/admin/notifications'
     | '/_authenticated/admin/participants'
@@ -3075,6 +3088,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAdminLmsRouteImport
       parentRoute: typeof AuthenticatedAdminRouteRoute
     }
+    '/_authenticated/admin/knowledge': {
+      id: '/_authenticated/admin/knowledge'
+      path: '/knowledge'
+      fullPath: '/admin/knowledge'
+      preLoaderRoute: typeof AuthenticatedAdminKnowledgeRouteImport
+      parentRoute: typeof AuthenticatedAdminRouteRoute
+    }
     '/_authenticated/admin/invoices': {
       id: '/_authenticated/admin/invoices'
       path: '/invoices'
@@ -3376,6 +3396,7 @@ interface AuthenticatedAdminRouteRouteChildren {
   AuthenticatedAdminFilesRoute: typeof AuthenticatedAdminFilesRoute
   AuthenticatedAdminIntegrationsRoute: typeof AuthenticatedAdminIntegrationsRoute
   AuthenticatedAdminInvoicesRoute: typeof AuthenticatedAdminInvoicesRoute
+  AuthenticatedAdminKnowledgeRoute: typeof AuthenticatedAdminKnowledgeRoute
   AuthenticatedAdminLmsRoute: typeof AuthenticatedAdminLmsRoute
   AuthenticatedAdminNotificationsRoute: typeof AuthenticatedAdminNotificationsRoute
   AuthenticatedAdminParticipantsRoute: typeof AuthenticatedAdminParticipantsRoute
@@ -3436,6 +3457,7 @@ const AuthenticatedAdminRouteRouteChildren: AuthenticatedAdminRouteRouteChildren
     AuthenticatedAdminFilesRoute: AuthenticatedAdminFilesRoute,
     AuthenticatedAdminIntegrationsRoute: AuthenticatedAdminIntegrationsRoute,
     AuthenticatedAdminInvoicesRoute: AuthenticatedAdminInvoicesRoute,
+    AuthenticatedAdminKnowledgeRoute: AuthenticatedAdminKnowledgeRoute,
     AuthenticatedAdminLmsRoute: AuthenticatedAdminLmsRoute,
     AuthenticatedAdminNotificationsRoute: AuthenticatedAdminNotificationsRoute,
     AuthenticatedAdminParticipantsRoute: AuthenticatedAdminParticipantsRoute,
