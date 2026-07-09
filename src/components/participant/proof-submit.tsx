@@ -227,13 +227,13 @@ export function ProofSubmit() {
                       key={n}
                       type="button"
                       onClick={() => setWeekPick(n)}
-                      disabled={st === "approved"}
+                      title={st === "approved" ? "Approved — open to add files or resubmit" : undefined}
                       className={cn(
                         "h-9 w-9 rounded-lg text-sm font-medium transition-colors",
                         week === n
                           ? "bg-gradient-navy text-primary-foreground"
                           : st === "approved"
-                            ? "bg-[oklch(0.93_0.06_160)] text-[oklch(0.35_0.12_160)]"
+                            ? "bg-[oklch(0.93_0.06_160)] text-[oklch(0.35_0.12_160)] hover:opacity-80"
                             : "bg-muted text-muted-foreground hover:text-foreground",
                       )}
                     >
@@ -304,6 +304,16 @@ export function ProofSubmit() {
               />
             </div>
 
+            {byWeek[week]?.proof_status === "approved" && (
+              <div className="flex items-start gap-2 rounded-xl border border-emerald-300 bg-emerald-50 px-3 py-2 text-sm dark:border-emerald-900 dark:bg-emerald-950/20">
+                <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />
+                <span className="text-foreground">
+                  This week is <span className="font-medium">approved</span>. You can add files or fix it — but saving
+                  sends it back to your coach for review, and its points pause until they approve again.
+                </span>
+              </div>
+            )}
+
             {byWeek[week]?.proof_status === "rejected" && byWeek[week]?.coach_note && (
               <div className="flex items-start gap-2 rounded-xl border border-amber-300 bg-amber-50 px-3 py-2 text-sm">
                 <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
@@ -321,7 +331,11 @@ export function ProofSubmit() {
                 className="rounded-xl bg-gradient-navy shadow-vkm"
               >
                 {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-                {hasSubmission ? "Save changes" : "Submit for review"}
+                {byWeek[week]?.proof_status === "approved"
+                  ? "Resubmit for review"
+                  : hasSubmission
+                    ? "Save changes"
+                    : "Submit for review"}
               </Button>
             </div>
           </div>

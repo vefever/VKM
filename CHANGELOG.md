@@ -7,6 +7,7 @@ A running log of platform updates. Newest first. Ask any time for a **PDF** of t
 ## 2026-07-07
 
 ### Changed
+- **Weekly proof: any past week is now editable, including approved ones** — previously an approved week was locked. Now you can open any earlier week to add files, fix, or resubmit. Approved weeks show a clear note: resubmitting sends them back to your coach for review and their points pause until re-approved (no points are ever double-counted). Weeks still in review or needing changes were already editable and stay that way.
 - **Weekly proof: keep your files and add more** — resubmitting a week's proof no longer wipes what you uploaded before. When you open a week you've already submitted, its files now show up (marked "Uploaded") along with your saved proof link and notes — you can **add more files**, remove individual ones with ×, and hit **Save changes**. Nothing is deleted until you save, so you can build up a week's evidence over time instead of replacing it each time.
 
 ### Added
