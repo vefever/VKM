@@ -6,6 +6,9 @@ A running log of platform updates. Newest first. Ask any time for a **PDF** of t
 
 ## 2026-07-07
 
+### Changed
+- **AI Business Advisor now thinks like Venu Kalyan** — the advisor's reasoning was upgraded to follow the "Digital Venu Kalyan" blueprint: it finds the *real* problem first, challenges weak assumptions, thinks like a CEO (systems, KPIs, accountability), explains *why* and the consequence, and ends by pushing you to act. For vague or high-stakes questions it asks one sharp clarifying question first — like a real discovery call — and it follows Venu's 10-step consultation order (problem → root cause → framework → concrete actions → mistakes → example → next steps → long-term system → reflection question) as a natural flow, not rigid headings, so quick questions still get quick answers. It stays grounded in your real business numbers, won't invent figures, and is honest when something is outside the method. (This is the "voice" layer; a full retrieval knowledge base of Venu's teaching is a later phase.)
+
 ### Added
 - **AI image test in Admin → AI Configurations** — type a prompt, pick a size, and the AI gateway generates an image (uses the model selected above). Preview it, open, or download. Shows remaining image credits when the provider returns them.
 - **AI voice test (Telugu) in Admin → AI Configurations** — a new panel to test the AI model with spoken Telugu: type a message, the AI replies in natural conversational Telugu (using your existing AI gateway), and it's read aloud. Choose a **voice engine**: Browser (free, robotic), **Microsoft Azure** (natural `te-IN` neural voices — Shruti/Mohan), **Google Cloud** (natural / HD `te-IN` voices), or your **Abhibots/OpenAI** speech endpoint. Paste the provider key + voice, adjust rate/pitch (browser), and hear it. Provider keys are used server-side only and never reach the browser.
