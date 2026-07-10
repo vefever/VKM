@@ -1,6 +1,14 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { motion } from "framer-motion";
-import { format } from "date-fns";
+import {
+  addDays,
+  differenceInCalendarDays,
+  format,
+  isSameDay,
+  startOfDay,
+  startOfToday,
+  subDays,
+} from "date-fns";
 import { toPng, toJpeg } from "html-to-image";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -24,6 +32,7 @@ import {
   FileSpreadsheet,
   FileText,
   Image as ImageIcon,
+  CalendarDays,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -32,6 +41,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
 import { PageHeader } from "@/components/vkm/page-header";
 import { SectionCard } from "@/components/vkm/section-card";
 import { AvatarBadge } from "@/components/vkm/avatar-badge";
@@ -40,7 +51,12 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
-import { HABITS, useParticipantHabits } from "@/components/habits/habit-tracker";
+import {
+  DEFAULT_CONFIG,
+  HABITS,
+  START_DATE,
+  useParticipantHabits,
+} from "@/components/habits/habit-tracker";
 import { HabitGrid } from "@/components/habits/habit-grid";
 import { useParticipantsOverview, type ParticipantRow } from "@/components/coach/coach-data";
 
@@ -96,12 +112,32 @@ export function ParticipantHabitsViewer({ eyebrow = "Coach" }: { eyebrow?: strin
   const selectedPerson = rows.find((p) => p.id === userId) ?? null;
 
   // Per-day habit snapshot for the batch (list view "6 rounds").
+  // Selection is a calendar date (always defaults to today) — each participant's
+  // program day_no is derived from their own start date for that calendar day.
   const activeIds = useMemo(() => (activeBatch ? activeBatch.rows.map((r) => r.id) : []), [activeBatch]);
-  const { doneFor, maxDay } = useBatchDayHabits(activeIds);
-  const [selectedDay, setSelectedDay] = useState(1);
-  useEffect(() => {
-    if (maxDay > 0) setSelectedDay(maxDay); // default to the most recent day with data
-  }, [maxDay]);
+  const { doneFor } = useBatchDayHabits(activeIds);
+  const [selectedDate, setSelectedDate] = useState<Date>(() => startOfToday());
+  const isToday = isSameDay(selectedDate, startOfToday());
+  const dateLabel = format(selectedDate, "d MMM yyyy");
+  const dateSlug = format(selectedDate, "yyyy-MM-dd");
+
+  const calendarFrom = useMemo(() => {
+    // Earliest enrollment start in this batch (fall back to cohort anchor).
+    let earliest: Date | null = null;
+    for (const p of activeBatch?.rows ?? []) {
+      if (p.startedAt && (earliest == null || p.startedAt < earliest)) earliest = p.startedAt;
+    }
+    return startOfDay(earliest ?? START_DATE);
+  }, [activeBatch]);
+  const calendarTo = startOfToday();
+
+  function dayNoFor(p: ParticipantRow): number | null {
+    return programDayOnDate(p.startedAt, selectedDate);
+  }
+  function doneOnSelectedDate(p: ParticipantRow): Set<string> {
+    const day = dayNoFor(p);
+    return day == null ? EMPTY_SET : doneFor(p.id, day);
+  }
 
   // Export the day's habit list as a downloaded image — client-side only, never
   // stored anywhere (html-to-image → data URL → download).
@@ -117,7 +153,7 @@ export function ParticipantHabitsViewer({ eyebrow = "Coach" }: { eyebrow?: strin
         fmt === "jpg" ? await toJpeg(node, { ...opts, quality: 0.95 }) : await toPng(node, opts);
       const a = document.createElement("a");
       a.href = dataUrl;
-      a.download = `habits-${(activeBatch?.name ?? "batch").replace(/\s+/g, "-")}-day-${selectedDay}.${fmt}`;
+      a.download = `habits-${(activeBatch?.name ?? "batch").replace(/\s+/g, "-")}-${dateSlug}.${fmt}`;
       a.click();
       toast.success(`Downloaded ${fmt.toUpperCase()}`);
     } catch (e) {
@@ -127,10 +163,10 @@ export function ParticipantHabitsViewer({ eyebrow = "Coach" }: { eyebrow?: strin
     }
   }
 
-  const fileBase = `habits-${(activeBatch?.name ?? "batch").replace(/\s+/g, "-")}-day-${selectedDay}`;
+  const fileBase = `habits-${(activeBatch?.name ?? "batch").replace(/\s+/g, "-")}-${dateSlug}`;
   const rowData = () =>
     filtered.map((p) => {
-      const done = doneFor(p.id, selectedDay);
+      const done = doneOnSelectedDate(p);
       return { name: p.name, done, total: `${done.size}/${HABITS.length}` };
     });
 
@@ -141,7 +177,7 @@ export function ParticipantHabitsViewer({ eyebrow = "Coach" }: { eyebrow?: strin
     try {
       const ExcelJS = (await import("exceljs")).default;
       const wb = new ExcelJS.Workbook();
-      const ws = wb.addWorksheet(`Day ${selectedDay}`);
+      const ws = wb.addWorksheet(format(selectedDate, "d MMM"));
       ws.columns = [
         { header: "Name", key: "name", width: 26 },
         ...HABITS.map((h) => ({ header: h.name, key: h.id, width: 15 })),
@@ -215,11 +251,11 @@ export function ParticipantHabitsViewer({ eyebrow = "Coach" }: { eyebrow?: strin
       doc.setTextColor(255, 255, 255);
       doc.setFont("helvetica", "bold");
       doc.setFontSize(16);
-      doc.text(`${activeBatch?.name ?? "Batch"} · Day ${selectedDay}`, 40, 28);
+      doc.text(`${activeBatch?.name ?? "Batch"} · ${dateLabel}`, 40, 28);
       doc.setFont("helvetica", "normal");
       doc.setFontSize(9);
       doc.setTextColor(210, 214, 220);
-      doc.text(`Habit completions — ${filtered.length} participants`, 40, 44);
+      doc.text(`Habit completions — ${filtered.length} participants${isToday ? " · Today" : ""}`, 40, 44);
       doc.setTextColor(201, 162, 39);
       doc.setFont("helvetica", "bold");
       doc.text("VK MENTORSHIP", pageW - 40, 30, { align: "right" });
@@ -391,7 +427,12 @@ export function ParticipantHabitsViewer({ eyebrow = "Coach" }: { eyebrow?: strin
           ) : (
             <div className="space-y-3">
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <DayPicker maxDay={maxDay} value={selectedDay} onChange={setSelectedDay} />
+                <HabitDatePicker
+                  value={selectedDate}
+                  onChange={setSelectedDate}
+                  fromDate={calendarFrom}
+                  toDate={calendarTo}
+                />
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <Button variant="outline" size="sm" className="h-9 shrink-0 rounded-full" disabled={exporting}>
@@ -426,7 +467,10 @@ export function ParticipantHabitsViewer({ eyebrow = "Coach" }: { eyebrow?: strin
                 <div className="flex items-center justify-between gap-2 border-b border-border bg-secondary/40 px-4 py-2.5">
                   <div className="min-w-0">
                     <p className="text-sm font-semibold text-foreground">
-                      {activeBatch.name} · Day {selectedDay}
+                      {activeBatch.name} · {isToday ? "Today" : dateLabel}
+                      {isToday ? (
+                        <span className="ml-1.5 font-normal text-muted-foreground">· {dateLabel}</span>
+                      ) : null}
                     </p>
                     <p className="text-[11px] text-muted-foreground">
                       Habit completions — {filtered.length} participants
@@ -441,7 +485,8 @@ export function ParticipantHabitsViewer({ eyebrow = "Coach" }: { eyebrow?: strin
                     <PersonRow
                       key={p.id}
                       p={p}
-                      done={doneFor(p.id, selectedDay)}
+                      done={doneOnSelectedDate(p)}
+                      dayNo={dayNoFor(p)}
                       onOpen={() => setUserId(p.id)}
                     />
                   ))}
@@ -566,12 +611,15 @@ function PersonCard({ p, onOpen }: { p: ParticipantRow; onOpen: () => void }) {
 function PersonRow({
   p,
   done,
+  dayNo,
   onOpen,
 }: {
   p: ParticipantRow;
   done: Set<string>;
+  dayNo: number | null;
   onOpen: () => void;
 }) {
+  const notInProgram = dayNo == null;
   return (
     <li>
       <button
@@ -583,25 +631,38 @@ function PersonRow({
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
             <p className="truncate text-sm font-medium text-foreground">{p.name}</p>
-            <span
-              className={cn(
-                "shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold tabular-nums",
-                done.size === HABITS.length
-                  ? "bg-[oklch(0.93_0.06_160)] text-[oklch(0.35_0.12_160)]"
-                  : "bg-secondary text-muted-foreground",
-              )}
-            >
-              {done.size}/{HABITS.length}
-            </span>
+            {notInProgram ? (
+              <span className="shrink-0 rounded-full bg-secondary px-2 py-0.5 text-[10px] font-semibold text-muted-foreground">
+                Outside program
+              </span>
+            ) : (
+              <>
+                <span className="shrink-0 rounded-full bg-secondary px-2 py-0.5 text-[10px] font-semibold tabular-nums text-muted-foreground">
+                  Day {dayNo}
+                </span>
+                <span
+                  className={cn(
+                    "shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold tabular-nums",
+                    done.size === HABITS.length
+                      ? "bg-[oklch(0.93_0.06_160)] text-[oklch(0.35_0.12_160)]"
+                      : "bg-secondary text-muted-foreground",
+                  )}
+                >
+                  {done.size}/{HABITS.length}
+                </span>
+              </>
+            )}
             {p.atRisk && (
               <span className="shrink-0 rounded-full bg-destructive/15 px-1.5 py-0.5 text-[10px] font-semibold text-destructive">
                 At risk
               </span>
             )}
           </div>
-          <div className="mt-1.5">
-            <HabitRounds done={done} />
-          </div>
+          {!notInProgram && (
+            <div className="mt-1.5">
+              <HabitRounds done={done} />
+            </div>
+          )}
         </div>
         <ChevronRight className="h-4 w-4 shrink-0 self-center text-muted-foreground" />
       </button>
@@ -766,38 +827,120 @@ function HabitRounds({ done }: { done: Set<string> }) {
   );
 }
 
-// Horizontal day picker (1 … maxDay).
-function DayPicker({
-  maxDay,
+/** Map a calendar date → this participant's program day_no (1…totalDays), or null if outside range. */
+function programDayOnDate(startedAt: Date | null, date: Date, totalDays = DEFAULT_CONFIG.totalDays): number | null {
+  const anchor = startOfDay(startedAt ?? START_DATE);
+  const day = differenceInCalendarDays(startOfDay(date), anchor) + 1;
+  if (day < 1 || day > totalDays) return null;
+  return day;
+}
+
+/**
+ * Compact calendar date picker for the batch habits list.
+ * Defaults to today; no more 112-day button strip / dropdown.
+ */
+function HabitDatePicker({
   value,
   onChange,
+  fromDate,
+  toDate,
 }: {
-  maxDay: number;
-  value: number;
-  onChange: (d: number) => void;
+  value: Date;
+  onChange: (d: Date) => void;
+  fromDate: Date;
+  toDate: Date;
 }) {
+  const [open, setOpen] = useState(false);
+  const today = startOfToday();
+  const atToday = isSameDay(value, today);
+  const canPrev = differenceInCalendarDays(value, fromDate) > 0;
+  const canNext = differenceInCalendarDays(toDate, value) > 0;
+
   return (
-    <div className="flex items-center gap-2">
-      <span className="shrink-0 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-        Day
-      </span>
-      <div className="flex gap-1.5 overflow-x-auto pb-1">
-        {Array.from({ length: Math.max(1, maxDay) }, (_, i) => i + 1).map((d) => (
-          <button
-            key={d}
+    <div className="flex items-center gap-1.5">
+      <Button
+        type="button"
+        variant="outline"
+        size="icon"
+        className="h-9 w-9 shrink-0 rounded-full"
+        disabled={!canPrev}
+        aria-label="Previous day"
+        onClick={() => onChange(subDays(startOfDay(value), 1))}
+      >
+        <ChevronLeft className="h-4 w-4" />
+      </Button>
+
+      <Popover open={open} onOpenChange={setOpen}>
+        <PopoverTrigger asChild>
+          <Button
             type="button"
-            onClick={() => onChange(d)}
+            variant="outline"
             className={cn(
-              "inline-flex h-8 min-w-8 shrink-0 items-center justify-center rounded-full px-2.5 text-xs font-semibold tabular-nums transition-colors",
-              d === value
-                ? "bg-gradient-navy text-primary-foreground shadow-vkm"
-                : "border border-border bg-card text-muted-foreground hover:text-foreground",
+              "h-9 min-w-[11.5rem] justify-start gap-2 rounded-full px-3 text-left font-medium",
+              atToday && "border-gold/40 bg-gold/5",
             )}
           >
-            {d}
-          </button>
-        ))}
-      </div>
+            <CalendarDays className="h-4 w-4 shrink-0 text-gold" />
+            <span className="truncate text-sm">
+              {atToday ? (
+                <>
+                  Today
+                  <span className="ml-1.5 font-normal text-muted-foreground">
+                    · {format(value, "d MMM")}
+                  </span>
+                </>
+              ) : (
+                format(value, "EEE, d MMM yyyy")
+              )}
+            </span>
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent className="w-auto p-0" align="start" sideOffset={8}>
+          <Calendar
+            mode="single"
+            selected={value}
+            onSelect={(d) => {
+              if (!d) return;
+              onChange(startOfDay(d));
+              setOpen(false);
+            }}
+            defaultMonth={value}
+            disabled={{ after: toDate, before: fromDate }}
+            startMonth={fromDate}
+            endMonth={toDate}
+            captionLayout="dropdown"
+          />
+          <div className="flex items-center justify-between gap-2 border-t border-border px-3 py-2">
+            <p className="text-[11px] text-muted-foreground">Pick any program day</p>
+            {!atToday && (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="h-7 rounded-full px-2.5 text-xs"
+                onClick={() => {
+                  onChange(today);
+                  setOpen(false);
+                }}
+              >
+                Jump to today
+              </Button>
+            )}
+          </div>
+        </PopoverContent>
+      </Popover>
+
+      <Button
+        type="button"
+        variant="outline"
+        size="icon"
+        className="h-9 w-9 shrink-0 rounded-full"
+        disabled={!canNext}
+        aria-label="Next day"
+        onClick={() => onChange(addDays(startOfDay(value), 1))}
+      >
+        <ChevronRight className="h-4 w-4" />
+      </Button>
     </div>
   );
 }

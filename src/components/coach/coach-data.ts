@@ -568,6 +568,8 @@ export type ParticipantRow = {
   atRisk: boolean;
   batchId: string | null;
   batchName: string | null;
+  /** Participant's own program start (enrollment). Used to map calendar date → day_no. */
+  startedAt: Date | null;
 };
 
 export function useParticipantsOverview() {
@@ -645,6 +647,7 @@ export function useParticipantsOverview() {
           atRisk,
           batchId,
           batchName: batchId ? (batchName.get(batchId) ?? null) : null,
+          startedAt: e?.startedAt ?? null,
         };
       });
       out.sort((a, b) => b.points - a.points);
