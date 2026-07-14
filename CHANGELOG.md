@@ -6,7 +6,11 @@ A running log of platform updates. Newest first. Ask any time for a **PDF** of t
 
 ## 2026-07-14
 
+### Added
+- **Edit a published session video** — you no longer have to delete and re-add a session video to fix a mistake. Each video in a member's **Sessions** tab now has an **edit** (pencil) button: change its week, title, note, or even swap the link/URL, and hit Save. The change reflects to the member right away. (Uploaded files can be replaced by pasting a new link.)
+
 ### Changed
+- **My Sessions is now a course, not a wall of players** — the member-side page previously stacked every session video full-size down the page. It's now a **chapter grid**: one card per week (or "General") showing the week's topic, a thumbnail and how many videos it has. Tapping a chapter opens a **focused view** — one video playing at a time with the week's other videos in a playlist beside it — so members navigate their sessions like structured course chapters.
 - **1-on-1 session videos moved into the participant profile** — managing a member's private session videos is no longer a separate admin page. It now lives as a **Sessions** tab right inside the participant's detail view (My Participants → open a member), so **coaches, mentors and admins** all manage them in the same place they already review that person. Add a video for any week (1–16) or "General", paste a Google Drive / YouTube / Vimeo / direct link or upload a file — the member still sees them all on their own **My Sessions** page. The standalone "Member Sessions" admin page has been removed.
 - **Google Drive videos now play reliably** — the player used to sometimes drop a Drive link into the raw file player, which couldn't stream it (showing "unable to load" and offering a download). Drive, YouTube and Vimeo links are now always detected straight from the URL and streamed in their proper in-app player, even for older links saved before Drive support existed. (Drive files still need to be shared "Anyone with the link · Viewer" to play.)
 

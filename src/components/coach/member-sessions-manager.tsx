@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
-import { Loader2, Link2, Upload, Trash2, Plus, Video } from "lucide-react";
+import { Loader2, Link2, Upload, Trash2, Plus, Video, Pencil, Check, X } from "lucide-react";
 import { SectionCard } from "@/components/vkm/section-card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -15,9 +15,15 @@ import { weekByNumber } from "@/lib/vkm/program";
 
 type Row = { id: string; week_no: number | null; title: string | null; video_url: string; provider: string | null; note: string | null; created_at: string };
 
+const WEEK_OPTIONS = Array.from({ length: 16 }, (_, i) => i + 1);
+function weekLabel(n: number) {
+  const t = weekByNumber(n)?.topic;
+  return `Week ${n}${t ? ` · ${t}` : ""}`;
+}
+
 // Per-member 1-on-1 session videos, managed in-line on the participant detail
 // (staff: coach / mentor / admin). Adds per-week or general videos that the
-// member then sees on their own "My Sessions" page.
+// member then sees on their own "My Sessions" page — and edits/removes them.
 export function MemberSessionsManager({ userId, memberName }: { userId: string; memberName?: string }) {
   const { user } = useAuth();
   const [rows, setRows] = useState<Row[]>([]);
@@ -46,6 +52,7 @@ export function MemberSessionsManager({ userId, memberName }: { userId: string; 
   const [link, setLink] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const [busy, setBusy] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
   async function add() {
@@ -90,8 +97,34 @@ export function MemberSessionsManager({ userId, memberName }: { userId: string; 
     if (!confirm("Remove this session video?")) return;
     const { error } = await supabase.from("member_session_videos").delete().eq("id", id);
     if (error) return toast.error("Delete failed", { description: error.message });
+    setEditingId((cur) => (cur === id ? null : cur));
     await load();
   }
+
+  // Save an edit to an existing video (week / title / note / link). Mistakenly
+  // published one? Fix it here — the change reflects to the member immediately.
+  const saveEdit = useCallback(
+    async (id: string, patch: { week: string; title: string; note: string; url: string }) => {
+      const url = patch.url.trim();
+      if (!url) { toast.error("A video link or URL is required."); return false; }
+      const { error } = await supabase
+        .from("member_session_videos")
+        .update({
+          week_no: patch.week ? Number(patch.week) : null,
+          title: patch.title.trim() || null,
+          note: patch.note.trim() || null,
+          video_url: url,
+          provider: resolveVideoSource(url).kind,
+        })
+        .eq("id", id);
+      if (error) { toast.error("Couldn't save", { description: error.message }); return false; }
+      toast.success("Session video updated");
+      setEditingId(null);
+      await load();
+      return true;
+    },
+    [load],
+  );
 
   const grouped = useMemo(() => {
     const m = new Map<string, Row[]>();
@@ -114,8 +147,8 @@ export function MemberSessionsManager({ userId, memberName }: { userId: string; 
               <Label className="text-xs">Week</Label>
               <select value={week} onChange={(e) => setWeek(e.target.value)} className="h-10 w-full rounded-lg border border-input bg-background px-2 text-sm">
                 <option value="">General (no specific week)</option>
-                {Array.from({ length: 16 }, (_, i) => i + 1).map((n) => (
-                  <option key={n} value={n}>Week {n}{weekByNumber(n)?.topic ? ` · ${weekByNumber(n)!.topic}` : ""}</option>
+                {WEEK_OPTIONS.map((n) => (
+                  <option key={n} value={n}>{weekLabel(n)}</option>
                 ))}
               </select>
             </div>
@@ -168,25 +201,102 @@ export function MemberSessionsManager({ userId, memberName }: { userId: string; 
               <div key={label} className="px-4 py-3">
                 <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{label}</p>
                 <div className="grid gap-3 sm:grid-cols-2">
-                  {list.map((r) => (
-                    <div key={r.id} className="space-y-1.5 rounded-xl border border-border bg-card p-2">
-                      <div className="overflow-hidden rounded-lg border border-border">
-                        <VideoPlayer url={r.video_url} title={r.title ?? label} />
+                  {list.map((r) =>
+                    editingId === r.id ? (
+                      <EditVideo key={r.id} row={r} onSave={(p) => saveEdit(r.id, p)} onCancel={() => setEditingId(null)} />
+                    ) : (
+                      <div key={r.id} className="space-y-1.5 rounded-xl border border-border bg-card p-2">
+                        <div className="overflow-hidden rounded-lg border border-border">
+                          <VideoPlayer url={r.video_url} title={r.title ?? label} />
+                        </div>
+                        <div className="flex items-center gap-1 px-1">
+                          <p className="min-w-0 flex-1 truncate text-xs font-medium text-foreground">{r.title || "(untitled)"}</p>
+                          <button type="button" onClick={() => setEditingId(r.id)} className="shrink-0 rounded-md p-1 text-muted-foreground hover:text-navy" aria-label="Edit">
+                            <Pencil className="h-3.5 w-3.5" />
+                          </button>
+                          <button type="button" onClick={() => remove(r.id)} className="shrink-0 rounded-md p-1 text-muted-foreground hover:text-destructive" aria-label="Remove">
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                        {r.note && <p className="px-1 text-[11px] text-muted-foreground line-clamp-2">{r.note}</p>}
                       </div>
-                      <div className="flex items-center gap-2 px-1">
-                        <p className="min-w-0 flex-1 truncate text-xs font-medium text-foreground">{r.title || "(untitled)"}</p>
-                        <button type="button" onClick={() => remove(r.id)} className="shrink-0 rounded-md p-1 text-muted-foreground hover:text-destructive" aria-label="Remove">
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </button>
-                      </div>
-                    </div>
-                  ))}
+                    ),
+                  )}
                 </div>
               </div>
             ))}
           </div>
         )}
       </SectionCard>
+    </div>
+  );
+}
+
+// Inline editor for a published video — fix a mistake in its week, title, note,
+// or the link/URL itself (provider is re-detected from the URL on save).
+function EditVideo({
+  row,
+  onSave,
+  onCancel,
+}: {
+  row: Row;
+  onSave: (p: { week: string; title: string; note: string; url: string }) => Promise<boolean>;
+  onCancel: () => void;
+}) {
+  const [week, setWeek] = useState(row.week_no == null ? "" : String(row.week_no));
+  const [title, setTitle] = useState(row.title ?? "");
+  const [note, setNote] = useState(row.note ?? "");
+  const [url, setUrl] = useState(row.video_url);
+  const [saving, setSaving] = useState(false);
+  const isFile = resolveVideoSource(url).kind === "file";
+
+  async function save() {
+    setSaving(true);
+    const ok = await onSave({ week, title, note, url });
+    if (!ok) setSaving(false);
+  }
+
+  return (
+    <div className="space-y-2 rounded-xl border border-navy/30 bg-navy/[0.03] p-2.5 sm:col-span-2">
+      <p className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-navy">
+        <Pencil className="h-3.5 w-3.5" /> Edit session video
+      </p>
+      <div className="grid gap-2 sm:grid-cols-2">
+        <div className="space-y-1">
+          <Label className="text-[11px]">Week</Label>
+          <select value={week} onChange={(e) => setWeek(e.target.value)} className="h-9 w-full rounded-lg border border-input bg-background px-2 text-sm">
+            <option value="">General (no specific week)</option>
+            {WEEK_OPTIONS.map((n) => (
+              <option key={n} value={n}>{weekLabel(n)}</option>
+            ))}
+          </select>
+        </div>
+        <div className="space-y-1">
+          <Label className="text-[11px]">Title</Label>
+          <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Title" className="h-9 rounded-lg" />
+        </div>
+      </div>
+      <div className="space-y-1">
+        <Label className="text-[11px]">Video link / URL</Label>
+        <Input value={url} onChange={(e) => setUrl(e.target.value)} placeholder="Google Drive / YouTube / Vimeo / direct .mp4 link" className="h-9 rounded-lg" />
+        {isFile ? (
+          <p className="text-[11px] text-muted-foreground">This is an uploaded file — replace it by pasting a new link here.</p>
+        ) : (
+          <p className="text-[11px] text-muted-foreground">Paste any Google Drive / YouTube / Vimeo / direct link.</p>
+        )}
+      </div>
+      <div className="space-y-1">
+        <Label className="text-[11px]">Note (optional)</Label>
+        <Input value={note} onChange={(e) => setNote(e.target.value)} placeholder="Anything the member should know…" className="h-9 rounded-lg" />
+      </div>
+      <div className="flex gap-2">
+        <Button size="sm" onClick={save} disabled={saving} className="h-8 rounded-lg bg-gradient-navy text-primary-foreground hover:opacity-90">
+          {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />} Save
+        </Button>
+        <Button size="sm" variant="outline" onClick={onCancel} disabled={saving} className="h-8 rounded-lg">
+          <X className="h-4 w-4" /> Cancel
+        </Button>
+      </div>
     </div>
   );
 }
