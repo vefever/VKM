@@ -880,6 +880,45 @@ export type Database = {
         }
         Relationships: []
       }
+      member_session_videos: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          is_active: boolean
+          note: string | null
+          provider: string | null
+          title: string | null
+          user_id: string
+          video_url: string
+          week_no: number | null
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_active?: boolean
+          note?: string | null
+          provider?: string | null
+          title?: string | null
+          user_id: string
+          video_url: string
+          week_no?: number | null
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_active?: boolean
+          note?: string | null
+          provider?: string | null
+          title?: string | null
+          user_id?: string
+          video_url?: string
+          week_no?: number | null
+        }
+        Relationships: []
+      }
       message_templates: {
         Row: {
           body: string

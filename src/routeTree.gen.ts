@@ -31,6 +31,7 @@ import { Route as AuthenticatedParticipantVisionRouteImport } from './routes/_au
 import { Route as AuthenticatedParticipantVideosRouteImport } from './routes/_authenticated/participant/videos'
 import { Route as AuthenticatedParticipantSupportRouteImport } from './routes/_authenticated/participant/support'
 import { Route as AuthenticatedParticipantSettingsRouteImport } from './routes/_authenticated/participant/settings'
+import { Route as AuthenticatedParticipantSessionsRouteImport } from './routes/_authenticated/participant/sessions'
 import { Route as AuthenticatedParticipantSalesRouteImport } from './routes/_authenticated/participant/sales'
 import { Route as AuthenticatedParticipantRewardsRouteImport } from './routes/_authenticated/participant/rewards'
 import { Route as AuthenticatedParticipantRevenueRouteImport } from './routes/_authenticated/participant/revenue'
@@ -136,6 +137,7 @@ import { Route as AuthenticatedAdminProfileRouteImport } from './routes/_authent
 import { Route as AuthenticatedAdminPaymentsRouteImport } from './routes/_authenticated/admin/payments'
 import { Route as AuthenticatedAdminParticipantsRouteImport } from './routes/_authenticated/admin/participants'
 import { Route as AuthenticatedAdminNotificationsRouteImport } from './routes/_authenticated/admin/notifications'
+import { Route as AuthenticatedAdminMemberSessionsRouteImport } from './routes/_authenticated/admin/member-sessions'
 import { Route as AuthenticatedAdminLmsRouteImport } from './routes/_authenticated/admin/lms'
 import { Route as AuthenticatedAdminKnowledgeRouteImport } from './routes/_authenticated/admin/knowledge'
 import { Route as AuthenticatedAdminInvoicesRouteImport } from './routes/_authenticated/admin/invoices'
@@ -296,6 +298,12 @@ const AuthenticatedParticipantSettingsRoute =
   AuthenticatedParticipantSettingsRouteImport.update({
     id: '/settings',
     path: '/settings',
+    getParentRoute: () => AuthenticatedParticipantRouteRoute,
+  } as any)
+const AuthenticatedParticipantSessionsRoute =
+  AuthenticatedParticipantSessionsRouteImport.update({
+    id: '/sessions',
+    path: '/sessions',
     getParentRoute: () => AuthenticatedParticipantRouteRoute,
   } as any)
 const AuthenticatedParticipantSalesRoute =
@@ -916,6 +924,12 @@ const AuthenticatedAdminNotificationsRoute =
     path: '/notifications',
     getParentRoute: () => AuthenticatedAdminRouteRoute,
   } as any)
+const AuthenticatedAdminMemberSessionsRoute =
+  AuthenticatedAdminMemberSessionsRouteImport.update({
+    id: '/member-sessions',
+    path: '/member-sessions',
+    getParentRoute: () => AuthenticatedAdminRouteRoute,
+  } as any)
 const AuthenticatedAdminLmsRoute = AuthenticatedAdminLmsRouteImport.update({
   id: '/lms',
   path: '/lms',
@@ -1195,6 +1209,7 @@ export interface FileRoutesByFullPath {
   '/admin/invoices': typeof AuthenticatedAdminInvoicesRoute
   '/admin/knowledge': typeof AuthenticatedAdminKnowledgeRoute
   '/admin/lms': typeof AuthenticatedAdminLmsRoute
+  '/admin/member-sessions': typeof AuthenticatedAdminMemberSessionsRoute
   '/admin/notifications': typeof AuthenticatedAdminNotificationsRoute
   '/admin/participants': typeof AuthenticatedAdminParticipantsRoute
   '/admin/payments': typeof AuthenticatedAdminPaymentsRoute
@@ -1300,6 +1315,7 @@ export interface FileRoutesByFullPath {
   '/participant/revenue': typeof AuthenticatedParticipantRevenueRoute
   '/participant/rewards': typeof AuthenticatedParticipantRewardsRoute
   '/participant/sales': typeof AuthenticatedParticipantSalesRoute
+  '/participant/sessions': typeof AuthenticatedParticipantSessionsRoute
   '/participant/settings': typeof AuthenticatedParticipantSettingsRoute
   '/participant/support': typeof AuthenticatedParticipantSupportRoute
   '/participant/videos': typeof AuthenticatedParticipantVideosRoute
@@ -1361,6 +1377,7 @@ export interface FileRoutesByTo {
   '/admin/invoices': typeof AuthenticatedAdminInvoicesRoute
   '/admin/knowledge': typeof AuthenticatedAdminKnowledgeRoute
   '/admin/lms': typeof AuthenticatedAdminLmsRoute
+  '/admin/member-sessions': typeof AuthenticatedAdminMemberSessionsRoute
   '/admin/notifications': typeof AuthenticatedAdminNotificationsRoute
   '/admin/participants': typeof AuthenticatedAdminParticipantsRoute
   '/admin/payments': typeof AuthenticatedAdminPaymentsRoute
@@ -1466,6 +1483,7 @@ export interface FileRoutesByTo {
   '/participant/revenue': typeof AuthenticatedParticipantRevenueRoute
   '/participant/rewards': typeof AuthenticatedParticipantRewardsRoute
   '/participant/sales': typeof AuthenticatedParticipantSalesRoute
+  '/participant/sessions': typeof AuthenticatedParticipantSessionsRoute
   '/participant/settings': typeof AuthenticatedParticipantSettingsRoute
   '/participant/support': typeof AuthenticatedParticipantSupportRoute
   '/participant/videos': typeof AuthenticatedParticipantVideosRoute
@@ -1533,6 +1551,7 @@ export interface FileRoutesById {
   '/_authenticated/admin/invoices': typeof AuthenticatedAdminInvoicesRoute
   '/_authenticated/admin/knowledge': typeof AuthenticatedAdminKnowledgeRoute
   '/_authenticated/admin/lms': typeof AuthenticatedAdminLmsRoute
+  '/_authenticated/admin/member-sessions': typeof AuthenticatedAdminMemberSessionsRoute
   '/_authenticated/admin/notifications': typeof AuthenticatedAdminNotificationsRoute
   '/_authenticated/admin/participants': typeof AuthenticatedAdminParticipantsRoute
   '/_authenticated/admin/payments': typeof AuthenticatedAdminPaymentsRoute
@@ -1638,6 +1657,7 @@ export interface FileRoutesById {
   '/_authenticated/participant/revenue': typeof AuthenticatedParticipantRevenueRoute
   '/_authenticated/participant/rewards': typeof AuthenticatedParticipantRewardsRoute
   '/_authenticated/participant/sales': typeof AuthenticatedParticipantSalesRoute
+  '/_authenticated/participant/sessions': typeof AuthenticatedParticipantSessionsRoute
   '/_authenticated/participant/settings': typeof AuthenticatedParticipantSettingsRoute
   '/_authenticated/participant/support': typeof AuthenticatedParticipantSupportRoute
   '/_authenticated/participant/videos': typeof AuthenticatedParticipantVideosRoute
@@ -1705,6 +1725,7 @@ export interface FileRouteTypes {
     | '/admin/invoices'
     | '/admin/knowledge'
     | '/admin/lms'
+    | '/admin/member-sessions'
     | '/admin/notifications'
     | '/admin/participants'
     | '/admin/payments'
@@ -1810,6 +1831,7 @@ export interface FileRouteTypes {
     | '/participant/revenue'
     | '/participant/rewards'
     | '/participant/sales'
+    | '/participant/sessions'
     | '/participant/settings'
     | '/participant/support'
     | '/participant/videos'
@@ -1871,6 +1893,7 @@ export interface FileRouteTypes {
     | '/admin/invoices'
     | '/admin/knowledge'
     | '/admin/lms'
+    | '/admin/member-sessions'
     | '/admin/notifications'
     | '/admin/participants'
     | '/admin/payments'
@@ -1976,6 +1999,7 @@ export interface FileRouteTypes {
     | '/participant/revenue'
     | '/participant/rewards'
     | '/participant/sales'
+    | '/participant/sessions'
     | '/participant/settings'
     | '/participant/support'
     | '/participant/videos'
@@ -2042,6 +2066,7 @@ export interface FileRouteTypes {
     | '/_authenticated/admin/invoices'
     | '/_authenticated/admin/knowledge'
     | '/_authenticated/admin/lms'
+    | '/_authenticated/admin/member-sessions'
     | '/_authenticated/admin/notifications'
     | '/_authenticated/admin/participants'
     | '/_authenticated/admin/payments'
@@ -2147,6 +2172,7 @@ export interface FileRouteTypes {
     | '/_authenticated/participant/revenue'
     | '/_authenticated/participant/rewards'
     | '/_authenticated/participant/sales'
+    | '/_authenticated/participant/sessions'
     | '/_authenticated/participant/settings'
     | '/_authenticated/participant/support'
     | '/_authenticated/participant/videos'
@@ -2344,6 +2370,13 @@ declare module '@tanstack/react-router' {
       path: '/settings'
       fullPath: '/participant/settings'
       preLoaderRoute: typeof AuthenticatedParticipantSettingsRouteImport
+      parentRoute: typeof AuthenticatedParticipantRouteRoute
+    }
+    '/_authenticated/participant/sessions': {
+      id: '/_authenticated/participant/sessions'
+      path: '/sessions'
+      fullPath: '/participant/sessions'
+      preLoaderRoute: typeof AuthenticatedParticipantSessionsRouteImport
       parentRoute: typeof AuthenticatedParticipantRouteRoute
     }
     '/_authenticated/participant/sales': {
@@ -3081,6 +3114,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAdminNotificationsRouteImport
       parentRoute: typeof AuthenticatedAdminRouteRoute
     }
+    '/_authenticated/admin/member-sessions': {
+      id: '/_authenticated/admin/member-sessions'
+      path: '/member-sessions'
+      fullPath: '/admin/member-sessions'
+      preLoaderRoute: typeof AuthenticatedAdminMemberSessionsRouteImport
+      parentRoute: typeof AuthenticatedAdminRouteRoute
+    }
     '/_authenticated/admin/lms': {
       id: '/_authenticated/admin/lms'
       path: '/lms'
@@ -3398,6 +3438,7 @@ interface AuthenticatedAdminRouteRouteChildren {
   AuthenticatedAdminInvoicesRoute: typeof AuthenticatedAdminInvoicesRoute
   AuthenticatedAdminKnowledgeRoute: typeof AuthenticatedAdminKnowledgeRoute
   AuthenticatedAdminLmsRoute: typeof AuthenticatedAdminLmsRoute
+  AuthenticatedAdminMemberSessionsRoute: typeof AuthenticatedAdminMemberSessionsRoute
   AuthenticatedAdminNotificationsRoute: typeof AuthenticatedAdminNotificationsRoute
   AuthenticatedAdminParticipantsRoute: typeof AuthenticatedAdminParticipantsRoute
   AuthenticatedAdminPaymentsRoute: typeof AuthenticatedAdminPaymentsRoute
@@ -3459,6 +3500,8 @@ const AuthenticatedAdminRouteRouteChildren: AuthenticatedAdminRouteRouteChildren
     AuthenticatedAdminInvoicesRoute: AuthenticatedAdminInvoicesRoute,
     AuthenticatedAdminKnowledgeRoute: AuthenticatedAdminKnowledgeRoute,
     AuthenticatedAdminLmsRoute: AuthenticatedAdminLmsRoute,
+    AuthenticatedAdminMemberSessionsRoute:
+      AuthenticatedAdminMemberSessionsRoute,
     AuthenticatedAdminNotificationsRoute: AuthenticatedAdminNotificationsRoute,
     AuthenticatedAdminParticipantsRoute: AuthenticatedAdminParticipantsRoute,
     AuthenticatedAdminPaymentsRoute: AuthenticatedAdminPaymentsRoute,
@@ -3714,6 +3757,7 @@ interface AuthenticatedParticipantRouteRouteChildren {
   AuthenticatedParticipantRevenueRoute: typeof AuthenticatedParticipantRevenueRoute
   AuthenticatedParticipantRewardsRoute: typeof AuthenticatedParticipantRewardsRoute
   AuthenticatedParticipantSalesRoute: typeof AuthenticatedParticipantSalesRoute
+  AuthenticatedParticipantSessionsRoute: typeof AuthenticatedParticipantSessionsRoute
   AuthenticatedParticipantSettingsRoute: typeof AuthenticatedParticipantSettingsRoute
   AuthenticatedParticipantSupportRoute: typeof AuthenticatedParticipantSupportRoute
   AuthenticatedParticipantVideosRoute: typeof AuthenticatedParticipantVideosRoute
@@ -3773,6 +3817,8 @@ const AuthenticatedParticipantRouteRouteChildren: AuthenticatedParticipantRouteR
     AuthenticatedParticipantRevenueRoute: AuthenticatedParticipantRevenueRoute,
     AuthenticatedParticipantRewardsRoute: AuthenticatedParticipantRewardsRoute,
     AuthenticatedParticipantSalesRoute: AuthenticatedParticipantSalesRoute,
+    AuthenticatedParticipantSessionsRoute:
+      AuthenticatedParticipantSessionsRoute,
     AuthenticatedParticipantSettingsRoute:
       AuthenticatedParticipantSettingsRoute,
     AuthenticatedParticipantSupportRoute: AuthenticatedParticipantSupportRoute,

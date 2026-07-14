@@ -1,14 +1,16 @@
 // Resolve any video reference an admin might paste or upload into a concrete
 // playable source: YouTube / Vimeo embeds, or a direct file URL (.mp4, .webm,
 // HLS, or a Supabase Storage URL from an admin upload).
-export type VideoKind = "youtube" | "vimeo" | "file";
+export type VideoKind = "youtube" | "vimeo" | "drive" | "file";
 
 export type ResolvedVideo =
-  | { kind: "youtube" | "vimeo"; embedUrl: string }
+  | { kind: "youtube" | "vimeo" | "drive"; embedUrl: string }
   | { kind: "file"; fileUrl: string };
 
 const YT = /(?:youtube\.com\/(?:watch\?v=|embed\/|shorts\/|v\/)|youtu\.be\/)([\w-]{11})/;
 const VIMEO = /vimeo\.com\/(?:video\/)?(\d+)/;
+// Google Drive share links: /file/d/<ID>/…  or  ?id=<ID>  (docs.google.com too).
+const DRIVE = /(?:drive|docs)\.google\.com\/(?:file\/d\/|open\?id=|uc\?(?:export=\w+&)?id=)([\w-]{20,})/;
 
 /**
  * @param url      Raw URL/reference (watch link, embed link, .mp4, storage URL…)
@@ -26,6 +28,12 @@ export function resolveVideoSource(url: string, provider?: VideoKind): ResolvedV
     const vi = u.match(VIMEO);
     if ((provider === "vimeo" || vi) && vi) {
       return { kind: "vimeo", embedUrl: `https://player.vimeo.com/video/${vi[1]}` };
+    }
+    // Google Drive → the /preview player streams (with seek) in an iframe. The
+    // file must be shared "Anyone with the link · Viewer" to embed.
+    const dr = u.match(DRIVE);
+    if ((provider === "drive" || dr) && dr) {
+      return { kind: "drive", embedUrl: `https://drive.google.com/file/d/${dr[1]}/preview` };
     }
   }
 

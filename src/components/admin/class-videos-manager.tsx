@@ -39,7 +39,7 @@ import { thumbnailFor } from "@/lib/video-source";
 import { useProgramOptions } from "@/lib/vkm/program-scope";
 import { BatchProgramPicker } from "@/components/admin/batch-program-picker";
 
-const PROVIDER_LABEL = { youtube: "YouTube", vimeo: "Vimeo", file: "File / Upload" } as const;
+const PROVIDER_LABEL = { youtube: "YouTube", vimeo: "Vimeo", drive: "Google Drive", file: "File / Upload" } as const;
 
 export function ClassVideosManager() {
   const { options, selected, setSelected, loading: optLoading } = useProgramOptions();

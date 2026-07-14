@@ -13,6 +13,7 @@ import {
   Megaphone,
   BookOpen,
   UploadCloud,
+  Video,
   Trophy,
   Award,
   Gem,
@@ -125,6 +126,7 @@ export const PARTICIPANT_NAV: NavGroup[] = [
     label: "Growth",
     items: [
       { label: "Program Progress", to: "/participant/progress", icon: TrendingUp },
+      { label: "My Sessions", to: "/participant/sessions", icon: Video },
       { label: "Daily Habits", to: "/participant/habits", icon: Activity },
       { label: "Submit Proof", to: "/participant/proof", icon: UploadCloud },
     ],
@@ -272,6 +274,7 @@ export const ADMIN_NAV: NavGroup[] = [
     items: [
       { label: "Manage Programs", to: "/admin/programs-hub", icon: GitBranch },
       { label: "Videos & Files", to: "/admin/programs", icon: BookCopy },
+      { label: "Member Sessions", to: "/admin/member-sessions", icon: Video },
       { label: "Program Builder", to: "/admin/program-builder", icon: ListChecks },
       { label: "Batches", to: "/admin/batches", icon: Layers3 },
       { label: "LMS", to: "/admin/lms", icon: BookOpen },
