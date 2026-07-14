@@ -9,33 +9,43 @@ export type ResolvedVideo =
 
 const YT = /(?:youtube\.com\/(?:watch\?v=|embed\/|shorts\/|v\/)|youtu\.be\/)([\w-]{11})/;
 const VIMEO = /vimeo\.com\/(?:video\/)?(\d+)/;
-// Google Drive share links: /file/d/<ID>/…  or  ?id=<ID>  (docs.google.com too).
-const DRIVE = /(?:drive|docs)\.google\.com\/(?:file\/d\/|open\?id=|uc\?(?:export=\w+&)?id=)([\w-]{20,})/;
+// Google Drive share links, all common shapes:
+//   drive.google.com/file/d/<ID>/view          (the "Copy link" default)
+//   drive.google.com/open?id=<ID>
+//   drive.google.com/uc?export=…&id=<ID>
+//   drive.usercontent.google.com/download?id=<ID>  (newer download host)
+//   docs.google.com/…?id=<ID>  and any …?id=<ID>/…&id=<ID> form
+// A Drive file ID is 25–44 URL-safe chars; capture it wherever it appears.
+const DRIVE =
+  /(?:drive|docs)\.google\.com\/file\/d\/([\w-]{20,})|(?:drive|docs|drive\.usercontent)\.google\.com\/[^#]*?[?&]id=([\w-]{20,})/;
+
+function driveId(u: string): string | null {
+  const m = u.match(DRIVE);
+  return m ? m[1] || m[2] || null : null;
+}
 
 /**
  * @param url      Raw URL/reference (watch link, embed link, .mp4, storage URL…)
- * @param provider Optional explicit hint set by the admin; overrides detection
- *                 except that an unparseable embed falls back to a file source.
+ * @param provider Optional legacy hint — IGNORED for host detection. A stored
+ *                 provider can be stale (e.g. a Drive link saved as "file" before
+ *                 Drive support existed), and trusting it would send a streaming
+ *                 URL into the raw <video> player, which can't play it. We always
+ *                 detect YouTube/Vimeo/Drive from the URL and only fall back to a
+ *                 direct file when it matches none of them.
  */
-export function resolveVideoSource(url: string, provider?: VideoKind): ResolvedVideo {
+export function resolveVideoSource(url: string, _provider?: VideoKind): ResolvedVideo {
   const u = (url ?? "").trim();
 
-  if (provider !== "file") {
-    const yt = u.match(YT);
-    if ((provider === "youtube" || yt) && yt) {
-      return { kind: "youtube", embedUrl: `https://www.youtube.com/embed/${yt[1]}` };
-    }
-    const vi = u.match(VIMEO);
-    if ((provider === "vimeo" || vi) && vi) {
-      return { kind: "vimeo", embedUrl: `https://player.vimeo.com/video/${vi[1]}` };
-    }
-    // Google Drive → the /preview player streams (with seek) in an iframe. The
-    // file must be shared "Anyone with the link · Viewer" to embed.
-    const dr = u.match(DRIVE);
-    if ((provider === "drive" || dr) && dr) {
-      return { kind: "drive", embedUrl: `https://drive.google.com/file/d/${dr[1]}/preview` };
-    }
-  }
+  const yt = u.match(YT);
+  if (yt) return { kind: "youtube", embedUrl: `https://www.youtube.com/embed/${yt[1]}` };
+
+  const vi = u.match(VIMEO);
+  if (vi) return { kind: "vimeo", embedUrl: `https://player.vimeo.com/video/${vi[1]}` };
+
+  // Google Drive → the /preview player streams (with seek) in an iframe. The
+  // file must be shared "Anyone with the link · Viewer" to embed.
+  const dr = driveId(u);
+  if (dr) return { kind: "drive", embedUrl: `https://drive.google.com/file/d/${dr}/preview` };
 
   return { kind: "file", fileUrl: u };
 }

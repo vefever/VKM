@@ -182,6 +182,10 @@ export const COACH_NAV: NavGroup[] = [
     ],
   },
   {
+    label: "Content",
+    items: [{ label: "Program Videos & Files", to: "/coach/program-content", icon: FilePlus }],
+  },
+  {
     label: "Performance",
     items: [{ label: "Coach Performance", to: "/coach/leaderboard", icon: Trophy }],
   },
@@ -274,7 +278,6 @@ export const ADMIN_NAV: NavGroup[] = [
     items: [
       { label: "Manage Programs", to: "/admin/programs-hub", icon: GitBranch },
       { label: "Videos & Files", to: "/admin/programs", icon: BookCopy },
-      { label: "Member Sessions", to: "/admin/member-sessions", icon: Video },
       { label: "Program Builder", to: "/admin/program-builder", icon: ListChecks },
       { label: "Batches", to: "/admin/batches", icon: Layers3 },
       { label: "LMS", to: "/admin/lms", icon: BookOpen },

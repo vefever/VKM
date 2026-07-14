@@ -100,6 +100,7 @@ import { Route as AuthenticatedCoachReviewsRouteImport } from './routes/_authent
 import { Route as AuthenticatedCoachReportsRouteImport } from './routes/_authenticated/coach/reports'
 import { Route as AuthenticatedCoachRejectRouteImport } from './routes/_authenticated/coach/reject'
 import { Route as AuthenticatedCoachProofsRouteImport } from './routes/_authenticated/coach/proofs'
+import { Route as AuthenticatedCoachProgramContentRouteImport } from './routes/_authenticated/coach/program-content'
 import { Route as AuthenticatedCoachProfileRouteImport } from './routes/_authenticated/coach/profile'
 import { Route as AuthenticatedCoachPointsRouteImport } from './routes/_authenticated/coach/points'
 import { Route as AuthenticatedCoachPerformanceRouteImport } from './routes/_authenticated/coach/performance'
@@ -137,7 +138,6 @@ import { Route as AuthenticatedAdminProfileRouteImport } from './routes/_authent
 import { Route as AuthenticatedAdminPaymentsRouteImport } from './routes/_authenticated/admin/payments'
 import { Route as AuthenticatedAdminParticipantsRouteImport } from './routes/_authenticated/admin/participants'
 import { Route as AuthenticatedAdminNotificationsRouteImport } from './routes/_authenticated/admin/notifications'
-import { Route as AuthenticatedAdminMemberSessionsRouteImport } from './routes/_authenticated/admin/member-sessions'
 import { Route as AuthenticatedAdminLmsRouteImport } from './routes/_authenticated/admin/lms'
 import { Route as AuthenticatedAdminKnowledgeRouteImport } from './routes/_authenticated/admin/knowledge'
 import { Route as AuthenticatedAdminInvoicesRouteImport } from './routes/_authenticated/admin/invoices'
@@ -711,6 +711,12 @@ const AuthenticatedCoachProofsRoute =
     path: '/proofs',
     getParentRoute: () => AuthenticatedCoachRouteRoute,
   } as any)
+const AuthenticatedCoachProgramContentRoute =
+  AuthenticatedCoachProgramContentRouteImport.update({
+    id: '/program-content',
+    path: '/program-content',
+    getParentRoute: () => AuthenticatedCoachRouteRoute,
+  } as any)
 const AuthenticatedCoachProfileRoute =
   AuthenticatedCoachProfileRouteImport.update({
     id: '/profile',
@@ -922,12 +928,6 @@ const AuthenticatedAdminNotificationsRoute =
   AuthenticatedAdminNotificationsRouteImport.update({
     id: '/notifications',
     path: '/notifications',
-    getParentRoute: () => AuthenticatedAdminRouteRoute,
-  } as any)
-const AuthenticatedAdminMemberSessionsRoute =
-  AuthenticatedAdminMemberSessionsRouteImport.update({
-    id: '/member-sessions',
-    path: '/member-sessions',
     getParentRoute: () => AuthenticatedAdminRouteRoute,
   } as any)
 const AuthenticatedAdminLmsRoute = AuthenticatedAdminLmsRouteImport.update({
@@ -1209,7 +1209,6 @@ export interface FileRoutesByFullPath {
   '/admin/invoices': typeof AuthenticatedAdminInvoicesRoute
   '/admin/knowledge': typeof AuthenticatedAdminKnowledgeRoute
   '/admin/lms': typeof AuthenticatedAdminLmsRoute
-  '/admin/member-sessions': typeof AuthenticatedAdminMemberSessionsRoute
   '/admin/notifications': typeof AuthenticatedAdminNotificationsRoute
   '/admin/participants': typeof AuthenticatedAdminParticipantsRoute
   '/admin/payments': typeof AuthenticatedAdminPaymentsRoute
@@ -1247,6 +1246,7 @@ export interface FileRoutesByFullPath {
   '/coach/performance': typeof AuthenticatedCoachPerformanceRoute
   '/coach/points': typeof AuthenticatedCoachPointsRoute
   '/coach/profile': typeof AuthenticatedCoachProfileRoute
+  '/coach/program-content': typeof AuthenticatedCoachProgramContentRoute
   '/coach/proofs': typeof AuthenticatedCoachProofsRoute
   '/coach/reject': typeof AuthenticatedCoachRejectRoute
   '/coach/reports': typeof AuthenticatedCoachReportsRoute
@@ -1377,7 +1377,6 @@ export interface FileRoutesByTo {
   '/admin/invoices': typeof AuthenticatedAdminInvoicesRoute
   '/admin/knowledge': typeof AuthenticatedAdminKnowledgeRoute
   '/admin/lms': typeof AuthenticatedAdminLmsRoute
-  '/admin/member-sessions': typeof AuthenticatedAdminMemberSessionsRoute
   '/admin/notifications': typeof AuthenticatedAdminNotificationsRoute
   '/admin/participants': typeof AuthenticatedAdminParticipantsRoute
   '/admin/payments': typeof AuthenticatedAdminPaymentsRoute
@@ -1415,6 +1414,7 @@ export interface FileRoutesByTo {
   '/coach/performance': typeof AuthenticatedCoachPerformanceRoute
   '/coach/points': typeof AuthenticatedCoachPointsRoute
   '/coach/profile': typeof AuthenticatedCoachProfileRoute
+  '/coach/program-content': typeof AuthenticatedCoachProgramContentRoute
   '/coach/proofs': typeof AuthenticatedCoachProofsRoute
   '/coach/reject': typeof AuthenticatedCoachRejectRoute
   '/coach/reports': typeof AuthenticatedCoachReportsRoute
@@ -1551,7 +1551,6 @@ export interface FileRoutesById {
   '/_authenticated/admin/invoices': typeof AuthenticatedAdminInvoicesRoute
   '/_authenticated/admin/knowledge': typeof AuthenticatedAdminKnowledgeRoute
   '/_authenticated/admin/lms': typeof AuthenticatedAdminLmsRoute
-  '/_authenticated/admin/member-sessions': typeof AuthenticatedAdminMemberSessionsRoute
   '/_authenticated/admin/notifications': typeof AuthenticatedAdminNotificationsRoute
   '/_authenticated/admin/participants': typeof AuthenticatedAdminParticipantsRoute
   '/_authenticated/admin/payments': typeof AuthenticatedAdminPaymentsRoute
@@ -1589,6 +1588,7 @@ export interface FileRoutesById {
   '/_authenticated/coach/performance': typeof AuthenticatedCoachPerformanceRoute
   '/_authenticated/coach/points': typeof AuthenticatedCoachPointsRoute
   '/_authenticated/coach/profile': typeof AuthenticatedCoachProfileRoute
+  '/_authenticated/coach/program-content': typeof AuthenticatedCoachProgramContentRoute
   '/_authenticated/coach/proofs': typeof AuthenticatedCoachProofsRoute
   '/_authenticated/coach/reject': typeof AuthenticatedCoachRejectRoute
   '/_authenticated/coach/reports': typeof AuthenticatedCoachReportsRoute
@@ -1725,7 +1725,6 @@ export interface FileRouteTypes {
     | '/admin/invoices'
     | '/admin/knowledge'
     | '/admin/lms'
-    | '/admin/member-sessions'
     | '/admin/notifications'
     | '/admin/participants'
     | '/admin/payments'
@@ -1763,6 +1762,7 @@ export interface FileRouteTypes {
     | '/coach/performance'
     | '/coach/points'
     | '/coach/profile'
+    | '/coach/program-content'
     | '/coach/proofs'
     | '/coach/reject'
     | '/coach/reports'
@@ -1893,7 +1893,6 @@ export interface FileRouteTypes {
     | '/admin/invoices'
     | '/admin/knowledge'
     | '/admin/lms'
-    | '/admin/member-sessions'
     | '/admin/notifications'
     | '/admin/participants'
     | '/admin/payments'
@@ -1931,6 +1930,7 @@ export interface FileRouteTypes {
     | '/coach/performance'
     | '/coach/points'
     | '/coach/profile'
+    | '/coach/program-content'
     | '/coach/proofs'
     | '/coach/reject'
     | '/coach/reports'
@@ -2066,7 +2066,6 @@ export interface FileRouteTypes {
     | '/_authenticated/admin/invoices'
     | '/_authenticated/admin/knowledge'
     | '/_authenticated/admin/lms'
-    | '/_authenticated/admin/member-sessions'
     | '/_authenticated/admin/notifications'
     | '/_authenticated/admin/participants'
     | '/_authenticated/admin/payments'
@@ -2104,6 +2103,7 @@ export interface FileRouteTypes {
     | '/_authenticated/coach/performance'
     | '/_authenticated/coach/points'
     | '/_authenticated/coach/profile'
+    | '/_authenticated/coach/program-content'
     | '/_authenticated/coach/proofs'
     | '/_authenticated/coach/reject'
     | '/_authenticated/coach/reports'
@@ -2855,6 +2855,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedCoachProofsRouteImport
       parentRoute: typeof AuthenticatedCoachRouteRoute
     }
+    '/_authenticated/coach/program-content': {
+      id: '/_authenticated/coach/program-content'
+      path: '/program-content'
+      fullPath: '/coach/program-content'
+      preLoaderRoute: typeof AuthenticatedCoachProgramContentRouteImport
+      parentRoute: typeof AuthenticatedCoachRouteRoute
+    }
     '/_authenticated/coach/profile': {
       id: '/_authenticated/coach/profile'
       path: '/profile'
@@ -3112,13 +3119,6 @@ declare module '@tanstack/react-router' {
       path: '/notifications'
       fullPath: '/admin/notifications'
       preLoaderRoute: typeof AuthenticatedAdminNotificationsRouteImport
-      parentRoute: typeof AuthenticatedAdminRouteRoute
-    }
-    '/_authenticated/admin/member-sessions': {
-      id: '/_authenticated/admin/member-sessions'
-      path: '/member-sessions'
-      fullPath: '/admin/member-sessions'
-      preLoaderRoute: typeof AuthenticatedAdminMemberSessionsRouteImport
       parentRoute: typeof AuthenticatedAdminRouteRoute
     }
     '/_authenticated/admin/lms': {
@@ -3438,7 +3438,6 @@ interface AuthenticatedAdminRouteRouteChildren {
   AuthenticatedAdminInvoicesRoute: typeof AuthenticatedAdminInvoicesRoute
   AuthenticatedAdminKnowledgeRoute: typeof AuthenticatedAdminKnowledgeRoute
   AuthenticatedAdminLmsRoute: typeof AuthenticatedAdminLmsRoute
-  AuthenticatedAdminMemberSessionsRoute: typeof AuthenticatedAdminMemberSessionsRoute
   AuthenticatedAdminNotificationsRoute: typeof AuthenticatedAdminNotificationsRoute
   AuthenticatedAdminParticipantsRoute: typeof AuthenticatedAdminParticipantsRoute
   AuthenticatedAdminPaymentsRoute: typeof AuthenticatedAdminPaymentsRoute
@@ -3500,8 +3499,6 @@ const AuthenticatedAdminRouteRouteChildren: AuthenticatedAdminRouteRouteChildren
     AuthenticatedAdminInvoicesRoute: AuthenticatedAdminInvoicesRoute,
     AuthenticatedAdminKnowledgeRoute: AuthenticatedAdminKnowledgeRoute,
     AuthenticatedAdminLmsRoute: AuthenticatedAdminLmsRoute,
-    AuthenticatedAdminMemberSessionsRoute:
-      AuthenticatedAdminMemberSessionsRoute,
     AuthenticatedAdminNotificationsRoute: AuthenticatedAdminNotificationsRoute,
     AuthenticatedAdminParticipantsRoute: AuthenticatedAdminParticipantsRoute,
     AuthenticatedAdminPaymentsRoute: AuthenticatedAdminPaymentsRoute,
@@ -3576,6 +3573,7 @@ interface AuthenticatedCoachRouteRouteChildren {
   AuthenticatedCoachPerformanceRoute: typeof AuthenticatedCoachPerformanceRoute
   AuthenticatedCoachPointsRoute: typeof AuthenticatedCoachPointsRoute
   AuthenticatedCoachProfileRoute: typeof AuthenticatedCoachProfileRoute
+  AuthenticatedCoachProgramContentRoute: typeof AuthenticatedCoachProgramContentRoute
   AuthenticatedCoachProofsRoute: typeof AuthenticatedCoachProofsRoute
   AuthenticatedCoachRejectRoute: typeof AuthenticatedCoachRejectRoute
   AuthenticatedCoachReportsRoute: typeof AuthenticatedCoachReportsRoute
@@ -3609,6 +3607,8 @@ const AuthenticatedCoachRouteRouteChildren: AuthenticatedCoachRouteRouteChildren
     AuthenticatedCoachPerformanceRoute: AuthenticatedCoachPerformanceRoute,
     AuthenticatedCoachPointsRoute: AuthenticatedCoachPointsRoute,
     AuthenticatedCoachProfileRoute: AuthenticatedCoachProfileRoute,
+    AuthenticatedCoachProgramContentRoute:
+      AuthenticatedCoachProgramContentRoute,
     AuthenticatedCoachProofsRoute: AuthenticatedCoachProofsRoute,
     AuthenticatedCoachRejectRoute: AuthenticatedCoachRejectRoute,
     AuthenticatedCoachReportsRoute: AuthenticatedCoachReportsRoute,

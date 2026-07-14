@@ -4,6 +4,15 @@ A running log of platform updates. Newest first. Ask any time for a **PDF** of t
 
 ---
 
+## 2026-07-14
+
+### Changed
+- **1-on-1 session videos moved into the participant profile** — managing a member's private session videos is no longer a separate admin page. It now lives as a **Sessions** tab right inside the participant's detail view (My Participants → open a member), so **coaches, mentors and admins** all manage them in the same place they already review that person. Add a video for any week (1–16) or "General", paste a Google Drive / YouTube / Vimeo / direct link or upload a file — the member still sees them all on their own **My Sessions** page. The standalone "Member Sessions" admin page has been removed.
+- **Google Drive videos now play reliably** — the player used to sometimes drop a Drive link into the raw file player, which couldn't stream it (showing "unable to load" and offering a download). Drive, YouTube and Vimeo links are now always detected straight from the URL and streamed in their proper in-app player, even for older links saved before Drive support existed. (Drive files still need to be shared "Anyone with the link · Viewer" to play.)
+
+### Added
+- **Coaches can now upload program videos & files** — coaches get a new **Program Videos & Files** page (under Content) to set each week's class video, thumbnail and downloadable resources for a batch — the same upload tools mentors and admins have. Coaches **cannot** change the program structure (weeks/topics/tasks) — that stays with mentors and admins; they only add the videos and files.
+
 ## 2026-07-07
 
 ### Fixed

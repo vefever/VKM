@@ -37,7 +37,15 @@ const PHASE_COLOR: Record<Phase, string> = {
   Review: "#10b981",
 };
 
-export function ProgramDesign() {
+export function ProgramDesign({
+  eyebrow = "Admin",
+  title = "Program Design",
+  description = "Per week: the class video and any downloads / resources for a batch. Different batches can have different videos and files; participants see only their batch's content.",
+}: {
+  eyebrow?: string;
+  title?: string;
+  description?: string;
+} = {}) {
   const { options, selected, setSelected, loading: optLoading } = useProgramOptions();
   const { rows, loading, reload } = useWeekVideos(selected);
   const { byWeek: resByWeek, reload: reloadRes } = useWeekResources(selected);
@@ -52,9 +60,9 @@ export function ProgramDesign() {
       className="space-y-5"
     >
       <PageHeader
-        eyebrow="Admin"
-        title="Program Design"
-        description="Per week: the class video and any downloads / resources for a batch. Different batches can have different videos and files; participants see only their batch's content."
+        eyebrow={eyebrow}
+        title={title}
+        description={description}
         icon={LayoutList}
       />
 

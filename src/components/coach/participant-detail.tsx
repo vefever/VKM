@@ -35,6 +35,7 @@ import {
   Activity,
   Compass,
   FolderOpen,
+  Video,
   FileSpreadsheet,
   FileText,
   type LucideIcon,
@@ -73,6 +74,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { ParticipantBusinessTab } from "@/components/coach/participant-business-tab";
 import { ParticipantVisionTab } from "@/components/coach/participant-vision-tab";
 import { ParticipantFilesTab } from "@/components/coach/participant-files-tab";
+import { MemberSessionsManager } from "@/components/coach/member-sessions-manager";
 import { exportReportPdf, exportReportExcel, type ReportExportSpec } from "@/lib/vkm/report-export";
 
 const inr = (n: number | null | undefined) =>
@@ -479,6 +481,9 @@ export function ParticipantDetail({
               <TabsTrigger value="vision" className="gap-1.5 rounded-full border border-border bg-card px-3.5 py-1.5 data-[state=active]:border-transparent data-[state=active]:bg-gradient-navy data-[state=active]:text-primary-foreground data-[state=active]:shadow-vkm">
                 <Compass className="h-3.5 w-3.5" /> Vision Board
               </TabsTrigger>
+              <TabsTrigger value="sessions" className="gap-1.5 rounded-full border border-border bg-card px-3.5 py-1.5 data-[state=active]:border-transparent data-[state=active]:bg-gradient-navy data-[state=active]:text-primary-foreground data-[state=active]:shadow-vkm">
+                <Video className="h-3.5 w-3.5" /> Sessions
+              </TabsTrigger>
               <TabsTrigger value="files" className="gap-1.5 rounded-full border border-border bg-card px-3.5 py-1.5 data-[state=active]:border-transparent data-[state=active]:bg-gradient-navy data-[state=active]:text-primary-foreground data-[state=active]:shadow-vkm">
                 <FolderOpen className="h-3.5 w-3.5" /> Files
               </TabsTrigger>
@@ -618,6 +623,12 @@ export function ParticipantDetail({
 
             <TabsContent value="vision">
               <ParticipantVisionTab userId={userId} />
+            </TabsContent>
+
+            <TabsContent value="sessions" className="space-y-5">
+              {/* Per-member 1-on-1 session videos, by week — staff add here, the
+                  member sees them on their own "My Sessions" page. */}
+              <MemberSessionsManager userId={userId} memberName={name} />
             </TabsContent>
 
             <TabsContent value="files">
