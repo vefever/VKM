@@ -3,7 +3,7 @@ import { differenceInCalendarDays, startOfToday } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { type Attachment } from "@/components/chat/chat-data";
-import { profilesDisplayFor } from "@/lib/profiles-display";
+import { profilesDisplayFor, profileDisplayMap } from "@/lib/profiles-display";
 import { weekFromStart } from "@/components/participant/enrollment-data";
 
 // Program week derived from the Batch-16 start (matches the habit tracker anchor).
@@ -266,14 +266,16 @@ export function useParticipantTeam(userId: string | null) {
   return { members, loading };
 }
 
-async function namesFor(ids: string[]): Promise<Record<string, string>> {
+/**
+ * Display name + avatar for a set of users. Goes through the display RPC, not a
+ * direct profiles read — the latter is RLS-blocked (silently zero rows) for
+ * non-staff viewers, and never returned the avatar.
+ */
+async function displaysFor(
+  ids: string[],
+): Promise<Record<string, { name: string; avatar: string | null }>> {
   if (ids.length === 0) return {};
-  const { data } = await supabase.from("profiles").select("id, full_name").in("id", ids);
-  const map: Record<string, string> = {};
-  (data ?? []).forEach((p) => {
-    map[p.id] = p.full_name ?? "Participant";
-  });
-  return map;
+  return profileDisplayMap(ids, "Participant");
 }
 
 // ---------------------------------------------------------------------------
@@ -349,6 +351,7 @@ export type PendingProof = {
   id: string;
   user_id: string;
   name: string;
+  avatar_url: string | null;
   week_no: number;
   proof_url: string | null;
   proof_files: Attachment[];
@@ -376,12 +379,13 @@ export function useProofQueue() {
       return;
     }
     const rows = data ?? [];
-    const names = await namesFor([...new Set(rows.map((r) => r.user_id))]);
+    const display = await displaysFor([...new Set(rows.map((r) => r.user_id))]);
     setItems(
       rows.map((r) => ({
         ...r,
         proof_files: (r.proof_files ?? []) as Attachment[],
-        name: names[r.user_id] ?? "Participant",
+        name: display[r.user_id]?.name ?? "Participant",
+        avatar_url: display[r.user_id]?.avatar ?? null,
       })),
     );
     setLoading(false);
@@ -462,6 +466,7 @@ export type HabitProofItem = {
   id: string;
   user_id: string;
   name: string;
+  avatar_url: string | null;
   habit_id: string;
   day_no: number;
   log_date: string;
@@ -498,12 +503,13 @@ export function useHabitProofFeed(limit = 60) {
         }[]
       >();
     const rows = (data ?? []).filter((r) => ((r.proof_files as Attachment[]) ?? []).length > 0);
-    const names = await namesFor([...new Set(rows.map((r) => r.user_id))]);
+    const display = await displaysFor([...new Set(rows.map((r) => r.user_id))]);
     setItems(
       rows.map((r) => ({
         id: r.id,
         user_id: r.user_id,
-        name: names[r.user_id] ?? "Participant",
+        name: display[r.user_id]?.name ?? "Participant",
+        avatar_url: display[r.user_id]?.avatar ?? null,
         habit_id: r.habit_id,
         day_no: r.day_no,
         log_date: r.log_date,
@@ -672,6 +678,7 @@ export function useParticipantsOverview() {
 export type CoachStat = {
   id: string;
   name: string;
+  avatar_url: string | null;
   reviews: number;
   approved: number;
   rejected: number;
@@ -693,8 +700,8 @@ export function useCoachPerformance() {
         .select("user_id")
         .eq("role", "coach");
       const coachIds = (roles ?? []).map((r) => r.user_id);
-      const [names, { data: reviewed }] = await Promise.all([
-        namesFor(coachIds),
+      const [display, { data: reviewed }] = await Promise.all([
+        displaysFor(coachIds),
         supabase
           .from("weekly_progress")
           .select("coach_id, user_id, proof_status, reviewed_at, created_at")
@@ -728,7 +735,8 @@ export function useCoachPerformance() {
           : null;
         return {
           id,
-          name: names[id] ?? "Coach",
+          name: display[id]?.name ?? "Coach",
+          avatar_url: display[id]?.avatar ?? null,
           reviews,
           approved,
           rejected,

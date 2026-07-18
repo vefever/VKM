@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import { Link } from "@tanstack/react-router";
 import { formatDistanceToNowStrict } from "date-fns";
+import { AvatarBadge } from "@/components/vkm/avatar-badge";
 import {
   Briefcase,
   Banknote,
@@ -504,15 +505,7 @@ function SectionNav() {
 
 // Anchors the page to the 16-week coached journey: where you are, the goal you
 // set, and the week's focus — so the numbers serve the program, not vice-versa.
-function ProgramBand({
-  data,
-  week,
-  totalWeeks,
-}: {
-  data: Data;
-  week: number;
-  totalWeeks: number;
-}) {
+function ProgramBand({ data, week, totalWeeks }: { data: Data; week: number; totalWeeks: number }) {
   const displayWeek = Math.max(1, week);
   const wk = weekByNumber(displayWeek);
   const throughPct = Math.round((displayWeek / totalWeeks) * 100);
@@ -548,7 +541,9 @@ function ProgramBand({
       {target != null && (
         <div className="mt-4 rounded-2xl bg-white/5 p-3">
           <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-0.5 text-xs sm:text-sm">
-            <span className="text-primary-foreground/80">Goal: {inr(target)} MRR by Week {totalWeeks}</span>
+            <span className="text-primary-foreground/80">
+              Goal: {inr(target)} MRR by Week {totalWeeks}
+            </span>
             <span className="font-semibold">
               {mrr != null ? inr(mrr) : "—"}
               {goalPct != null ? ` · ${goalPct}%` : ""}
@@ -624,11 +619,19 @@ function OverviewExtras({ data, onUpdate }: { data: Data; onUpdate: () => void }
         </p>
       )}
       {latest.status === "approved" && latest.reviewed_at && (
-        <p className="rounded-xl bg-[oklch(0.95_0.03_160)] px-3 py-2 text-xs text-[oklch(0.4_0.1_160)]">
-          Reviewed by {data.reviewerName ?? "your coach"}{" "}
-          {formatDistanceToNowStrict(new Date(latest.reviewed_at), { addSuffix: true })} — counting
-          toward your points.
-        </p>
+        <div className="flex items-center gap-2 rounded-xl bg-[oklch(0.95_0.03_160)] px-3 py-2 text-xs text-[oklch(0.4_0.1_160)]">
+          <AvatarBadge
+            name={data.reviewerName ?? "Coach"}
+            src={data.reviewerAvatar}
+            size="sm"
+            className="shrink-0"
+          />
+          <p>
+            Reviewed by {data.reviewerName ?? "your coach"}{" "}
+            {formatDistanceToNowStrict(new Date(latest.reviewed_at), { addSuffix: true })} —
+            counting toward your points.
+          </p>
+        </div>
       )}
 
       <div className="flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-border bg-card px-3 py-2.5">

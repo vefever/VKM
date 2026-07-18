@@ -3,6 +3,7 @@ import { format, startOfMonth } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { type BusinessBrain } from "@/components/coach/coach-data";
+import { profileDisplayMap, profilesDisplayFor } from "@/lib/profiles-display";
 
 export type SnapshotStatus = "pending" | "approved" | "rejected";
 
@@ -67,6 +68,7 @@ export function useBusinessData() {
   const [profile, setProfile] = useState<BusinessBrain | null>(null);
   const [snapshots, setSnapshots] = useState<BusinessSnapshot[]>([]);
   const [reviewerName, setReviewerName] = useState<string | null>(null);
+  const [reviewerAvatar, setReviewerAvatar] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const currentMonth = useMemo(() => monthKey(new Date()), []);
 
@@ -93,14 +95,15 @@ export function useBusinessData() {
     // Name of the coach who last reviewed — so "Reviewed by Soumya" can show.
     const reviewerId = [...rows].reverse().find((s) => s.reviewed_by)?.reviewed_by;
     if (reviewerId) {
-      const { data: p } = await supabase
-        .from("profiles")
-        .select("full_name")
-        .eq("id", reviewerId)
-        .maybeSingle();
-      setReviewerName(p?.full_name ?? null);
+      // Must go through the display RPC: a participant cannot read a coach's
+      // profiles row directly (RLS returns zero rows silently), which is why
+      // this used to always fall back to a generic "Coach".
+      const hit = (await profilesDisplayFor([reviewerId])).get(reviewerId);
+      setReviewerName(hit?.name ?? null);
+      setReviewerAvatar(hit?.avatar ?? null);
     } else {
       setReviewerName(null);
+      setReviewerAvatar(null);
     }
     setLoading(false);
   }, [user]);
@@ -153,6 +156,7 @@ export function useBusinessData() {
     byMonth,
     currentMonth,
     reviewerName,
+    reviewerAvatar,
     loading,
     saveSnapshot,
     reload: load,
@@ -231,7 +235,11 @@ export function momDelta(curr: number | null, prev: number | null): number | nul
 // ---------------------------------------------------------------------------
 // STAFF — review queue for self-reported numbers.
 // ---------------------------------------------------------------------------
-export type SnapshotReviewItem = BusinessSnapshot & { user_id: string; name: string };
+export type SnapshotReviewItem = BusinessSnapshot & {
+  user_id: string;
+  name: string;
+  avatar_url: string | null;
+};
 
 export function useSnapshotReviewQueue() {
   const { user } = useAuth();
@@ -246,13 +254,13 @@ export function useSnapshotReviewQueue() {
       .order("created_at", { ascending: true });
     const rows = data ?? [];
     const ids = [...new Set(rows.map((r) => r.user_id))];
-    const names: Record<string, string> = {};
-    if (ids.length) {
-      const { data: profs } = await supabase.from("profiles").select("id, full_name").in("id", ids);
-      (profs ?? []).forEach((p) => (names[p.id] = p.full_name ?? "Participant"));
-    }
+    const display = ids.length ? await profileDisplayMap(ids, "Participant") : {};
     setItems(
-      rows.map((r) => ({ ...(r as SnapshotReviewItem), name: names[r.user_id] ?? "Participant" })),
+      rows.map((r) => ({
+        ...(r as SnapshotReviewItem),
+        name: display[r.user_id]?.name ?? "Participant",
+        avatar_url: display[r.user_id]?.avatar ?? null,
+      })),
     );
     setLoading(false);
   }, []);

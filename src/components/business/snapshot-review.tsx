@@ -77,7 +77,7 @@ function SnapshotCard({
     >
       <div className="rounded-2xl border border-border bg-card p-4 shadow-vkm">
         <div className="flex items-center gap-3">
-          <AvatarBadge name={item.name} size="md" />
+          <AvatarBadge name={item.name} src={item.avatar_url} size="md" />
           <div className="min-w-0 flex-1">
             <p className="truncate text-sm font-semibold text-foreground">{item.name}</p>
             <p className="text-xs text-muted-foreground">

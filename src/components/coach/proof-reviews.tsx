@@ -439,7 +439,7 @@ function ProofCard({
               )}
             </button>
           )}
-          <AvatarBadge name={item.name} size="lg" />
+          <AvatarBadge name={item.name} src={item.avatar_url} size="lg" />
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-2">
               <p className="text-lg font-semibold leading-tight text-foreground">{item.name}</p>
@@ -926,7 +926,7 @@ function HistoryCard({ item }: { item: HistoryProof }) {
     >
       {/* Header row — always visible */}
       <div className="flex items-center gap-3 px-4 py-3">
-        <AvatarBadge name={item.name} size="md" />
+        <AvatarBadge name={item.name} src={item.avatar_url} size="md" />
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-1.5">
             <Link

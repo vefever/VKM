@@ -71,6 +71,7 @@ import {
   useParticipantsOverview,
   type WeekRow,
 } from "@/components/coach/coach-data";
+import { profileDisplayMap } from "@/lib/profiles-display";
 import { staffLoginAsParticipant } from "@/lib/vkm/admin-users.functions";
 import { useParticipantHabits, HABITS, TRACKER_HABITS, dateForDay } from "@/components/habits/habit-tracker";
 import { HabitGrid } from "@/components/habits/habit-grid";
@@ -777,9 +778,9 @@ function CoachingLog({ userId }: { userId: string }) {
     setNotes(rows);
     const ids = [...new Set(rows.map((n) => n.coach_id))];
     if (ids.length) {
-      const { data: profs } = await supabase.from("profiles").select("id, full_name").in("id", ids);
+      const display = await profileDisplayMap(ids, "Coach");
       const m: Record<string, string> = {};
-      (profs ?? []).forEach((p) => (m[p.id] = p.full_name ?? "Coach"));
+      for (const [id, d] of Object.entries(display)) m[id] = d.name;
       setAuthors(m);
     }
     setLoading(false);

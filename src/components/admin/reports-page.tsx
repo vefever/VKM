@@ -34,7 +34,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   usePeopleSearch,
   usePickerLists,
@@ -134,7 +140,12 @@ export function ReportsPage({ eyebrow = "Admin · VK" }: { eyebrow?: string } = 
           {
             title: "Proof history",
             columns: ["Week", "Status", "Points", "Reviewed"],
-            rows: d.proof_history.map((r) => [r.week_no, r.proof_status, r.points, r.updated_at?.slice(0, 10) ?? "—"]),
+            rows: d.proof_history.map((r) => [
+              r.week_no,
+              r.proof_status,
+              r.points,
+              r.updated_at?.slice(0, 10) ?? "—",
+            ]),
           },
         ],
       };
@@ -153,7 +164,14 @@ export function ReportsPage({ eyebrow = "Admin · VK" }: { eyebrow?: string } = 
         tables: [
           {
             title: "Roster",
-            columns: ["Name", "Week", "Weeks approved", "Completion % (range)", "Points (range)", "At risk"],
+            columns: [
+              "Name",
+              "Week",
+              "Weeks approved",
+              "Completion % (range)",
+              "Points (range)",
+              "At risk",
+            ],
             rows: d.roster.map((r) => [
               r.full_name ?? "—",
               r.current_week,
@@ -180,7 +198,14 @@ export function ReportsPage({ eyebrow = "Admin · VK" }: { eyebrow?: string } = 
         tables: [
           {
             title: "Participants",
-            columns: ["Name", "Week", "Weeks approved", "Completion % (range)", "Points (range)", "At risk"],
+            columns: [
+              "Name",
+              "Week",
+              "Weeks approved",
+              "Completion % (range)",
+              "Points (range)",
+              "At risk",
+            ],
             rows: d.roster.map((r) => [
               r.full_name ?? "—",
               r.current_week,
@@ -207,7 +232,11 @@ export function ReportsPage({ eyebrow = "Admin · VK" }: { eyebrow?: string } = 
           {
             title: "Recent reviews",
             columns: ["Type", "Detail", "When"],
-            rows: d.recent_reviews.map((r) => [r.kind, r.label, r.ts?.slice(0, 16).replace("T", " ")]),
+            rows: d.recent_reviews.map((r) => [
+              r.kind,
+              r.label,
+              r.ts?.slice(0, 16).replace("T", " "),
+            ]),
           },
         ],
       };
@@ -222,13 +251,29 @@ export function ReportsPage({ eyebrow = "Admin · VK" }: { eyebrow?: string } = 
 
   const activeReport = useMemo<{ kind: ReportKind; title: string; data: unknown } | null>(() => {
     if (tab === "individual" && individual.data?.profile)
-      return { kind: "individual", title: `Individual Report — ${individual.data.profile.full_name ?? "Participant"}`, data: individual.data };
+      return {
+        kind: "individual",
+        title: `Individual Report — ${individual.data.profile.full_name ?? "Participant"}`,
+        data: individual.data,
+      };
     if (tab === "batch" && batchR.data?.batch)
-      return { kind: "batch", title: `Batch Report — ${batchR.data.batch.name}`, data: batchR.data };
+      return {
+        kind: "batch",
+        title: `Batch Report — ${batchR.data.batch.name}`,
+        data: batchR.data,
+      };
     if (tab === "coach" && coachR.data?.coach)
-      return { kind: "coach", title: `Coach Report — ${coachR.data.coach.full_name ?? "Coach"}`, data: coachR.data };
+      return {
+        kind: "coach",
+        title: `Coach Report — ${coachR.data.coach.full_name ?? "Coach"}`,
+        data: coachR.data,
+      };
     if (tab === "mentor" && mentorR.data?.mentor)
-      return { kind: "mentor", title: `Mentor Report — ${mentorR.data.mentor.full_name ?? "Mentor"}`, data: mentorR.data };
+      return {
+        kind: "mentor",
+        title: `Mentor Report — ${mentorR.data.mentor.full_name ?? "Mentor"}`,
+        data: mentorR.data,
+      };
     return null;
   }, [tab, individual.data, batchR.data, coachR.data, mentorR.data]);
 
@@ -247,7 +292,13 @@ export function ReportsPage({ eyebrow = "Admin · VK" }: { eyebrow?: string } = 
     setAiText("");
     try {
       const res = await genAi({
-        data: { kind: activeReport.kind, title: activeReport.title, from, to, data: activeReport.data },
+        data: {
+          kind: activeReport.kind,
+          title: activeReport.title,
+          from,
+          to,
+          data: activeReport.data,
+        },
       });
       if (res instanceof Response && res.body) {
         const reader = res.body.getReader();
@@ -325,7 +376,11 @@ export function ReportsPage({ eyebrow = "Admin · VK" }: { eyebrow?: string } = 
               onClick={() => onExport("excel")}
               disabled={!currentSpec || exporting !== null}
             >
-              {exporting === "excel" ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileSpreadsheet className="h-4 w-4" />}
+              {exporting === "excel" ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <FileSpreadsheet className="h-4 w-4" />
+              )}
               Excel
             </Button>
             <Button
@@ -334,7 +389,11 @@ export function ReportsPage({ eyebrow = "Admin · VK" }: { eyebrow?: string } = 
               onClick={() => onExport("pdf")}
               disabled={!currentSpec || exporting !== null}
             >
-              {exporting === "pdf" ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileText className="h-4 w-4" />}
+              {exporting === "pdf" ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <FileText className="h-4 w-4" />
+              )}
               PDF
             </Button>
           </>
@@ -343,15 +402,26 @@ export function ReportsPage({ eyebrow = "Admin · VK" }: { eyebrow?: string } = 
 
       <Tabs value={tab} onValueChange={(v) => setTab(v as Tab)}>
         <TabsList>
-          <TabsTrigger value="individual"><User className="h-3.5 w-3.5" /> Individual</TabsTrigger>
-          <TabsTrigger value="batch"><Layers3 className="h-3.5 w-3.5" /> Batch</TabsTrigger>
-          <TabsTrigger value="coach"><UsersRound className="h-3.5 w-3.5" /> Coach</TabsTrigger>
-          <TabsTrigger value="mentor"><GraduationCap className="h-3.5 w-3.5" /> Mentor</TabsTrigger>
+          <TabsTrigger value="individual">
+            <User className="h-3.5 w-3.5" /> Individual
+          </TabsTrigger>
+          <TabsTrigger value="batch">
+            <Layers3 className="h-3.5 w-3.5" /> Batch
+          </TabsTrigger>
+          <TabsTrigger value="coach">
+            <UsersRound className="h-3.5 w-3.5" /> Coach
+          </TabsTrigger>
+          <TabsTrigger value="mentor">
+            <GraduationCap className="h-3.5 w-3.5" /> Mentor
+          </TabsTrigger>
         </TabsList>
       </Tabs>
 
-      {/* Filter bar */}
-      <SectionCard>
+      {/* Filter bar — overflow-visible so the person search results can escape
+          the card (SectionCard is overflow-hidden by default, which clipped the
+          dropdown), and a raised stacking context so it paints over the report
+          cards below instead of behind them. */}
+      <SectionCard className="relative z-30 overflow-visible">
         <div className="flex flex-wrap items-end gap-3">
           {tab === "individual" && (
             <div className="relative min-w-[240px] flex-1 space-y-1.5">
@@ -371,7 +441,7 @@ export function ReportsPage({ eyebrow = "Admin · VK" }: { eyebrow?: string } = 
                 />
               </div>
               {showResults && people.length > 0 && (
-                <div className="absolute z-20 mt-1 w-full overflow-hidden rounded-xl border border-border bg-card shadow-vkm-float">
+                <div className="absolute z-50 mt-1 max-h-72 w-full overflow-y-auto rounded-xl border border-border bg-card shadow-vkm-float">
                   {people.map((p) => (
                     <button
                       key={p.user_id}
@@ -391,8 +461,12 @@ export function ReportsPage({ eyebrow = "Admin · VK" }: { eyebrow?: string } = 
                         decoding="async"
                         className="h-6 w-6 shrink-0 rounded-full border border-border object-cover"
                       />
-                      <span className="min-w-0 flex-1 truncate text-foreground">{p.full_name ?? "—"}</span>
-                      <span className="shrink-0 text-[11px] text-muted-foreground">{p.roles.join(", ")}</span>
+                      <span className="min-w-0 flex-1 truncate text-foreground">
+                        {p.full_name ?? "—"}
+                      </span>
+                      <span className="shrink-0 text-[11px] text-muted-foreground">
+                        {p.roles.join(", ")}
+                      </span>
                     </button>
                   ))}
                 </div>
@@ -461,15 +535,32 @@ export function ReportsPage({ eyebrow = "Admin · VK" }: { eyebrow?: string } = 
           <div className="flex items-end gap-2">
             <div className="space-y-1.5">
               <Label>From</Label>
-              <Input type="date" value={from} onChange={(e) => setFrom(e.target.value)} className="h-10 rounded-xl" />
+              <Input
+                type="date"
+                value={from}
+                onChange={(e) => setFrom(e.target.value)}
+                className="h-10 rounded-xl"
+              />
             </div>
             <div className="space-y-1.5">
               <Label>To</Label>
-              <Input type="date" value={to} onChange={(e) => setTo(e.target.value)} className="h-10 rounded-xl" />
+              <Input
+                type="date"
+                value={to}
+                onChange={(e) => setTo(e.target.value)}
+                className="h-10 rounded-xl"
+              />
             </div>
             <div className="flex gap-1.5 pb-0.5">
               {RANGE_PRESETS.map((p) => (
-                <Button key={p.label} type="button" variant="outline" size="sm" className="rounded-lg" onClick={() => setPreset(p.days)}>
+                <Button
+                  key={p.label}
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="rounded-lg"
+                  onClick={() => setPreset(p.days)}
+                >
                   {p.label}
                 </Button>
               ))}
@@ -488,10 +579,18 @@ export function ReportsPage({ eyebrow = "Admin · VK" }: { eyebrow?: string } = 
 
       {/* Report bodies */}
       {tab === "individual" && (
-        <IndividualBody loading={individual.loading} data={individual.data} personName={personName} />
+        <IndividualBody
+          loading={individual.loading}
+          data={individual.data}
+          personName={personName}
+        />
       )}
-      {tab === "batch" && <BatchBody loading={batchR.loading} data={batchR.data} onDrill={drillInto} />}
-      {tab === "coach" && <CoachBody loading={coachR.loading} data={coachR.data} onDrill={drillInto} />}
+      {tab === "batch" && (
+        <BatchBody loading={batchR.loading} data={batchR.data} onDrill={drillInto} />
+      )}
+      {tab === "coach" && (
+        <CoachBody loading={coachR.loading} data={coachR.data} onDrill={drillInto} />
+      )}
       {tab === "mentor" && <MentorBody loading={mentorR.loading} data={mentorR.data} />}
     </motion.div>
   );
@@ -502,7 +601,9 @@ export function ReportsPage({ eyebrow = "Admin · VK" }: { eyebrow?: string } = 
 function Kpi({ label, value }: { label: string; value: string | number }) {
   return (
     <div className="rounded-xl border border-border bg-secondary/30 px-4 py-3">
-      <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{label}</p>
+      <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+        {label}
+      </p>
       <p className="mt-1 text-xl font-bold tabular-nums text-foreground">{value}</p>
     </div>
   );
@@ -527,7 +628,9 @@ function MarkdownLite({ text }: { text: string }) {
       out.push(
         <ul key={`ul-${out.length}`} className="my-1.5 ml-4 list-disc space-y-1">
           {list.map((li, i) => (
-            <li key={i} className="text-sm leading-relaxed text-foreground">{inline(li)}</li>
+            <li key={i} className="text-sm leading-relaxed text-foreground">
+              {inline(li)}
+            </li>
           ))}
         </ul>,
       );
@@ -537,24 +640,43 @@ function MarkdownLite({ text }: { text: string }) {
   function inline(s: string): React.ReactNode {
     const parts = s.split(/(\*\*[^*]+\*\*)/g);
     return parts.map((p, i) =>
-      p.startsWith("**") && p.endsWith("**") ? <strong key={i}>{p.slice(2, -2)}</strong> : <span key={i}>{p}</span>,
+      p.startsWith("**") && p.endsWith("**") ? (
+        <strong key={i}>{p.slice(2, -2)}</strong>
+      ) : (
+        <span key={i}>{p}</span>
+      ),
     );
   }
   lines.forEach((raw, idx) => {
     const line = raw.trimEnd();
     if (/^#{1,2}\s/.test(line)) {
       flush();
-      out.push(<h3 key={idx} className="mt-3 text-base font-bold text-foreground first:mt-0">{line.replace(/^#{1,2}\s/, "")}</h3>);
+      out.push(
+        <h3 key={idx} className="mt-3 text-base font-bold text-foreground first:mt-0">
+          {line.replace(/^#{1,2}\s/, "")}
+        </h3>,
+      );
     } else if (/^#{3,}\s/.test(line)) {
       flush();
-      out.push(<h4 key={idx} className="mt-3 text-[13px] font-semibold uppercase tracking-wide text-muted-foreground">{line.replace(/^#{3,}\s/, "")}</h4>);
+      out.push(
+        <h4
+          key={idx}
+          className="mt-3 text-[13px] font-semibold uppercase tracking-wide text-muted-foreground"
+        >
+          {line.replace(/^#{3,}\s/, "")}
+        </h4>,
+      );
     } else if (/^\s*[-*]\s/.test(line)) {
       list.push(line.replace(/^\s*[-*]\s/, ""));
     } else if (line.trim() === "") {
       flush();
     } else {
       flush();
-      out.push(<p key={idx} className="my-1 text-sm leading-relaxed text-foreground">{inline(line)}</p>);
+      out.push(
+        <p key={idx} className="my-1 text-sm leading-relaxed text-foreground">
+          {inline(line)}
+        </p>,
+      );
     }
   });
   flush();
@@ -589,17 +711,26 @@ function AiReportCard({
           onClick={onGenerate}
           disabled={!available || loading}
         >
-          {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : text ? <RefreshCw className="h-4 w-4" /> : <Sparkles className="h-4 w-4" />}
+          {loading ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : text ? (
+            <RefreshCw className="h-4 w-4" />
+          ) : (
+            <Sparkles className="h-4 w-4" />
+          )}
           {text ? "Regenerate" : "Generate AI report"}
         </Button>
       }
     >
       {!available ? (
-        <p className="py-3 text-sm text-muted-foreground">Pick a report above, then generate its AI write-up.</p>
+        <p className="py-3 text-sm text-muted-foreground">
+          Pick a report above, then generate its AI write-up.
+        </p>
       ) : !text && !loading ? (
         <p className="py-3 text-sm text-muted-foreground">
-          Click <span className="font-medium text-foreground">Generate AI report</span> — the AI reads this report's live
-          data and writes an executive summary. It's included when you export to Excel or PDF.
+          Click <span className="font-medium text-foreground">Generate AI report</span> — the AI
+          reads this report's live data and writes an executive summary. It's included when you
+          export to Excel or PDF.
         </p>
       ) : (
         <div className="rounded-xl border border-border bg-secondary/20 p-4">
@@ -624,7 +755,10 @@ function IndividualBody({
   data: ReturnType<typeof useIndividualReport>["data"];
   personName: string;
 }) {
-  if (!personName) return <EmptyState text="Search for a participant, coach, or mentor above to generate their report." />;
+  if (!personName)
+    return (
+      <EmptyState text="Search for a participant, coach, or mentor above to generate their report." />
+    );
   if (loading && !data) return <EmptyState text="Loading report…" />;
   if (!data?.profile) return <EmptyState text="No data found for this person." />;
 
@@ -638,13 +772,41 @@ function IndividualBody({
       <SectionCard title={p.full_name ?? "Participant"} subtitle={p.roles.join(", ")}>
         {/* Identity / context row */}
         <div className="mb-4 flex flex-wrap gap-x-6 gap-y-1.5 text-xs text-muted-foreground">
-          {p.email && <span><span className="font-medium text-foreground">Email:</span> {p.email}</span>}
-          {p.phone && <span><span className="font-medium text-foreground">Phone:</span> {p.phone}</span>}
-          {data.batch_name && <span><span className="font-medium text-foreground">Batch:</span> {data.batch_name}</span>}
-          {data.coaches.length > 0 && <span><span className="font-medium text-foreground">Coach:</span> {data.coaches.join(", ")}</span>}
-          {p.joined_at && <span><span className="font-medium text-foreground">Joined:</span> {p.joined_at.slice(0, 10)}</span>}
-          <span><span className="font-medium text-foreground">Last active:</span> {p.last_active_at ? daysSinceLabel(p.last_active_at) : "—"}</span>
-          {p.is_alumni && <span className="rounded-full bg-gradient-gold px-2 py-0.5 font-semibold text-navy">Alumni</span>}
+          {p.email && (
+            <span>
+              <span className="font-medium text-foreground">Email:</span> {p.email}
+            </span>
+          )}
+          {p.phone && (
+            <span>
+              <span className="font-medium text-foreground">Phone:</span> {p.phone}
+            </span>
+          )}
+          {data.batch_name && (
+            <span>
+              <span className="font-medium text-foreground">Batch:</span> {data.batch_name}
+            </span>
+          )}
+          {data.coaches.length > 0 && (
+            <span>
+              <span className="font-medium text-foreground">Coach:</span> {data.coaches.join(", ")}
+            </span>
+          )}
+          {p.joined_at && (
+            <span>
+              <span className="font-medium text-foreground">Joined:</span>{" "}
+              {p.joined_at.slice(0, 10)}
+            </span>
+          )}
+          <span>
+            <span className="font-medium text-foreground">Last active:</span>{" "}
+            {p.last_active_at ? daysSinceLabel(p.last_active_at) : "—"}
+          </span>
+          {p.is_alumni && (
+            <span className="rounded-full bg-gradient-gold px-2 py-0.5 font-semibold text-navy">
+              Alumni
+            </span>
+          )}
         </div>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
           <Kpi label="Points (range)" value={data.kpis.points_range} />
@@ -666,12 +828,22 @@ function IndividualBody({
       </SectionCard>
 
       {hasBiz && (
-        <SectionCard title={<span className="flex items-center gap-2"><Briefcase className="h-4 w-4 text-muted-foreground" /> Business snapshot</span>} subtitle={biz!.business_name ?? undefined}>
+        <SectionCard
+          title={
+            <span className="flex items-center gap-2">
+              <Briefcase className="h-4 w-4 text-muted-foreground" /> Business snapshot
+            </span>
+          }
+          subtitle={biz!.business_name ?? undefined}
+        >
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-6">
             <Kpi label="Current MRR" value={fmtInr(biz!.current_mrr_inr)} />
             <Kpi label="Target MRR" value={fmtInr(biz!.target_mrr_inr)} />
             <Kpi label="Monthly leads" value={biz!.monthly_leads ?? "—"} />
-            <Kpi label="Closing rate" value={biz!.closing_rate_pct != null ? `${biz!.closing_rate_pct}%` : "—"} />
+            <Kpi
+              label="Closing rate"
+              value={biz!.closing_rate_pct != null ? `${biz!.closing_rate_pct}%` : "—"}
+            />
             <Kpi label="Team size" value={biz!.team_size ?? "—"} />
             <Kpi label="Industry" value={biz!.industry ?? "—"} />
           </div>
@@ -679,10 +851,20 @@ function IndividualBody({
       )}
 
       {data.milestones.length > 0 && (
-        <SectionCard title={<span className="flex items-center gap-2"><Award className="h-4 w-4 text-gold" /> Milestones earned</span>} subtitle={`${data.milestones_count} total`}>
+        <SectionCard
+          title={
+            <span className="flex items-center gap-2">
+              <Award className="h-4 w-4 text-gold" /> Milestones earned
+            </span>
+          }
+          subtitle={`${data.milestones_count} total`}
+        >
           <div className="flex flex-wrap gap-2">
             {data.milestones.map((m, i) => (
-              <span key={i} className="inline-flex items-center gap-1.5 rounded-full border border-border bg-secondary/40 px-2.5 py-1 text-xs">
+              <span
+                key={i}
+                className="inline-flex items-center gap-1.5 rounded-full border border-border bg-secondary/40 px-2.5 py-1 text-xs"
+              >
                 <Award className="h-3 w-3 text-gold" />
                 <span className="font-medium text-foreground">{m.code}</span>
                 <span className="text-muted-foreground">· {m.awarded_at.slice(0, 10)}</span>
@@ -704,9 +886,26 @@ function IndividualBody({
               </defs>
               <CartesianGrid strokeDasharray="0" vertical={false} stroke="oklch(0.9 0.01 90)" />
               <XAxis dataKey="label" tickLine={false} axisLine={false} tick={{ fontSize: 10 }} />
-              <YAxis domain={[0, 100]} tickFormatter={(v) => `${v}%`} tickLine={false} axisLine={false} width={32} tick={{ fontSize: 10 }} />
-              <Tooltip formatter={(v: number) => [`${v}%`, "Completion"]} contentStyle={{ borderRadius: 12, fontSize: 12 }} />
-              <Area type="monotone" dataKey="pct" stroke="#0B2545" strokeWidth={2} fill="url(#ind-area)" dot={false} />
+              <YAxis
+                domain={[0, 100]}
+                tickFormatter={(v) => `${v}%`}
+                tickLine={false}
+                axisLine={false}
+                width={32}
+                tick={{ fontSize: 10 }}
+              />
+              <Tooltip
+                formatter={(v: number) => [`${v}%`, "Completion"]}
+                contentStyle={{ borderRadius: 12, fontSize: 12 }}
+              />
+              <Area
+                type="monotone"
+                dataKey="pct"
+                stroke="#0B2545"
+                strokeWidth={2}
+                fill="url(#ind-area)"
+                dot={false}
+              />
             </AreaChart>
           </ResponsiveContainer>
         </div>
@@ -714,7 +913,9 @@ function IndividualBody({
 
       <SectionCard title="Proof history" subtitle={`${data.proof_history.length} in range`}>
         {data.proof_history.length === 0 ? (
-          <p className="py-4 text-center text-sm text-muted-foreground">No proof submissions in this range.</p>
+          <p className="py-4 text-center text-sm text-muted-foreground">
+            No proof submissions in this range.
+          </p>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full min-w-[420px] text-sm">
@@ -732,7 +933,9 @@ function IndividualBody({
                     <td className="py-2.5 pr-3 text-foreground">Week {p.week_no}</td>
                     <td className="py-2.5 pr-3 capitalize text-foreground">{p.proof_status}</td>
                     <td className="py-2.5 pr-3 tabular-nums text-foreground">{p.points}</td>
-                    <td className="py-2.5 text-muted-foreground">{p.updated_at?.slice(0, 10) ?? "—"}</td>
+                    <td className="py-2.5 text-muted-foreground">
+                      {p.updated_at?.slice(0, 10) ?? "—"}
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -744,8 +947,15 @@ function IndividualBody({
   );
 }
 
-function RosterTable({ rows, onDrill }: { rows: RosterRow[]; onDrill: (id: string, name: string | null) => void }) {
-  if (rows.length === 0) return <p className="py-6 text-center text-sm text-muted-foreground">No participants.</p>;
+function RosterTable({
+  rows,
+  onDrill,
+}: {
+  rows: RosterRow[];
+  onDrill: (id: string, name: string | null) => void;
+}) {
+  if (rows.length === 0)
+    return <p className="py-6 text-center text-sm text-muted-foreground">No participants.</p>;
   return (
     <div className="overflow-x-auto">
       <table className="w-full min-w-[560px] text-sm">
@@ -770,7 +980,9 @@ function RosterTable({ rows, onDrill }: { rows: RosterRow[]; onDrill: (id: strin
               <td className="py-2.5 pr-3 font-medium text-foreground">{r.full_name ?? "—"}</td>
               <td className="py-2.5 pr-3 tabular-nums text-foreground">{r.current_week}</td>
               <td className="py-2.5 pr-3 tabular-nums text-foreground">{r.weeks_approved}</td>
-              <td className="py-2.5 pr-3 tabular-nums text-foreground">{r.completion_pct_range}%</td>
+              <td className="py-2.5 pr-3 tabular-nums text-foreground">
+                {r.completion_pct_range}%
+              </td>
               <td className="py-2.5 pr-3 tabular-nums text-foreground">{r.points_range}</td>
               <td className="py-2.5">
                 {r.at_risk ? (
@@ -798,11 +1010,15 @@ function BatchBody({
   data: ReturnType<typeof useBatchReport>["data"];
   onDrill: (id: string, name: string | null) => void;
 }) {
-  if (!data?.batch && !loading) return <EmptyState text="Choose a batch above to generate its report." />;
+  if (!data?.batch && !loading)
+    return <EmptyState text="Choose a batch above to generate its report." />;
   if (loading && !data) return <EmptyState text="Loading report…" />;
   if (!data?.batch) return <EmptyState text="No data for this batch." />;
 
-  const chart = data.habit_trend.map((d) => ({ label: d.date.slice(5), pct: d.avg_completion_pct }));
+  const chart = data.habit_trend.map((d) => ({
+    label: d.date.slice(5),
+    pct: d.avg_completion_pct,
+  }));
 
   return (
     <div className="space-y-4">
@@ -820,13 +1036,33 @@ function BatchBody({
       </SectionCard>
 
       {data.top_performers.length > 0 && (
-        <SectionCard title={<span className="flex items-center gap-2"><Trophy className="h-4 w-4 text-gold" /> Top performers (range)</span>}>
+        <SectionCard
+          title={
+            <span className="flex items-center gap-2">
+              <Trophy className="h-4 w-4 text-gold" /> Top performers (range)
+            </span>
+          }
+        >
           <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
             {data.top_performers.map((t, i) => (
-              <div key={i} className="flex items-center gap-2.5 rounded-xl border border-border bg-secondary/30 px-3 py-2">
-                <span className={cn("flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-bold", i === 0 ? "bg-gradient-gold text-navy" : "bg-secondary text-muted-foreground")}>{i + 1}</span>
-                <span className="min-w-0 flex-1 truncate text-sm font-medium text-foreground">{t.full_name ?? "—"}</span>
-                <span className="shrink-0 text-sm font-bold tabular-nums text-foreground">{t.points_range} pts</span>
+              <div
+                key={i}
+                className="flex items-center gap-2.5 rounded-xl border border-border bg-secondary/30 px-3 py-2"
+              >
+                <span
+                  className={cn(
+                    "flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-bold",
+                    i === 0 ? "bg-gradient-gold text-navy" : "bg-secondary text-muted-foreground",
+                  )}
+                >
+                  {i + 1}
+                </span>
+                <span className="min-w-0 flex-1 truncate text-sm font-medium text-foreground">
+                  {t.full_name ?? "—"}
+                </span>
+                <span className="shrink-0 text-sm font-bold tabular-nums text-foreground">
+                  {t.points_range} pts
+                </span>
               </div>
             ))}
           </div>
@@ -844,9 +1080,26 @@ function BatchBody({
               </defs>
               <CartesianGrid strokeDasharray="0" vertical={false} stroke="oklch(0.9 0.01 90)" />
               <XAxis dataKey="label" tickLine={false} axisLine={false} tick={{ fontSize: 10 }} />
-              <YAxis domain={[0, 100]} tickFormatter={(v) => `${v}%`} tickLine={false} axisLine={false} width={32} tick={{ fontSize: 10 }} />
-              <Tooltip formatter={(v: number) => [`${v}%`, "Avg completion"]} contentStyle={{ borderRadius: 12, fontSize: 12 }} />
-              <Area type="monotone" dataKey="pct" stroke="#C9A227" strokeWidth={2} fill="url(#batch-area)" dot={false} />
+              <YAxis
+                domain={[0, 100]}
+                tickFormatter={(v) => `${v}%`}
+                tickLine={false}
+                axisLine={false}
+                width={32}
+                tick={{ fontSize: 10 }}
+              />
+              <Tooltip
+                formatter={(v: number) => [`${v}%`, "Avg completion"]}
+                contentStyle={{ borderRadius: 12, fontSize: 12 }}
+              />
+              <Area
+                type="monotone"
+                dataKey="pct"
+                stroke="#C9A227"
+                strokeWidth={2}
+                fill="url(#batch-area)"
+                dot={false}
+              />
             </AreaChart>
           </ResponsiveContainer>
         </div>
@@ -867,21 +1120,35 @@ function CoachBody({
   data: ReturnType<typeof useCoachReport>["data"];
   onDrill: (id: string, name: string | null) => void;
 }) {
-  if (!data?.coach && !loading) return <EmptyState text="Choose a coach above to generate their report." />;
+  if (!data?.coach && !loading)
+    return <EmptyState text="Choose a coach above to generate their report." />;
   if (loading && !data) return <EmptyState text="Loading report…" />;
   if (!data?.coach) return <EmptyState text="No data for this coach." />;
 
-  const chart = data.habit_trend.map((d) => ({ label: d.date.slice(5), pct: d.avg_completion_pct }));
+  const chart = data.habit_trend.map((d) => ({
+    label: d.date.slice(5),
+    pct: d.avg_completion_pct,
+  }));
 
   return (
     <div className="space-y-4">
-      <SectionCard title={data.coach.full_name ?? "Coach"} subtitle="Coach delivery & participant outcomes">
+      <SectionCard
+        title={data.coach.full_name ?? "Coach"}
+        subtitle="Coach delivery & participant outcomes"
+      >
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-5">
           <Kpi label="Participants" value={data.kpis.participant_count} />
           <Kpi label="At risk" value={data.kpis.at_risk_count} />
           <Kpi label="Reviews (range)" value={data.kpis.reviews_range} />
           <Kpi label="Approval rate" value={`${data.kpis.approval_rate}%`} />
-          <Kpi label="Avg turnaround" value={data.kpis.avg_turnaround_h ? `${data.kpis.avg_turnaround_h < 24 ? Math.round(data.kpis.avg_turnaround_h) + "h" : (data.kpis.avg_turnaround_h / 24).toFixed(1) + "d"}` : "—"} />
+          <Kpi
+            label="Avg turnaround"
+            value={
+              data.kpis.avg_turnaround_h
+                ? `${data.kpis.avg_turnaround_h < 24 ? Math.round(data.kpis.avg_turnaround_h) + "h" : (data.kpis.avg_turnaround_h / 24).toFixed(1) + "d"}`
+                : "—"
+            }
+          />
           <Kpi label="Coaching notes" value={data.kpis.notes_range} />
           <Kpi label="Meetings" value={data.kpis.meetings_range} />
           <Kpi label="Avg completion" value={`${data.kpis.avg_completion_pct}%`} />
@@ -901,22 +1168,49 @@ function CoachBody({
               </defs>
               <CartesianGrid strokeDasharray="0" vertical={false} stroke="oklch(0.9 0.01 90)" />
               <XAxis dataKey="label" tickLine={false} axisLine={false} tick={{ fontSize: 10 }} />
-              <YAxis domain={[0, 100]} tickFormatter={(v) => `${v}%`} tickLine={false} axisLine={false} width={32} tick={{ fontSize: 10 }} />
-              <Tooltip formatter={(v: number) => [`${v}%`, "Avg completion"]} contentStyle={{ borderRadius: 12, fontSize: 12 }} />
-              <Area type="monotone" dataKey="pct" stroke="#0ea5e9" strokeWidth={2} fill="url(#coach-area)" dot={false} />
+              <YAxis
+                domain={[0, 100]}
+                tickFormatter={(v) => `${v}%`}
+                tickLine={false}
+                axisLine={false}
+                width={32}
+                tick={{ fontSize: 10 }}
+              />
+              <Tooltip
+                formatter={(v: number) => [`${v}%`, "Avg completion"]}
+                contentStyle={{ borderRadius: 12, fontSize: 12 }}
+              />
+              <Area
+                type="monotone"
+                dataKey="pct"
+                stroke="#0ea5e9"
+                strokeWidth={2}
+                fill="url(#coach-area)"
+                dot={false}
+              />
             </AreaChart>
           </ResponsiveContainer>
         </div>
       </SectionCard>
-      <SectionCard title="Participants" subtitle="Click a participant to open their individual report">
+      <SectionCard
+        title="Participants"
+        subtitle="Click a participant to open their individual report"
+      >
         <RosterTable rows={data.roster} onDrill={onDrill} />
       </SectionCard>
     </div>
   );
 }
 
-function MentorBody({ loading, data }: { loading: boolean; data: ReturnType<typeof useMentorReport>["data"] }) {
-  if (!data?.mentor && !loading) return <EmptyState text="Choose a mentor above to generate their report." />;
+function MentorBody({
+  loading,
+  data,
+}: {
+  loading: boolean;
+  data: ReturnType<typeof useMentorReport>["data"];
+}) {
+  if (!data?.mentor && !loading)
+    return <EmptyState text="Choose a mentor above to generate their report." />;
   if (loading && !data) return <EmptyState text="Loading report…" />;
   if (!data?.mentor) return <EmptyState text="No data for this mentor." />;
 
@@ -947,22 +1241,45 @@ function MentorBody({ loading, data }: { loading: boolean; data: ReturnType<type
               </defs>
               <CartesianGrid strokeDasharray="0" vertical={false} stroke="oklch(0.9 0.01 90)" />
               <XAxis dataKey="label" tickLine={false} axisLine={false} tick={{ fontSize: 10 }} />
-              <YAxis tickLine={false} axisLine={false} width={28} tick={{ fontSize: 10 }} allowDecimals={false} />
-              <Tooltip formatter={(v: number) => [v, "Reviews"]} contentStyle={{ borderRadius: 12, fontSize: 12 }} />
-              <Area type="monotone" dataKey="reviews" stroke="#0B2545" strokeWidth={2} fill="url(#mentor-area)" dot={false} />
+              <YAxis
+                tickLine={false}
+                axisLine={false}
+                width={28}
+                tick={{ fontSize: 10 }}
+                allowDecimals={false}
+              />
+              <Tooltip
+                formatter={(v: number) => [v, "Reviews"]}
+                contentStyle={{ borderRadius: 12, fontSize: 12 }}
+              />
+              <Area
+                type="monotone"
+                dataKey="reviews"
+                stroke="#0B2545"
+                strokeWidth={2}
+                fill="url(#mentor-area)"
+                dot={false}
+              />
             </AreaChart>
           </ResponsiveContainer>
         </div>
       </SectionCard>
       <SectionCard title="Recent reviews">
         {data.recent_reviews.length === 0 ? (
-          <p className="py-4 text-center text-sm text-muted-foreground">No reviews in this range.</p>
+          <p className="py-4 text-center text-sm text-muted-foreground">
+            No reviews in this range.
+          </p>
         ) : (
           <div className="space-y-2">
             {data.recent_reviews.map((r, i) => (
-              <div key={i} className="flex items-center justify-between rounded-lg border border-border bg-secondary/30 px-3 py-2 text-sm">
+              <div
+                key={i}
+                className="flex items-center justify-between rounded-lg border border-border bg-secondary/30 px-3 py-2 text-sm"
+              >
                 <span className="text-foreground">{r.label}</span>
-                <span className="text-xs text-muted-foreground">{r.ts?.slice(0, 16).replace("T", " ")}</span>
+                <span className="text-xs text-muted-foreground">
+                  {r.ts?.slice(0, 16).replace("T", " ")}
+                </span>
               </div>
             ))}
           </div>

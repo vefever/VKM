@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { profileDisplayMap } from "@/lib/profiles-display";
 import { useAuth } from "@/hooks/use-auth";
 
 export type CoachTask = {
@@ -9,6 +10,7 @@ export type CoachTask = {
   done: boolean;
   participant_id: string | null;
   participantName: string | null;
+  participantAvatar: string | null;
 };
 
 /** A coach's personal tasks/reminders (optionally tied to a participant). */
@@ -28,15 +30,14 @@ export function useCoachTasks() {
       .order("created_at");
     const rows = data ?? [];
     const ids = [...new Set(rows.map((r) => r.participant_id).filter(Boolean) as string[])];
-    const names = new Map<string, string>();
-    if (ids.length) {
-      const { data: profs } = await supabase.from("profiles").select("id, full_name").in("id", ids);
-      (profs ?? []).forEach((p) => names.set(p.id, p.full_name ?? "Participant"));
-    }
+    const display = ids.length ? await profileDisplayMap(ids, "Participant") : {};
     setTasks(
       rows.map((r) => ({
         ...r,
-        participantName: r.participant_id ? (names.get(r.participant_id) ?? "Participant") : null,
+        participantName: r.participant_id
+          ? (display[r.participant_id]?.name ?? "Participant")
+          : null,
+        participantAvatar: r.participant_id ? (display[r.participant_id]?.avatar ?? null) : null,
       })),
     );
     setLoading(false);
