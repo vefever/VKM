@@ -70,6 +70,7 @@ import {
   useParticipantTeam,
   useParticipantsOverview,
   type WeekRow,
+  type ParticipantRow,
 } from "@/components/coach/coach-data";
 import { profileDisplayMap } from "@/lib/profiles-display";
 import { staffLoginAsParticipant } from "@/lib/vkm/admin-users.functions";
@@ -355,6 +356,17 @@ export function ParticipantDetail({
   const habits = useParticipantHabits(userId);
   const [exporting, setExporting] = useState<"pdf" | "excel" | null>(null);
 
+  // Fetched once here and shared with SiblingNav (which would otherwise repeat
+  // the same query). Also gives us this participant's REAL batch — the header
+  // used to hard-code "Batch 16" for everyone.
+  const { rows: siblings } = useParticipantsOverview();
+  const meRow = siblings.find((r) => r.id === userId);
+  const batchLabel = meRow?.batchName ?? "No batch";
+  // Two independent sources for the photo (direct profile read, and the
+  // roster row resolved via the display RPC) — whichever answers first wins,
+  // so the DP can't vanish if one path comes back empty.
+  const avatarUrl = profile?.avatar_url ?? meRow?.avatar_url ?? null;
+
   const name = profile?.full_name ?? "Participant";
   const weeksDone = weeks.filter((w) => w.proof_status === "approved").length;
   const attended = weeks.filter((w) => w.attended).length;
@@ -411,7 +423,7 @@ export function ParticipantDetail({
 
           {/* Jump straight to the previous / next participant without going
               back to the list. Same order as the list you came from. */}
-          <SiblingNav userId={userId} backTo={backTo} />
+          <SiblingNav userId={userId} backTo={backTo} rows={siblings} />
         </div>
       </div>
 
@@ -422,18 +434,31 @@ export function ParticipantDetail({
             {eyebrow} · Progress Card
           </p>
           <div className="mt-3 flex flex-wrap items-center gap-4">
-            <span className="inline-flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-gold text-xl font-bold text-navy">
-              {name
-                .split(" ")
-                .map((s) => s[0])
-                .slice(0, 2)
-                .join("")
-                .toUpperCase()}
-            </span>
+            {/* The participant's own photo, falling back to initials only when
+                they haven't uploaded one. */}
+            {avatarUrl ? (
+              <img
+                src={avatarUrl}
+                alt={name}
+                loading="lazy"
+                decoding="async"
+                className="h-16 w-16 shrink-0 rounded-2xl object-cover ring-2 ring-white/30"
+              />
+            ) : (
+              <span className="inline-flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-gradient-gold text-xl font-bold text-navy">
+                {name
+                  .split(" ")
+                  .map((s) => s[0])
+                  .slice(0, 2)
+                  .join("")
+                  .toUpperCase()}
+              </span>
+            )}
             <div className="min-w-0 flex-1">
               <h1 className="text-2xl font-semibold leading-tight">{name}</h1>
               <p className="text-sm text-primary-foreground/70">
-                {brain?.business_name ? `${brain.business_name} · ` : ""}Batch 16 · {stage}
+                {brain?.business_name ? `${brain.business_name} · ` : ""}
+                {batchLabel} · {stage}
               </p>
             </div>
             <div className="relative h-20 w-20 shrink-0">
@@ -672,8 +697,15 @@ export function ParticipantDetail({
  * sorted by name — matching the batch group in the participants list.
  * Participants in no batch cycle among the other unassigned ones.
  */
-function SiblingNav({ userId, backTo }: { userId: string; backTo: string }) {
-  const { rows } = useParticipantsOverview();
+function SiblingNav({
+  userId,
+  backTo,
+  rows,
+}: {
+  userId: string;
+  backTo: string;
+  rows: ParticipantRow[];
+}) {
   // "/coach/participants" → "/coach/participant"
   const detailBase = backTo.replace(/participants$/, "participant");
 
