@@ -4,6 +4,17 @@ A running log of platform updates. Newest first. Ask any time for a **PDF** of t
 
 ---
 
+## 2026-07-18
+
+### Fixed
+- **Google Drive links now work for weekly class videos** — pasting a Drive link into a week's class video used to silently fail to save. The database only accepted YouTube, Vimeo or file sources, so the Drive provider was rejected outright. Drive is now a first-class source for every week (1–16), alongside YouTube, Vimeo, direct .mp4/HLS URLs and uploaded files. Whatever you paste is what participants see and play. (Drive files must be shared **"Anyone with the link · Viewer"** — the admin field now reminds you, and **Preview** lets you confirm it plays before saving.)
+- **Removed the stand-in "sample" videos from weekly lessons** — weeks that had no class video uploaded yet were showing an unrelated stock clip (a Big Buck Bunny trailer and similar) as a placeholder. Those are gone. A week now shows a video **only** when your team has actually set one; otherwise it honestly reads "Recording posts after the live class." No invented content anywhere in the program.
+
+### How each video source works
+- **Google Drive / YouTube / Vimeo** — played through the provider's own streaming player (seeking supported). Drive needs link-sharing set to "Anyone with the link · Viewer".
+- **Direct links & uploads** (.mp4, .webm, HLS/.m3u8, or a file you upload) — played in the VKM player, with speed, quality, resume-where-you-left-off and the anti-download protections.
+- **Any other third-party link** — treated as a direct file: it plays if the link serves the actual video, otherwise it will report that it can't load. Prefer Drive/YouTube links or an upload for guaranteed playback.
+
 ## 2026-07-14
 
 ### Added

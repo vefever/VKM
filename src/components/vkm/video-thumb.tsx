@@ -10,7 +10,6 @@ export function VideoThumb({
   thumbnail,
   title,
   durationLabel,
-  sample,
   watched,
   onPlay,
   className,
@@ -20,7 +19,6 @@ export function VideoThumb({
   thumbnail?: string | null;
   title?: string;
   durationLabel?: string;
-  sample?: boolean;
   watched?: boolean;
   onPlay: () => void;
   className?: string;
@@ -62,11 +60,6 @@ export function VideoThumb({
         </span>
       </span>
 
-      {sample && (
-        <span className="absolute right-2 top-2 rounded bg-gold/40 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide">
-          Sample
-        </span>
-      )}
       {watched && (
         <span className="absolute left-2 top-2 inline-flex items-center gap-0.5 rounded-full bg-[#10b981] px-2 py-0.5 text-[10px] font-semibold text-white">
           <CheckCircle2 className="h-3 w-3" /> Watched

@@ -1,27 +1,25 @@
 // Per-week resource catalog for the Program Progress task drill-downs.
 //
-// Today this is derived from the hardcoded curriculum (real assignments + real
-// generated briefs) plus a clearly-labelled sample recording so the inline
-// player is demonstrable. It is intentionally shaped like a data source: swap
-// `getWeekResources` for a Supabase query against a future `week_resources`
-// table and nothing else in the UI needs to change.
+// Derived from the hardcoded curriculum (real assignments + real generated
+// briefs). The class VIDEO is never invented here: a week shows a video only
+// when staff have actually set one for that batch (`videoOverride`, read from
+// program_weeks.class_video_*). Weeks with no recording yet render an honest
+// "posted after the live class" state rather than a stand-in clip.
 import type { ProgramWeek } from "./program";
 import type { VideoKind } from "@/lib/video-source";
 
 export type WeekVideo = {
   title: string;
   /**
-   * Any reference an admin supplies: a YouTube/Vimeo link, a direct .mp4, or
-   * an uploaded-file URL. The player auto-detects the kind; `provider` is an
-   * optional explicit override.
+   * Any reference staff supply: a Google Drive share link, a YouTube/Vimeo
+   * link, a direct .mp4/HLS URL, or an uploaded-file URL. The player detects
+   * the kind from the URL itself; `provider` is only a stored hint.
    */
   url: string;
   provider?: VideoKind;
-  /** Admin-uploaded custom thumbnail (else YouTube auto-derives, else placeholder). */
+  /** Staff-uploaded custom thumbnail (else YouTube auto-derives, else placeholder). */
   thumbnail?: string | null;
   durationLabel: string;
-  /** True while we use a stand-in recording rather than the real class video. */
-  sample?: boolean;
 };
 
 export type WeekAssignment = {
@@ -43,23 +41,6 @@ export type WeekResources = {
   assignments: WeekAssignment[];
   downloads: WeekDownload[];
 };
-
-// Genuine, public, playable clips — used ONLY as stand-ins so every source
-// kind (YouTube / Vimeo / direct file) is demonstrable. Replace with real
-// class recordings supplied by the admin panel (or a DB URL).
-const SAMPLE_RECORDINGS: { url: string; provider: VideoKind; durationLabel: string }[] = [
-  {
-    url: "https://www.youtube.com/watch?v=aqz-KE-bpKQ",
-    provider: "youtube",
-    durationLabel: "10:34",
-  },
-  { url: "https://vimeo.com/76979871", provider: "vimeo", durationLabel: "3:03" },
-  {
-    url: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerJoyrides.mp4",
-    provider: "file",
-    durationLabel: "0:15",
-  },
-];
 
 function briefFor(w: ProgramWeek) {
   const text = [
@@ -85,16 +66,18 @@ function briefFor(w: ProgramWeek) {
 }
 
 /**
- * Resources for a given curriculum week. `currentWeek` lets us only attach a
- * (sample) recording to weeks that have already been taught — upcoming weeks
- * legitimately have no video yet.
+ * Resources for a given curriculum week.
+ *
+ * A week has a video ONLY when staff have set one for this batch. There is no
+ * fallback clip: an untaught or not-yet-uploaded week returns `video:
+ * undefined` and the UI shows "recording posts after the live class".
+ * `currentWeek` is retained by callers to decide locked/unlocked framing.
  */
 export function getWeekResources(
   w: ProgramWeek,
-  currentWeek: number,
+  _currentWeek: number,
   videoOverride?: { url: string; provider?: VideoKind; title?: string | null; thumbnail?: string | null },
 ): WeekResources {
-  const sample = SAMPLE_RECORDINGS[(w.week - 1) % SAMPLE_RECORDINGS.length];
   const video: WeekVideo | undefined = videoOverride?.url
     ? {
         title: videoOverride.title || `${w.topic} — class recording`,
@@ -103,15 +86,7 @@ export function getWeekResources(
         thumbnail: videoOverride.thumbnail ?? null,
         durationLabel: "Class recording",
       }
-    : w.week <= currentWeek
-      ? {
-          title: `${w.topic} — class recording`,
-          url: sample.url,
-          provider: sample.provider,
-          durationLabel: sample.durationLabel,
-          sample: true,
-        }
-      : undefined;
+    : undefined;
   return {
     video,
     assignments: [

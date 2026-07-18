@@ -242,7 +242,7 @@ export function WeekVideoField({
         <Input
           value={url}
           onChange={(e) => setUrl(e.target.value)}
-          placeholder="https://youtube.com/… · vimeo.com/… · …/class.mp4 · or upload →"
+          placeholder="Google Drive / YouTube / Vimeo link · …/class.mp4 · or upload →"
           disabled={loading || saving || uploading}
           className="h-9 flex-1 rounded-lg text-sm"
         />
@@ -257,6 +257,13 @@ export function WeekVideoField({
           </span>
         )}
       </div>
+
+      {provider === "drive" && (
+        <p className="mt-1.5 text-[11px] text-muted-foreground">
+          Share the Drive file as <span className="font-medium text-foreground">“Anyone with the link · Viewer”</span> so
+          every participant can play it — otherwise Google blocks playback. Use <span className="font-medium text-foreground">Preview</span> to check.
+        </p>
+      )}
 
       <div className="mt-2 flex flex-wrap items-center gap-2">
         <input ref={fileRef} type="file" accept="video/*" className="hidden" onChange={onPick} />

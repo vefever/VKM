@@ -3,9 +3,12 @@
 // HLS, or a Supabase Storage URL from an admin upload).
 export type VideoKind = "youtube" | "vimeo" | "drive" | "file";
 
-export type ResolvedVideo =
-  | { kind: "youtube" | "vimeo" | "drive"; embedUrl: string }
-  | { kind: "file"; fileUrl: string };
+/** A source that plays inside a provider iframe (YouTube / Vimeo / Drive). */
+export type EmbedVideo = { kind: "youtube" | "vimeo" | "drive"; embedUrl: string };
+/** A direct/uploaded file (mp4, webm, HLS) played by our own player. */
+export type FileVideo = { kind: "file"; fileUrl: string };
+
+export type ResolvedVideo = EmbedVideo | FileVideo;
 
 const YT = /(?:youtube\.com\/(?:watch\?v=|embed\/|shorts\/|v\/)|youtu\.be\/)([\w-]{11})/;
 const VIMEO = /vimeo\.com\/(?:video\/)?(\d+)/;
@@ -50,7 +53,13 @@ export function resolveVideoSource(url: string, _provider?: VideoKind): Resolved
   return { kind: "file", fileUrl: u };
 }
 
-/** Append an autoplay flag appropriate to the source kind. */
+/**
+ * Append an autoplay flag appropriate to the source kind. Overloaded so an
+ * already-narrowed embed source stays an embed source (callers can then read
+ * `.embedUrl` without re-narrowing).
+ */
+export function withAutoplay(src: EmbedVideo): EmbedVideo;
+export function withAutoplay(src: ResolvedVideo): ResolvedVideo;
 export function withAutoplay(src: ResolvedVideo): ResolvedVideo {
   if (src.kind === "file") return src;
   const sep = src.embedUrl.includes("?") ? "&" : "?";

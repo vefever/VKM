@@ -94,12 +94,7 @@ function LmsRow({
       <div className="mt-3">
         {video ? (
           playing ? (
-            <div>
-              <VideoPlayer url={video.url} provider={video.provider} autoPlay title={video.title} poster={thumbnailFor(video.url, video.thumbnail) ?? undefined} />
-              {video.sample && (
-                <p className="mt-2 text-[11px] text-muted-foreground">Stand-in recording — your real class video replaces this.</p>
-              )}
-            </div>
+            <VideoPlayer url={video.url} provider={video.provider} autoPlay title={video.title} poster={thumbnailFor(video.url, video.thumbnail) ?? undefined} />
           ) : (
             <VideoThumb
               url={video.url}
@@ -107,7 +102,6 @@ function LmsRow({
               thumbnail={video.thumbnail}
               title={video.title}
               durationLabel={video.durationLabel}
-              sample={video.sample}
               onPlay={() => setPlaying(true)}
             />
           )

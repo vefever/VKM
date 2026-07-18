@@ -236,7 +236,6 @@ function VideoBlock({
               thumbnail={video.thumbnail}
               title={video.title}
               durationLabel={video.durationLabel}
-              sample={video.sample}
               watched={watched}
               onPlay={() => setPlaying(true)}
             />
@@ -245,9 +244,7 @@ function VideoBlock({
           {/* Caption + Mark watched — sits under the inline player, not in a modal. */}
           <div className="mt-2 flex items-center justify-between gap-2">
             <p className="text-[11px] text-muted-foreground">
-              {video.sample
-                ? "Stand-in recording — your real class video replaces this."
-                : "Direct/uploaded videos check off on finish; for YouTube/Vimeo tap Mark watched."}
+              Direct/uploaded videos check off on finish; for Google Drive, YouTube or Vimeo tap Mark watched.
             </p>
             {watched ? (
               <span className="inline-flex shrink-0 items-center gap-1 text-xs font-medium text-[oklch(0.45_0.13_160)]">
