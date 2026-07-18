@@ -1,4 +1,4 @@
-import { useMemo, useState, type ComponentType } from "react";
+import { useEffect, useMemo, useState, type ComponentType } from "react";
 import { motion } from "framer-motion";
 import {
   AreaChart,
@@ -28,6 +28,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { PageHeader } from "@/components/vkm/page-header";
+import { BatchInsights } from "@/components/admin/batch-insights";
 import { SectionCard } from "@/components/vkm/section-card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -53,11 +54,21 @@ const GOLD = "#C9A227";
 const SKY = "#0ea5e9";
 
 export function SystemOverview() {
-  const [batchId, setBatchId] = useState<string | null>(null); // null = all batches
+  // null = all batches. We default to a single batch below so the dashboard
+  // never opens on "everyone at once".
+  const [batchId, setBatchId] = useState<string | null>(null);
+  const [defaulted, setDefaulted] = useState(false);
   const { rows, loading } = useLiveParticipants(batchId);
   const { batches } = useAnalyticsBatches();
   const { data: overview } = useAnalyticsOverview();
   const { activity } = useLiveActivity(40);
+
+  useEffect(() => {
+    if (!defaulted && batches.length > 0) {
+      setBatchId(batches[0].batch_id);
+      setDefaulted(true);
+    }
+  }, [batches, defaulted]);
 
   const kpis = useMemo(() => deriveKpis(rows), [rows]);
   const selectedBatch = batches.find((b) => b.batch_id === batchId) ?? null;
@@ -106,18 +117,17 @@ export function SystemOverview() {
         <LiveFeed activity={activity} />
       </section>
 
-      {/* Trends */}
-      <section className="grid gap-4 lg:grid-cols-3">
-        <TrendCard title="New signups · 30 days" subtitle="Daily new accounts">
-          <AreaTrend data={(overview?.signup_trend ?? []).map((d) => ({ label: d.date.slice(5), v: d.count }))} id="ov-signup" color={NAVY} />
-        </TrendCard>
-        <TrendCard title="Habit completion · 14 days" subtitle="Avg % of 6 daily habits">
-          <AreaTrend data={(overview?.habit_trend ?? []).map((d) => ({ label: d.date.slice(5), v: d.avg_completion_pct }))} id="ov-habit" color={GOLD} pct />
-        </TrendCard>
-        <TrendCard title="Points awarded · 30 days" subtitle="Daily points across the platform">
-          <BarTrend data={(overview?.points_trend ?? []).map((d) => ({ label: d.date.slice(5), v: d.points }))} id="ov-points" color={SKY} />
-        </TrendCard>
-      </section>
+      {/* Drill-down: group (participants / coaches / mentors) → one person.
+          Driven by the batch chosen in the command bar above. */}
+      {batchId ? (
+        <BatchInsights controlledBatchKey={batchId} hidePicker showTrends />
+      ) : (
+        <SectionCard title={<span className="text-sm font-semibold">Drill into people</span>} subtitle="Pick a single batch above to see its participants, coaches and mentors">
+          <p className="py-4 text-center text-sm text-muted-foreground">
+            Select a batch in the top-right to drill into its participants, coaches and mentors.
+          </p>
+        </SectionCard>
+      )}
 
       {/* Batch health — current (active) vs previous (completed); click to scope */}
       <BatchHealth batches={batches} selectedId={batchId} onSelect={setBatchId} />
@@ -450,53 +460,8 @@ function LiveFeed({ activity }: { activity: ReturnType<typeof useLiveActivity>["
 // ---------------------------------------------------------------------------
 // Trends
 // ---------------------------------------------------------------------------
-function TrendCard({ title, subtitle, children }: { title: string; subtitle: string; children: React.ReactNode }) {
-  return (
-    <SectionCard title={<span className="text-sm font-semibold">{title}</span>} subtitle={subtitle}>
-      <div className="h-[180px] w-full min-w-0">{children}</div>
-    </SectionCard>
-  );
-}
-
-function AreaTrend({ data, id, color, pct }: { data: { label: string; v: number }[]; id: string; color: string; pct?: boolean }) {
-  return (
-    <ResponsiveContainer width="100%" height="100%">
-      <AreaChart data={data} margin={{ top: 8, right: 8, left: -14, bottom: 0 }}>
-        <defs>
-          <linearGradient id={id} x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor={color} stopOpacity={0.35} />
-            <stop offset="100%" stopColor={color} stopOpacity={0} />
-          </linearGradient>
-        </defs>
-        <CartesianGrid strokeDasharray="0" vertical={false} stroke="oklch(0.9 0.01 90)" />
-        <XAxis dataKey="label" tickLine={false} axisLine={false} tick={{ fontSize: 10 }} interval={Math.max(0, Math.floor(data.length / 6))} />
-        <YAxis tickLine={false} axisLine={false} width={30} tick={{ fontSize: 10 }} domain={pct ? [0, 100] : undefined} allowDecimals={false} tickFormatter={pct ? (v) => `${v}%` : undefined} />
-        <Tooltip contentStyle={{ borderRadius: 12, fontSize: 12 }} formatter={(v: number) => [pct ? `${v}%` : v, ""]} />
-        <Area type="monotone" dataKey="v" stroke={color} strokeWidth={2} fill={`url(#${id})`} dot={false} />
-      </AreaChart>
-    </ResponsiveContainer>
-  );
-}
-
-function BarTrend({ data, id, color }: { data: { label: string; v: number }[]; id: string; color: string }) {
-  return (
-    <ResponsiveContainer width="100%" height="100%">
-      <BarChart data={data} margin={{ top: 8, right: 8, left: -14, bottom: 0 }}>
-        <defs>
-          <linearGradient id={id} x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor={color} stopOpacity={0.9} />
-            <stop offset="100%" stopColor={color} stopOpacity={0.5} />
-          </linearGradient>
-        </defs>
-        <CartesianGrid strokeDasharray="0" vertical={false} stroke="oklch(0.9 0.01 90)" />
-        <XAxis dataKey="label" tickLine={false} axisLine={false} tick={{ fontSize: 10 }} interval={Math.max(0, Math.floor(data.length / 6))} />
-        <YAxis tickLine={false} axisLine={false} width={30} tick={{ fontSize: 10 }} allowDecimals={false} />
-        <Tooltip contentStyle={{ borderRadius: 12, fontSize: 12 }} cursor={{ fill: "oklch(0.9 0.01 90 / 0.4)" }} />
-        <Bar dataKey="v" fill={`url(#${id})`} radius={[4, 4, 0, 0]} maxBarSize={18} />
-      </BarChart>
-    </ResponsiveContainer>
-  );
-}
+// Trend chart primitives now live in ./trend-charts and are rendered by
+// BatchInsights (batch-scoped), so this page no longer defines its own.
 
 // ---------------------------------------------------------------------------
 // Batch health — current vs previous, clickable to scope the whole dashboard

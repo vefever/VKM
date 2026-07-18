@@ -2247,6 +2247,7 @@ export type Database = {
         }[]
       }
       admin_analytics_overview: { Args: never; Returns: Json }
+      admin_batch_analytics: { Args: { _batch_id?: string }; Returns: Json }
       admin_batch_file_counts: {
         Args: { _batch_id: string }
         Returns: {

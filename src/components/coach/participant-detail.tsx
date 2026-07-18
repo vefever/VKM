@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
@@ -65,7 +65,12 @@ import {
   stageFor,
   type ProgramWeek,
 } from "@/lib/vkm/program";
-import { useParticipantProfile, useParticipantTeam, type WeekRow } from "@/components/coach/coach-data";
+import {
+  useParticipantProfile,
+  useParticipantTeam,
+  useParticipantsOverview,
+  type WeekRow,
+} from "@/components/coach/coach-data";
 import { staffLoginAsParticipant } from "@/lib/vkm/admin-users.functions";
 import { useParticipantHabits, HABITS, TRACKER_HABITS, dateForDay } from "@/components/habits/habit-tracker";
 import { HabitGrid } from "@/components/habits/habit-grid";
@@ -402,6 +407,10 @@ export function ParticipantDetail({
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
+
+          {/* Jump straight to the previous / next participant without going
+              back to the list. Same order as the list you came from. */}
+          <SiblingNav userId={userId} backTo={backTo} />
         </div>
       </div>
 
@@ -649,6 +658,89 @@ export function ParticipantDetail({
         )}
       </div>
     </motion.div>
+  );
+}
+
+// Trailing number from a batch name ("Batch 16" → 16) so newest batches sort
+// first — the same ordering the participants list uses.
+function batchNum(name?: string | null): number {
+  const m = /(\d+)/.exec(name ?? "");
+  return m ? Number(m[1]) : -1;
+}
+
+/**
+ * Previous / next participant. Uses the same role-scoped list as the
+ * participants page (my_participants: a coach gets only their assigned
+ * participants, mentor/admin get everyone), ordered batch-newest-first then by
+ * name, so stepping through matches the list you came from.
+ */
+function SiblingNav({ userId, backTo }: { userId: string; backTo: string }) {
+  const { rows } = useParticipantsOverview();
+  // "/coach/participants" → "/coach/participant"
+  const detailBase = backTo.replace(/participants$/, "participant");
+
+  const ordered = useMemo(
+    () =>
+      [...rows].sort(
+        (a, b) =>
+          batchNum(b.batchName) - batchNum(a.batchName) ||
+          (a.batchName ?? "").localeCompare(b.batchName ?? "") ||
+          a.name.localeCompare(b.name),
+      ),
+    [rows],
+  );
+
+  const idx = ordered.findIndex((r) => r.id === userId);
+  const prev = idx > 0 ? ordered[idx - 1] : null;
+  const next = idx >= 0 && idx < ordered.length - 1 ? ordered[idx + 1] : null;
+
+  // Nothing to step through (list still loading, or a single participant).
+  if (ordered.length < 2 || idx === -1) return null;
+
+  return (
+    <div className="flex items-center gap-1.5">
+      <Button
+        variant="outline"
+        className="rounded-full"
+        disabled={!prev}
+        title={prev ? `Previous: ${prev.name}` : "This is the first participant"}
+        asChild={!!prev}
+      >
+        {prev ? (
+          <Link to={`${detailBase}/${prev.id}` as string}>
+            <ChevronLeft className="h-4 w-4" />
+            <span className="hidden sm:inline">Previous</span>
+          </Link>
+        ) : (
+          <span>
+            <ChevronLeft className="h-4 w-4" />
+            <span className="hidden sm:inline">Previous</span>
+          </span>
+        )}
+      </Button>
+      <Button
+        variant="outline"
+        className="rounded-full"
+        disabled={!next}
+        title={next ? `Next: ${next.name}` : "This is the last participant"}
+        asChild={!!next}
+      >
+        {next ? (
+          <Link to={`${detailBase}/${next.id}` as string}>
+            <span className="hidden sm:inline">Next</span>
+            <ChevronRight className="h-4 w-4" />
+          </Link>
+        ) : (
+          <span>
+            <span className="hidden sm:inline">Next</span>
+            <ChevronRight className="h-4 w-4" />
+          </span>
+        )}
+      </Button>
+      <span className="hidden text-[11px] tabular-nums text-muted-foreground lg:inline">
+        {idx + 1} / {ordered.length}
+      </span>
+    </div>
   );
 }
 
