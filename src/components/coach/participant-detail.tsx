@@ -661,41 +661,40 @@ export function ParticipantDetail({
   );
 }
 
-// Trailing number from a batch name ("Batch 16" → 16) so newest batches sort
-// first — the same ordering the participants list uses.
-function batchNum(name?: string | null): number {
-  const m = /(\d+)/.exec(name ?? "");
-  return m ? Number(m[1]) : -1;
-}
-
 /**
- * Previous / next participant. Uses the same role-scoped list as the
- * participants page (my_participants: a coach gets only their assigned
- * participants, mentor/admin get everyone), ordered batch-newest-first then by
- * name, so stepping through matches the list you came from.
+ * Previous / next participant, scoped to THIS participant's batch.
+ *
+ * Stepping is deliberately batch-local: opening someone from Batch 16 cycles
+ * only through Batch 16, never across the whole org. The candidate pool is
+ * still role-scoped first (my_participants: a coach gets only their assigned
+ * participants, mentor/admin get everyone), then narrowed to the batch and
+ * sorted by name — matching the batch group in the participants list.
+ * Participants in no batch cycle among the other unassigned ones.
  */
 function SiblingNav({ userId, backTo }: { userId: string; backTo: string }) {
   const { rows } = useParticipantsOverview();
   // "/coach/participants" → "/coach/participant"
   const detailBase = backTo.replace(/participants$/, "participant");
 
+  const current = rows.find((r) => r.id === userId) ?? null;
+  const batchId = current?.batchId ?? null;
+
   const ordered = useMemo(
     () =>
-      [...rows].sort(
-        (a, b) =>
-          batchNum(b.batchName) - batchNum(a.batchName) ||
-          (a.batchName ?? "").localeCompare(b.batchName ?? "") ||
-          a.name.localeCompare(b.name),
-      ),
-    [rows],
+      rows
+        .filter((r) => (r.batchId ?? null) === batchId)
+        .sort((a, b) => a.name.localeCompare(b.name)),
+    [rows, batchId],
   );
 
   const idx = ordered.findIndex((r) => r.id === userId);
   const prev = idx > 0 ? ordered[idx - 1] : null;
   const next = idx >= 0 && idx < ordered.length - 1 ? ordered[idx + 1] : null;
 
-  // Nothing to step through (list still loading, or a single participant).
-  if (ordered.length < 2 || idx === -1) return null;
+  // Nothing to step through (list still loading, or the batch has one member).
+  if (!current || ordered.length < 2 || idx === -1) return null;
+
+  const batchLabel = current.batchName ?? "No batch";
 
   return (
     <div className="flex items-center gap-1.5">
@@ -703,7 +702,9 @@ function SiblingNav({ userId, backTo }: { userId: string; backTo: string }) {
         variant="outline"
         className="rounded-full"
         disabled={!prev}
-        title={prev ? `Previous: ${prev.name}` : "This is the first participant"}
+        title={
+          prev ? `Previous in ${batchLabel}: ${prev.name}` : `First participant in ${batchLabel}`
+        }
         asChild={!!prev}
       >
         {prev ? (
@@ -722,7 +723,7 @@ function SiblingNav({ userId, backTo }: { userId: string; backTo: string }) {
         variant="outline"
         className="rounded-full"
         disabled={!next}
-        title={next ? `Next: ${next.name}` : "This is the last participant"}
+        title={next ? `Next in ${batchLabel}: ${next.name}` : `Last participant in ${batchLabel}`}
         asChild={!!next}
       >
         {next ? (
@@ -737,8 +738,12 @@ function SiblingNav({ userId, backTo }: { userId: string; backTo: string }) {
           </span>
         )}
       </Button>
-      <span className="hidden text-[11px] tabular-nums text-muted-foreground lg:inline">
-        {idx + 1} / {ordered.length}
+      {/* Makes the batch scope explicit: "3 / 7 · Batch 16" */}
+      <span className="hidden whitespace-nowrap text-[11px] text-muted-foreground lg:inline">
+        <span className="tabular-nums">
+          {idx + 1} / {ordered.length}
+        </span>{" "}
+        · {batchLabel}
       </span>
     </div>
   );
