@@ -36,6 +36,7 @@ import {
   Compass,
   FolderOpen,
   Video,
+  Award,
   FileSpreadsheet,
   FileText,
   type LucideIcon,
@@ -75,6 +76,7 @@ import { ParticipantBusinessTab } from "@/components/coach/participant-business-
 import { ParticipantVisionTab } from "@/components/coach/participant-vision-tab";
 import { ParticipantFilesTab } from "@/components/coach/participant-files-tab";
 import { MemberSessionsManager } from "@/components/coach/member-sessions-manager";
+import { MemberCertificateManager } from "@/components/coach/member-certificate-manager";
 import { exportReportPdf, exportReportExcel, type ReportExportSpec } from "@/lib/vkm/report-export";
 
 const inr = (n: number | null | undefined) =>
@@ -484,6 +486,9 @@ export function ParticipantDetail({
               <TabsTrigger value="sessions" className="gap-1.5 rounded-full border border-border bg-card px-3.5 py-1.5 data-[state=active]:border-transparent data-[state=active]:bg-gradient-navy data-[state=active]:text-primary-foreground data-[state=active]:shadow-vkm">
                 <Video className="h-3.5 w-3.5" /> Sessions
               </TabsTrigger>
+              <TabsTrigger value="certificate" className="gap-1.5 rounded-full border border-border bg-card px-3.5 py-1.5 data-[state=active]:border-transparent data-[state=active]:bg-gradient-navy data-[state=active]:text-primary-foreground data-[state=active]:shadow-vkm">
+                <Award className="h-3.5 w-3.5" /> Certificate
+              </TabsTrigger>
               <TabsTrigger value="files" className="gap-1.5 rounded-full border border-border bg-card px-3.5 py-1.5 data-[state=active]:border-transparent data-[state=active]:bg-gradient-navy data-[state=active]:text-primary-foreground data-[state=active]:shadow-vkm">
                 <FolderOpen className="h-3.5 w-3.5" /> Files
               </TabsTrigger>
@@ -629,6 +634,12 @@ export function ParticipantDetail({
               {/* Per-member 1-on-1 session videos, by week — staff add here, the
                   member sees them on their own "My Sessions" page. */}
               <MemberSessionsManager userId={userId} memberName={name} />
+            </TabsContent>
+
+            <TabsContent value="certificate" className="space-y-5">
+              {/* Issuing a certificate here unlocks it on the member's own
+                  Certificates page (preview + download). */}
+              <MemberCertificateManager userId={userId} memberName={name} />
             </TabsContent>
 
             <TabsContent value="files">

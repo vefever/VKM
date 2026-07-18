@@ -835,6 +835,45 @@ export type Database = {
           },
         ]
       }
+      member_certificates: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          file_type: string | null
+          file_url: string
+          id: string
+          is_active: boolean
+          issued_at: string
+          note: string | null
+          title: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          file_type?: string | null
+          file_url: string
+          id?: string
+          is_active?: boolean
+          issued_at?: string
+          note?: string | null
+          title?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          file_type?: string | null
+          file_url?: string
+          id?: string
+          is_active?: boolean
+          issued_at?: string
+          note?: string | null
+          title?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       member_profiles: {
         Row: {
           allow_messages: boolean

@@ -21,7 +21,9 @@ import { useAuth } from "@/hooks/use-auth";
 import { VKM_PROGRAM } from "@/lib/vkm/program";
 import { useMyProofs } from "@/components/coach/coach-data";
 import { useEnrollment } from "@/components/participant/enrollment-data";
-import { toast } from "sonner";
+import { useMyCertificates } from "@/components/participant/certificate-data";
+import { CertificateView } from "@/components/vkm/certificate-view";
+import { format } from "date-fns";
 
 const INCLUDES = [
   "Official Certificate of Transformation",
@@ -33,7 +35,9 @@ const INCLUDES = [
 export function CertificatesPage() {
   const { user } = useAuth();
   const { weeks } = useMyProofs();
-  const { enrollment, loading: enrollmentLoading } = useEnrollment();
+  // useEnrollment returns flat fields (no `enrollment` object).
+  const { totalWeeks: enrolledWeeks, status: enrollmentStatus, loading: enrollmentLoading } = useEnrollment();
+  const { rows: certificates, loading: certsLoading } = useMyCertificates();
   const [name, setName] = useState("");
 
   useEffect(() => {
@@ -53,11 +57,17 @@ export function CertificatesPage() {
   }, [user]);
 
   const weeksApproved = weeks.filter((w) => w.proof_status === "approved").length;
-  const totalWeeks = enrollment?.totalWeeks ?? VKM_PROGRAM.durationWeeks;
+  const totalWeeks = enrolledWeeks ?? VKM_PROGRAM.durationWeeks;
   const progressPct = Math.min(100, Math.round((weeksApproved / totalWeeks) * 100));
-  const unlocked =
-    enrollment?.status === "completed" || weeksApproved >= VKM_PROGRAM.graduationWeek;
   const weeksLeft = Math.max(0, VKM_PROGRAM.graduationWeek - weeksApproved);
+
+  // An issued certificate IS the unlock: staff upload it on completion, and the
+  // member can then preview and download the real document. Until then they see
+  // the locked teaser with their progress.
+  const issued = certificates[0] ?? null;
+  const unlocked = Boolean(issued);
+  const completed =
+    enrollmentStatus === "completed" || weeksApproved >= VKM_PROGRAM.graduationWeek;
 
   return (
     <motion.div
@@ -73,7 +83,41 @@ export function CertificatesPage() {
         icon={Award}
       />
 
-      {/* Certificate preview — glass-locked until graduation */}
+      {certsLoading ? (
+        <div className="flex justify-center py-16">
+          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+        </div>
+      ) : issued ? (
+        /* Issued — the real document your team uploaded: preview + download. */
+        <SectionCard
+          title={issued.title || "Certificate of Transformation"}
+          subtitle={`Issued ${format(new Date(issued.issued_at), "d MMMM yyyy")}`}
+          accent
+        >
+          <CertificateView fileUrl={issued.file_url} fileType={issued.file_type} title={issued.title} />
+          {issued.note && <p className="mt-3 text-sm text-muted-foreground">{issued.note}</p>}
+
+          {certificates.length > 1 && (
+            <div className="mt-6 space-y-4 border-t border-border pt-4">
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                Earlier certificates
+              </p>
+              {certificates.slice(1).map((c) => (
+                <div key={c.id} className="space-y-2">
+                  <p className="text-sm font-medium text-foreground">
+                    {c.title || "Certificate"}{" "}
+                    <span className="text-xs font-normal text-muted-foreground">
+                      · {format(new Date(c.issued_at), "d MMM yyyy")}
+                    </span>
+                  </p>
+                  <CertificateView fileUrl={c.file_url} fileType={c.file_type} title={c.title} compact />
+                </div>
+              ))}
+            </div>
+          )}
+        </SectionCard>
+      ) : (
+      /* Not issued yet — glass-locked teaser with real progress. */
       <div className="relative overflow-hidden rounded-3xl border border-gold/25 shadow-vkm-float">
         <span
           aria-hidden
@@ -85,9 +129,9 @@ export function CertificatesPage() {
         />
 
         <div className="relative p-4 sm:p-6">
-          <CertificatePreview name={name} blurred={!unlocked} />
+          <CertificatePreview name={name} blurred />
 
-          {!unlocked && (
+          {(
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
@@ -111,11 +155,12 @@ export function CertificatesPage() {
               </motion.span>
 
               <p className="text-center text-lg font-semibold tracking-tight text-foreground">
-                Unlocks after course completion
+                {completed ? "Your certificate is being prepared" : "Unlocks after course completion"}
               </p>
               <p className="mt-1 max-w-xs text-center text-sm text-muted-foreground">
-                Finish all {VKM_PROGRAM.durationWeeks} weeks and graduate to claim your official
-                certificate.
+                {completed
+                  ? "You've finished the program — your coach is issuing your official certificate. It appears here the moment it's ready."
+                  : `Finish all ${VKM_PROGRAM.durationWeeks} weeks and graduate to claim your official certificate.`}
               </p>
 
               {enrollmentLoading ? (
@@ -140,20 +185,15 @@ export function CertificatesPage() {
           )}
         </div>
       </div>
+      )}
 
       {unlocked ? (
         <SectionCard
           title="Congratulations — you earned it"
-          subtitle="Your Certificate of Transformation is ready"
+          subtitle="Use the buttons above to download or open your certificate"
           accent
         >
           <div className="flex flex-wrap gap-3">
-            <Button
-              className="rounded-xl bg-gradient-navy shadow-vkm"
-              onClick={() => toast.success("Certificate download will be available shortly")}
-            >
-              <Download className="h-4 w-4" /> Download certificate
-            </Button>
             <Button variant="outline" className="rounded-xl" asChild>
               <Link to="/participant/graduation">
                 View Before → After <ArrowRight className="h-4 w-4" />
@@ -241,9 +281,11 @@ function CertificatePreview({ name, blurred }: { name: string; blurred: boolean 
               blurred && "blur-[5px]",
             )}
           >
-            <MetricTeaser label="Revenue" value="↑ 72%" />
-            <MetricTeaser label="Leads" value="3.4×" />
-            <MetricTeaser label="Systems" value="5 live" />
+            {/* Placeholders only — this is the locked teaser, never real data.
+                The issued certificate your team uploads replaces it entirely. */}
+            <MetricTeaser label="Revenue" value="—" />
+            <MetricTeaser label="Leads" value="—" />
+            <MetricTeaser label="Systems" value="—" />
           </div>
 
           <div className="flex items-end justify-between px-2 sm:px-4">
