@@ -126,14 +126,32 @@ async function memberEmailSet(): Promise<Set<string>> {
 // confirmed), so requiring an existing account here blocks strangers without
 // affecting real onboarding. Short-circuits on the first matching page.
 async function emailHasAccount(email: string): Promise<boolean> {
+  return (await lookupUserId(email)) !== null;
+}
+
+// The auth user id for an email, or null. Paginated, short-circuits.
+async function lookupUserId(email: string): Promise<string | null> {
   const target = email.trim().toLowerCase();
   for (let page = 1; page <= 20; page++) {
     const { data } = await admin.auth.admin.listUsers({ page, perPage: 1000 });
     const users = data?.users ?? [];
-    if (users.some((u) => (u.email ?? "").trim().toLowerCase() === target)) return true;
+    const hit = users.find((u) => (u.email ?? "").trim().toLowerCase() === target);
+    if (hit) return hit.id;
     if (users.length < 1000) break;
   }
-  return false;
+  return null;
+}
+
+// STRICT "is this a real platform member?" check for the OTP endpoint. Requires
+// BOTH an auth account AND a role in user_roles — every invited member gets a
+// role (participant, coach, mentor, super_admin), so a bare/stray auth row with
+// no role (should never happen, but belt-and-suspenders) is NOT treated as a
+// member and gets no code. Only members can receive forgot-password / OTP codes.
+async function emailIsMember(email: string): Promise<boolean> {
+  const userId = await lookupUserId(email);
+  if (!userId) return false;
+  const { data } = await admin.from("user_roles").select("user_id").eq("user_id", userId).limit(1);
+  return (data?.length ?? 0) > 0;
 }
 
 // Record a reminder delivery (idempotent via the unique key) for audit + to skip
@@ -798,12 +816,13 @@ Deno.serve(async (req) => {
         return json({ ok: true }, 200, cors);
       }
 
-      // INVITE-ONLY: never create an account from this public endpoint. If no
-      // account exists for this email, stop BEFORE generateLink (which would
-      // auto-provision the user). Return ok so account existence can't be
-      // probed — we simply don't send anything.
-      if (!(await emailHasAccount(email))) {
-        console.warn("request_otp for non-member email — skipped (invite-only, no account created)");
+      // INVITE-ONLY: only an existing platform MEMBER (has an account AND a
+      // role) may receive a code. Stop BEFORE generateLink — which would both
+      // auto-provision a stranger's account AND hand out a login code. Return
+      // ok regardless so member/non-member status can't be probed; we simply
+      // send nothing for non-members.
+      if (!(await emailIsMember(email))) {
+        console.warn("request_otp for non-member email — skipped (invite-only; no code sent, no account created)");
         return json({ ok: true }, 200, cors);
       }
 
