@@ -4,7 +4,7 @@ import { motion } from "framer-motion";
 import { ArrowRight, Eye, EyeOff, Loader2, KeyRound, Mail } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { invokeMessaging, otpLoginEnabled } from "@/components/admin/messaging-data";
+import { invokeMessaging, otpLoginEnabled, signupsEnabled } from "@/components/admin/messaging-data";
 import { useAuth } from "@/hooks/use-auth";
 import { VKMLogo } from "@/components/vkm/logo";
 import { Button } from "@/components/ui/button";
@@ -24,13 +24,22 @@ export const Route = createFileRoute("/auth")({
   component: AuthPage,
 });
 
-// Self-serve "Create account" is hidden for now (accounts are provisioned via
-// invite). Flip to `true` to re-enable the sign-up tab — the form is kept below.
-const SIGNUP_ENABLED = false;
-
 export function AuthPage() {
   const navigate = useNavigate();
   const { user, loading } = useAuth();
+
+  // Whether the admin has opened public sign-ups (controls the Create-account
+  // tab). Pre-auth public RPC; defaults closed until it resolves.
+  const [signupsOpen, setSignupsOpen] = useState(false);
+  useEffect(() => {
+    let alive = true;
+    signupsEnabled()
+      .then((on) => alive && setSignupsOpen(on))
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, []);
 
   const brandPanelRef = useRef<HTMLDivElement>(null);
 
@@ -156,7 +165,7 @@ export function AuthPage() {
             </div>
           ) : (
             <div className="mx-auto w-full max-w-md">
-              {SIGNUP_ENABLED ? (
+              {signupsOpen ? (
                 <Tabs defaultValue="signin">
                   <TabsList className="grid w-full grid-cols-2 rounded-full mb-1">
                     <TabsTrigger value="signin" className="rounded-full">
@@ -570,19 +579,22 @@ function SignUpForm() {
     }
 
     setBusy(true);
-    const { error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        data: { full_name: name },
-        emailRedirectTo: "https://vkmentorship.com/app",
-      },
-    });
-    setBusy(false);
-
-    if (error) return toast.error(error.message);
-    toast.success("Account created — welcome to VKM");
-    navigate({ to: "/app" });
+    try {
+      // Create the account through the gated edge function (checks the admin
+      // "public sign-ups" flag server-side). GoTrue's own signup is disabled,
+      // so this is the only path — a stranger can't self-provision when the
+      // admin has sign-ups closed.
+      await invokeMessaging("public_signup", { email, password, full_name: name });
+      // Then sign in with the password they just chose.
+      const { error: siErr } = await supabase.auth.signInWithPassword({ email, password });
+      if (siErr) throw siErr;
+      toast.success("Account created — welcome to VKM");
+      navigate({ to: "/app" });
+    } catch (err) {
+      toast.error((err as Error).message || "Could not create your account");
+    } finally {
+      setBusy(false);
+    }
   }
 
   return (

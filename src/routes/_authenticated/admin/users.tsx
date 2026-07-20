@@ -94,6 +94,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { UserDetailDialog } from "@/components/admin/user-detail-dialog";
+import { SignupAccessCard } from "@/components/admin/signup-access-card";
 import {
   getCoachAssignments,
   adminListCoaches,
@@ -325,6 +326,8 @@ function UsersPage() {
         <KpiTile label="Coaches" value={String(counts.coach)} accent="gold" />
         <KpiTile label="Mentors" value={String(counts.mentor)} accent="success" />
       </motion.div>
+
+      <SignupAccessCard />
 
       <SectionCard
         title="Directory"

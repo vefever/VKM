@@ -829,6 +829,48 @@ Deno.serve(async (req) => {
       return json({ ok: true }, 200, cors);
     }
 
+    // Public self sign-up — the ONLY place a public visitor can create an
+    // account, and only when an admin has explicitly opened sign-ups. GoTrue's
+    // own signup endpoint stays disabled, so this flag is the single real gate.
+    if (action === "public_signup") {
+      const enabled = (await loadSetting("general")).config?.signups_enabled;
+      if (!enabled) return json({ ok: false, error: "Sign-ups are currently closed." }, 403, cors);
+
+      const email = String(p.email || "").trim().toLowerCase();
+      const password = String(p.password || "");
+      const fullName = String(p.full_name || "").trim();
+      if (!email || !email.includes("@")) return json({ ok: false, error: "A valid email is required." }, 400, cors);
+      if (password.length < 8) return json({ ok: false, error: "Password must be at least 8 characters." }, 400, cors);
+
+      // Anti-abuse: same throttle as the OTP endpoint (per-email + per-IP).
+      const ip =
+        req.headers.get("cf-connecting-ip") ||
+        req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
+        "unknown";
+      if (await otpRateLimited(email, ip)) {
+        return json({ ok: false, error: "Too many attempts. Try again shortly." }, 429, cors);
+      }
+
+      // Never clobber an existing account (and don't reveal it plainly).
+      if (await emailHasAccount(email)) {
+        return json({ ok: false, error: "An account with this email already exists — please sign in." }, 409, cors);
+      }
+
+      // Create the account server-side (email pre-confirmed). The handle_new_user
+      // trigger assigns the profile + participant role.
+      const { error: cErr } = await admin.auth.admin.createUser({
+        email,
+        password,
+        email_confirm: true,
+        user_metadata: { full_name: fullName || email.split("@")[0], self_signup: true },
+      });
+      if (cErr) {
+        console.error("public_signup createUser failed:", cErr.message);
+        return json({ ok: false, error: "Could not create your account. Try again later." }, 500, cors);
+      }
+      return json({ ok: true }, 200, cors);
+    }
+
     // Email code as a SECOND factor (post-password, aal1 session already
     // exists) — distinct from request_otp above, which is a first-factor
     // passwordless login. Only a signed-in staff member can trigger this,

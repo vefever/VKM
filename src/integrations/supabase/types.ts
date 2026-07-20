@@ -2619,6 +2619,7 @@ export type Database = {
           scheduled: boolean
         }[]
       }
+      signups_enabled: { Args: never; Returns: boolean }
       support_link_for: { Args: { _uid: string }; Returns: string }
       verify_mfa_email_otp: { Args: { _code: string }; Returns: boolean }
     }

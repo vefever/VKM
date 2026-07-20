@@ -227,3 +227,9 @@ export async function otpLoginEnabled(): Promise<boolean> {
   const { data } = await supabase.rpc("otp_login_enabled");
   return !!data;
 }
+
+/** Are public self sign-ups open? (Admin toggle; safe to call pre-auth.) */
+export async function signupsEnabled(): Promise<boolean> {
+  const { data } = await supabase.rpc("signups_enabled");
+  return !!data;
+}
