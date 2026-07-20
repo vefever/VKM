@@ -118,6 +118,24 @@ async function memberEmailSet(): Promise<Set<string>> {
   return set;
 }
 
+// Does an account already exist for this email? INVITE-ONLY GUARD: the OTP /
+// forgot-password endpoint must NEVER provision a new account. Supabase's
+// admin generateLink({type:"magiclink"}) silently CREATES the user if absent,
+// so a stranger could self-provision by "requesting a code". Every legitimate
+// member is created up-front by the invite flow (createUser, email pre-
+// confirmed), so requiring an existing account here blocks strangers without
+// affecting real onboarding. Short-circuits on the first matching page.
+async function emailHasAccount(email: string): Promise<boolean> {
+  const target = email.trim().toLowerCase();
+  for (let page = 1; page <= 20; page++) {
+    const { data } = await admin.auth.admin.listUsers({ page, perPage: 1000 });
+    const users = data?.users ?? [];
+    if (users.some((u) => (u.email ?? "").trim().toLowerCase() === target)) return true;
+    if (users.length < 1000) break;
+  }
+  return false;
+}
+
 // Record a reminder delivery (idempotent via the unique key) for audit + to skip
 // duplicate sends on a re-run.
 async function logReminder(
@@ -777,6 +795,15 @@ Deno.serve(async (req) => {
       const rl = await otpRateLimited(email, ip);
       if (rl) {
         console.warn(`request_otp throttled (${rl})`);
+        return json({ ok: true }, 200, cors);
+      }
+
+      // INVITE-ONLY: never create an account from this public endpoint. If no
+      // account exists for this email, stop BEFORE generateLink (which would
+      // auto-provision the user). Return ok so account existence can't be
+      // probed — we simply don't send anything.
+      if (!(await emailHasAccount(email))) {
+        console.warn("request_otp for non-member email — skipped (invite-only, no account created)");
         return json({ ok: true }, 200, cors);
       }
 

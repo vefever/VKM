@@ -4,6 +4,11 @@ A running log of platform updates. Newest first. Ask any time for a **PDF** of t
 
 ---
 
+## 2026-07-20
+
+### Security
+- **Closed a critical hole that let non-invited strangers create accounts and log in** — this is an invite-only platform, but the "forgot password / email a login code" screen would send a code to **any** email, because the code-generation step silently created a brand-new account for an unknown email on the spot. The stranger then set a password and was in — and because they were never invited, they didn't appear in User Management. The login-code endpoint now **refuses to create accounts**: if no account already exists for that email, it quietly does nothing (it still says "code sent" so nobody can fish for which emails are registered). Verified end-to-end: a stranger's email now creates **no** account, while a real member still receives their code normally. Public self-signup has also been turned off at the database level as a second lock. (Existing invited members are unaffected — their accounts are created up-front by the invite, so password resets and code logins keep working.)
+
 ## 2026-07-18
 
 ### Fixed
