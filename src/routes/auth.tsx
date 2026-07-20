@@ -425,9 +425,17 @@ function ForgotPassword({ initialEmail, onBack }: { initialEmail: string; onBack
     if (!email.trim()) return;
     setBusy(true);
     try {
-      await invokeMessaging("request_otp", { email: email.trim() });
-      toast.success("Reset code sent", { description: `Check ${email} for your 6-digit code.` });
-      setStage("reset");
+      // Invite-only: this returns sent:false for a non-member, so we tell them
+      // plainly instead of showing an OTP screen for a code that never went out.
+      const res = await invokeMessaging("request_password_reset", { email: email.trim() });
+      if (res?.sent) {
+        toast.success("Reset code sent", { description: `Check ${email} for your 6-digit code.` });
+        setStage("reset");
+      } else {
+        toast.error("No account found", {
+          description: "This email isn't registered. VK Mentorship is invite-only — please use your invitation to join.",
+        });
+      }
     } catch (err) {
       toast.error("Couldn't send the code", { description: (err as Error).message });
     } finally {

@@ -154,6 +154,27 @@ async function emailIsMember(email: string): Promise<boolean> {
   return (data?.length ?? 0) > 0;
 }
 
+// Generate Supabase's own 6-digit OTP for an existing account and email it via
+// our provider. Callers MUST verify membership first (generateLink would create
+// the user otherwise). Returns "sent" | "no-account" | "send-failed".
+async function issueLoginCode(email: string): Promise<"sent" | "no-account" | "send-failed"> {
+  const { data, error } = await admin.auth.admin.generateLink({ type: "magiclink", email });
+  if (error || !data?.properties?.email_otp) return "no-account";
+  const code = data.properties.email_otp;
+  const html = `<div style="font-family:system-ui,sans-serif;max-width:480px">
+    <h2 style="color:#0B2545">Your VK Mentorship code</h2>
+    <p>Enter this code to continue. It expires shortly.</p>
+    <p style="font-size:32px;font-weight:700;letter-spacing:6px;color:#0B2545">${code}</p>
+    <p style="color:#667">If you didn't request this, you can ignore this email.</p></div>`;
+  try {
+    await sendEmailLogged(email, "Your VKM code", html, `Your VKM code: ${code}`, "otp");
+    return "sent";
+  } catch (e) {
+    console.error("issueLoginCode sendEmail failed:", (e as Error).message);
+    return "send-failed";
+  }
+}
+
 // Record a reminder delivery (idempotent via the unique key) for audit + to skip
 // duplicate sends on a re-run.
 async function logReminder(
@@ -826,26 +847,42 @@ Deno.serve(async (req) => {
         return json({ ok: true }, 200, cors);
       }
 
-      // Generate Supabase's own OTP (valid for client verifyOtp), email it ourselves.
-      const { data, error } = await admin.auth.admin.generateLink({ type: "magiclink", email });
-      // Don't leak whether the account exists.
-      if (!error && data?.properties?.email_otp) {
-        const code = data.properties.email_otp;
-        const html = `<div style="font-family:system-ui,sans-serif;max-width:480px">
-          <h2 style="color:#0B2545">Your VK Mentorship login code</h2>
-          <p>Enter this code to sign in. It expires shortly.</p>
-          <p style="font-size:32px;font-weight:700;letter-spacing:6px;color:#0B2545">${code}</p>
-          <p style="color:#667">If you didn't request this, you can ignore this email.</p></div>`;
-        try {
-          await sendEmailLogged(email, "Your VKM login code", html, `Your VKM login code: ${code}`, "otp");
-        } catch (e) {
-          // Pre-auth path — never leak provider/internal error details to the caller.
-          console.error("request_otp sendEmail failed:", (e as Error).message);
-          return json({ ok: false, error: "Could not send login code. Try again later." }, 500, cors);
-        }
+      // Member confirmed — issue + email the code. Stay generic on any failure.
+      const sent = await issueLoginCode(email);
+      if (sent === "send-failed") {
+        return json({ ok: false, error: "Could not send login code. Try again later." }, 500, cors);
       }
       // Always return ok so account existence + provider state can't be probed.
       return json({ ok: true }, 200, cors);
+    }
+
+    // Forgot-password reset code. Unlike request_otp (passwordless login), this
+    // is INTENTIONALLY not anonymous about membership: on an invite-only
+    // platform a non-member must be told "no account" instead of being shown an
+    // OTP entry screen for a code that was never sent. Does NOT require OTP
+    // login to be enabled — password reset is always available to members.
+    if (action === "request_password_reset") {
+      const email = String(p.email || "").trim().toLowerCase();
+      if (!email) return json({ ok: false, error: "Email required" }, 400, cors);
+
+      const ip =
+        req.headers.get("cf-connecting-ip") ||
+        req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
+        "unknown";
+      if (await otpRateLimited(email, ip)) {
+        return json({ ok: false, error: "Too many requests. Please wait a minute and try again." }, 429, cors);
+      }
+
+      // Only real members get a code. Non-members are told plainly (no OTP step).
+      if (!(await emailIsMember(email))) {
+        return json({ ok: true, sent: false, reason: "no-account" }, 200, cors);
+      }
+
+      const sent = await issueLoginCode(email);
+      if (sent === "send-failed") {
+        return json({ ok: false, error: "Could not send the reset code. Try again later." }, 500, cors);
+      }
+      return json({ ok: true, sent: true }, 200, cors);
     }
 
     // Public self sign-up — the ONLY place a public visitor can create an
