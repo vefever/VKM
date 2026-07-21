@@ -6,6 +6,9 @@ A running log of platform updates. Newest first. Ask any time for a **PDF** of t
 
 ## 2026-07-21
 
+### Changed
+- **Redesigned the exemption request (Daily Habits) + the note is now required** — the "request an exemption" card has a polished new look: a coloured header with a live "X left this month" quota, your missed days shown as tappable date chips, reasons as icon chips (fever, health, travel, family, other), and a clear 1-2-3 flow. The **note to your coach is now mandatory** (with a live character check) — you can't send a request without a short explanation, enforced both in the form and at the database level so coaches always have context to decide.
+
 ### Added
 - **Missed-day exemptions — protect your streak when life happens** — daily habits are still mandatory each day, but if a member genuinely can't log one (fever, health, travel, family), they can now request a **special exemption** for that specific day instead of silently breaking their streak. On **Daily Habits** there's a new "Missed a day? Request an exemption" card: pick the missed day, choose a reason, add an optional note, and send it to your coach. It's capped at **3 per calendar month** (the remaining count is shown), and pending requests can be cancelled.
 - **Staff review + one-tap regulation** — requests appear in **Proof Reviews → Exemptions** (with the member's name, photo, the day, and reason) for coaches, mentors and admins to **Approve** or **Decline**. Approving "regulates" that day so it counts **exactly like a completed 6/6 day**: the day is **added to the streak** (a 16-day streak becomes 17), and the member **earns the full day's habit points** (the same 6-of-6 habit points, awarded automatically on approval and removed again if it's later declined). Both the member and the coaches are notified.
