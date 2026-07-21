@@ -40,6 +40,7 @@ import {
   type HabitDef,
 } from "@/components/habits/habit-tracker";
 import { HabitGrid } from "@/components/habits/habit-grid";
+import { ExemptionRequestCard } from "@/components/habits/exemption-request-card";
 import { WaterTracker } from "@/components/habits/water-tracker";
 import { usePedometer } from "@/components/habits/use-pedometer";
 import { uploadAttachment } from "@/components/chat/chat-data";
@@ -152,6 +153,10 @@ export function HabitTrackerPage() {
       >
         <HabitTiles t={t} onOpen={openHabit} />
       </SectionCard>
+
+      {/* Special request: excuse a missed day (fever/health/travel) so the
+          streak isn't broken — reviewed by staff, max 3/month. */}
+      <ExemptionRequestCard programDay={t.programDay} dayState={t.dayState} anchor={t.startedAt ?? undefined} />
 
       {/* Reference material — collapsed by default to keep the page short. */}
       <AnalyticsZone t={t} />

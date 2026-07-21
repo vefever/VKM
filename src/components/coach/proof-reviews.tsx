@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Link } from "@tanstack/react-router";
-import { formatDistanceToNowStrict, differenceInCalendarDays } from "date-fns";
+import { formatDistanceToNowStrict, differenceInCalendarDays, format } from "date-fns";
 import {
   ShieldCheck,
   Check,
@@ -41,6 +41,10 @@ import {
 import { ProofAttachments } from "@/components/participant/proof-attachments";
 import { AvatarBadge } from "@/components/vkm/avatar-badge";
 import { SnapshotReviewQueue } from "@/components/business/snapshot-review";
+import {
+  useExemptionReviewQueue,
+  EXEMPTION_REASONS,
+} from "@/components/habits/habit-exemptions-data";
 import { HABITS } from "@/components/habits/habit-tracker";
 
 const HABIT_BY_ID = Object.fromEntries(HABITS.map((h) => [h.id, h]));
@@ -52,13 +56,14 @@ const REJECT_NOTES = [
   "Add a short note explaining what you did.",
 ];
 
-type Tab = "weekly" | "habits" | "business" | "history";
+type Tab = "weekly" | "habits" | "business" | "exemptions" | "history";
 type Sort = "oldest" | "newest" | "week";
 
 export function ProofReviews() {
   const { items, loading, error, review, requestChanges, unreview, reload } = useProofQueue();
   const habitFeed = useHabitProofFeed();
   const historyData = useProofHistory();
+  const exemptions = useExemptionReviewQueue();
   const [tab, setTab] = useState<Tab>("weekly");
 
   const oldestDays = items.length
@@ -76,6 +81,7 @@ export function ProofReviews() {
       count: habitFeed.items.filter((i) => i.proof_status === "pending").length,
     },
     { id: "business", label: "Business numbers" },
+    { id: "exemptions", label: "Exemptions", count: exemptions.items.length },
     { id: "history", label: "History", count: historyData.items.length },
   ];
 
@@ -151,6 +157,7 @@ export function ProofReviews() {
       )}
       {tab === "habits" && <HabitFeed feed={habitFeed} />}
       {tab === "business" && <SnapshotReviewQueue />}
+      {tab === "exemptions" && <ExemptionQueue data={exemptions} />}
       {tab === "history" && <ProofHistoryTab data={historyData} />}
     </motion.div>
   );
@@ -693,7 +700,11 @@ function HabitProofRow({ item, review }: { item: HabitProofItem; review: HabitRe
             onClick={() => act("rejected")}
             className="h-9 rounded-lg border-destructive/40 text-destructive hover:bg-destructive/10 hover:text-destructive"
           >
-            {busy === "rejected" ? <Loader2 className="h-4 w-4 animate-spin" /> : <X className="h-4 w-4" />}
+            {busy === "rejected" ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <X className="h-4 w-4" />
+            )}
             Reject
           </Button>
           <Button
@@ -950,9 +961,7 @@ function HistoryCard({ item }: { item: HistoryProof }) {
             <span
               className={cn(
                 "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold",
-                approved
-                  ? "bg-[#10b981]/12 text-[#059669]"
-                  : "bg-destructive/10 text-destructive",
+                approved ? "bg-[#10b981]/12 text-[#059669]" : "bg-destructive/10 text-destructive",
               )}
             >
               {approved ? <Check className="h-3 w-3" /> : <X className="h-3 w-3" />}
@@ -1031,13 +1040,83 @@ function HistoryCard({ item }: { item: HistoryProof }) {
                   <ExternalLink className="h-4 w-4" /> Open proof link
                 </a>
               )}
-              {item.proof_files.length > 0 && (
-                <ProofAttachments files={item.proof_files} />
-              )}
+              {item.proof_files.length > 0 && <ProofAttachments files={item.proof_files} />}
             </div>
           </motion.div>
         )}
       </AnimatePresence>
     </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Habit exemption requests — approve/decline a member's missed-day request.
+// Approving regulates the day (protects the streak); the DB caps 3/month.
+// ---------------------------------------------------------------------------
+function ExemptionQueue({ data }: { data: ReturnType<typeof useExemptionReviewQueue> }) {
+  const { items, loading, decide } = data;
+  const reasonLabel = (id: string) => EXEMPTION_REASONS.find((r) => r.id === id)?.label ?? id;
+
+  return (
+    <SectionCard
+      title="Habit exemption requests"
+      subtitle="A member asked to excuse a missed day (fever / health / travel). Approving protects their streak."
+    >
+      {loading ? (
+        <div className="flex justify-center py-10">
+          <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+        </div>
+      ) : items.length === 0 ? (
+        <p className="py-8 text-center text-sm text-muted-foreground">
+          No exemption requests waiting. 🎉
+        </p>
+      ) : (
+        <div className="space-y-2.5">
+          {items.map((r) => (
+            <div
+              key={r.id}
+              className="flex flex-col gap-3 rounded-2xl border border-border bg-card p-3 sm:flex-row sm:items-center"
+            >
+              <AvatarBadge name={r.name} src={r.avatar_url} size="md" />
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-semibold text-foreground">{r.name}</p>
+                <p className="text-[13px] text-foreground">
+                  Day {r.day_no} · {format(new Date(r.exempt_date), "EEE, MMM d")} ·{" "}
+                  <span className="font-medium text-[#4f46e5]">{reasonLabel(r.reason)}</span>
+                </p>
+                {r.note && <p className="mt-0.5 text-xs text-muted-foreground">“{r.note}”</p>}
+              </div>
+              <div className="flex shrink-0 gap-2">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="rounded-lg"
+                  onClick={() =>
+                    void decide(r.id, "rejected").catch((e) =>
+                      toast.error("Couldn't decline", { description: (e as Error).message }),
+                    )
+                  }
+                >
+                  <X className="h-4 w-4" /> Decline
+                </Button>
+                <Button
+                  size="sm"
+                  className="rounded-lg bg-[#10b981] text-white hover:bg-[#0ea371]"
+                  onClick={() =>
+                    void decide(r.id, "approved")
+                      .then(() => toast.success("Exemption approved — streak protected"))
+                      .catch((e) =>
+                        toast.error("Couldn't approve", { description: (e as Error).message }),
+                      )
+                  }
+                >
+                  <Check className="h-4 w-4" /> Approve
+                </Button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </SectionCard>
   );
 }

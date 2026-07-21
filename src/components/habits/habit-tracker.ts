@@ -13,6 +13,10 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { useEnrollment } from "@/components/participant/enrollment-data";
 import { type Attachment } from "@/components/chat/chat-data";
+import {
+  fetchExemptionDaySets,
+  type ExemptionDaySets,
+} from "@/components/habits/habit-exemptions-data";
 
 // Habits whose completion is proven by their own tracker (steps / hydration /
 // workout minutes) and therefore auto-complete without a manual file upload.
@@ -141,8 +145,19 @@ export function currentProgramDay(totalDays: number, startedAt: Date | null): nu
 }
 
 export type DoneMap = Record<string, true>;
-export type DayState = "completed" | "inprogress" | "today" | "missed" | "upcoming";
+// "regulated" = an approved exemption (missed but excused — bridges the streak).
+// "requested" = a pending exemption on a missed day (awaiting staff decision).
+export type DayState =
+  | "completed"
+  | "inprogress"
+  | "today"
+  | "missed"
+  | "upcoming"
+  | "regulated"
+  | "requested";
 const dkey = (day: number, habitId: string) => `${day}:${habitId}`;
+
+const EMPTY_EXEMPT: ExemptionDaySets = { approved: new Set(), pending: new Set() };
 
 // ---------------------------------------------------------------------------
 // Admin-editable program settings (singleton row), live-synced.
@@ -199,7 +214,12 @@ export function useProgramSettings() {
 // ---------------------------------------------------------------------------
 // Shared derivations from a done-map.
 // ---------------------------------------------------------------------------
-function computeDerived(done: DoneMap, totalDays: number, programDay: number) {
+function computeDerived(
+  done: DoneMap,
+  totalDays: number,
+  programDay: number,
+  exempt: ExemptionDaySets = EMPTY_EXEMPT,
+) {
   const isDone = (day: number, habitId: string) => !!done[dkey(day, habitId)];
   const dayCount = (day: number) => HABITS.reduce((n, h) => n + (isDone(day, h.id) ? 1 : 0), 0);
   const habitCount = (habitId: string) => {
@@ -213,18 +233,26 @@ function computeDerived(done: DoneMap, totalDays: number, programDay: number) {
   let completedDays = 0;
   for (let d = 1; d <= totalDays; d++) if (dayCount(d) === HABITS.length) completedDays++;
 
+  // Streak: an approved-exempt ("regulated") day bridges the streak — it neither
+  // breaks it nor inflates it. A fully-done day increments as usual.
   let streak = 0;
   for (let d = programDay; d >= 1; d--) {
-    if (dayCount(d) === HABITS.length) streak++;
-    else if (d === programDay) continue;
-    else break;
+    if (dayCount(d) === HABITS.length) {
+      streak++;
+      continue;
+    }
+    if (exempt.approved.has(d)) continue; // regulated — skip, don't break
+    if (d === programDay) continue; // today may still be in progress
+    break;
   }
 
   const dayState = (day: number): DayState => {
+    if (exempt.approved.has(day)) return "regulated";
     if (day === programDay) return "today";
     const c = dayCount(day);
     if (c === HABITS.length) return "completed";
     if (c > 0) return "inprogress";
+    if (exempt.pending.has(day)) return "requested";
     if (day < programDay) return "missed";
     return "upcoming";
   };
@@ -257,6 +285,7 @@ export function useHabitTracker() {
   const programDay = currentProgramDay(config.totalDays, enrollment.startedAt);
   const [done, setDone] = useState<DoneMap>({});
   const [proofs, setProofs] = useState<Record<string, Attachment[]>>({});
+  const [exempt, setExempt] = useState<ExemptionDaySets>(EMPTY_EXEMPT);
   const [loading, setLoading] = useState(true);
 
   const doneRef = useRef(done);
@@ -267,10 +296,10 @@ export function useHabitTracker() {
     let active = true;
 
     (async () => {
-      const { data } = await supabase
-        .from("habit_logs")
-        .select("habit_id, day_no, proof_files")
-        .eq("user_id", user.id);
+      const [{ data }, ex] = await Promise.all([
+        supabase.from("habit_logs").select("habit_id, day_no, proof_files").eq("user_id", user.id),
+        fetchExemptionDaySets(user.id),
+      ]);
       if (!active) return;
       const m: DoneMap = {};
       const pm: Record<string, Attachment[]> = {};
@@ -281,8 +310,24 @@ export function useHabitTracker() {
       });
       setDone(m);
       setProofs(pm);
+      setExempt(ex);
       setLoading(false);
     })();
+
+    // Keep the grid/streak live when an exemption is approved/added.
+    const exCh = supabase
+      .channel(`hx:self:${user.id}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "habit_exemptions",
+          filter: `user_id=eq.${user.id}`,
+        },
+        () => void fetchExemptionDaySets(user.id).then((e) => setExempt(e)),
+      )
+      .subscribe();
 
     const channel = supabase
       .channel(`habit_logs:${user.id}`)
@@ -313,6 +358,7 @@ export function useHabitTracker() {
     return () => {
       active = false;
       supabase.removeChannel(channel);
+      supabase.removeChannel(exCh);
     };
   }, [user]);
 
@@ -366,7 +412,7 @@ export function useHabitTracker() {
     [proofs],
   );
 
-  const d = computeDerived(done, config.totalDays, programDay);
+  const d = computeDerived(done, config.totalDays, programDay, exempt);
   return {
     config,
     programDay,
@@ -398,6 +444,7 @@ export function useParticipantHabits(userId: string | null) {
   const [waterGoal, setWaterGoal] = useState(4000);
   const [waterEvents, setWaterEvents] = useState<WaterEvent[]>([]);
   const [workoutMinutes, setWorkoutMinutes] = useState(0);
+  const [exempt, setExempt] = useState<ExemptionDaySets>(EMPTY_EXEMPT);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -408,6 +455,7 @@ export function useParticipantHabits(userId: string | null) {
       setWaterMl(0);
       setWaterEvents([]);
       setWorkoutMinutes(0);
+      setExempt(EMPTY_EXEMPT);
       setStartedAt(null);
       setLoading(false);
       return;
@@ -459,6 +507,7 @@ export function useParticipantHabits(userId: string | null) {
         m[k] = true;
         pm[k] = (r.proof_files ?? []) as Attachment[];
       });
+      setExempt(await fetchExemptionDaySets(userId));
       setDone(m);
       setProofs(pm);
       setSteps(stepRow?.steps ?? 0);
@@ -493,6 +542,11 @@ export function useParticipantHabits(userId: string | null) {
         { event: "*", schema: "public", table: "water_events", filter: `user_id=eq.${userId}` },
         () => load(),
       )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "habit_exemptions", filter: `user_id=eq.${userId}` },
+        () => load(),
+      )
       .subscribe();
 
     return () => {
@@ -501,7 +555,7 @@ export function useParticipantHabits(userId: string | null) {
     };
   }, [userId, config.totalDays]);
 
-  const d = computeDerived(done, config.totalDays, programDay);
+  const d = computeDerived(done, config.totalDays, programDay, exempt);
   const proofsFor = (day: number, habitId: string) => proofs[dkey(day, habitId)] ?? [];
   // Habits the participant completed on the current program day that carry proof.
   const todayProofs = HABITS.map((h) => ({ habit: h, files: proofsFor(programDay, h.id) })).filter(
@@ -573,19 +627,25 @@ export function useDailySteps(programDay: number, goal: number) {
     [user, todayDate, programDay, goal],
   );
 
-  const addStep = useCallback((count = 1) => {
-    setSteps((s) => {
-      const v = s + count;
-      persist(v);
-      return v;
-    });
-  }, [persist]);
+  const addStep = useCallback(
+    (count = 1) => {
+      setSteps((s) => {
+        const v = s + count;
+        persist(v);
+        return v;
+      });
+    },
+    [persist],
+  );
 
-  const setStepsManual = useCallback((value: number) => {
-    const v = Math.max(0, Math.floor(value));
-    setSteps(v);
-    persist(v);
-  }, [persist]);
+  const setStepsManual = useCallback(
+    (value: number) => {
+      const v = Math.max(0, Math.floor(value));
+      setSteps(v);
+      persist(v);
+    },
+    [persist],
+  );
 
   return { steps, goal, addStep, setSteps: setStepsManual };
 }

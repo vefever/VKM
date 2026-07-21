@@ -693,6 +693,45 @@ export type Database = {
         }
         Relationships: []
       }
+      habit_exemptions: {
+        Row: {
+          created_at: string
+          day_no: number
+          exempt_date: string
+          id: string
+          note: string | null
+          reason: string
+          reviewed_at: string | null
+          reviewed_by: string | null
+          status: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          day_no: number
+          exempt_date: string
+          id?: string
+          note?: string | null
+          reason: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          day_no?: number
+          exempt_date?: string
+          id?: string
+          note?: string | null
+          reason?: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       habit_logs: {
         Row: {
           coach_id: string | null

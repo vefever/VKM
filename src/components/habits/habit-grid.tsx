@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { Check, ChevronDown, ChevronUp, X } from "lucide-react";
+import { Check, ChevronDown, ChevronUp, X, HeartPulse } from "lucide-react";
 import { format } from "date-fns";
 import { SectionCard } from "@/components/vkm/section-card";
 import { cn } from "@/lib/utils";
@@ -20,6 +20,10 @@ const CELL: Record<DayState, string> = {
   missed: "bg-[#ef4444] text-white",
   today: "border-2 border-[#0F1B2D] bg-card font-bold text-foreground",
   upcoming: "bg-muted/70 text-muted-foreground/60",
+  // Approved exemption — excused day that protects the streak (indigo).
+  regulated: "bg-[#6366f1] text-white",
+  // Pending exemption on a missed day (dashed indigo outline).
+  requested: "border-2 border-dashed border-[#6366f1] bg-[#6366f1]/10 text-[#4f46e5]",
 };
 
 const STATE_LABEL: Record<DayState, { label: string; cls: string }> = {
@@ -28,6 +32,8 @@ const STATE_LABEL: Record<DayState, { label: string; cls: string }> = {
   missed: { label: "Missed", cls: "bg-[#ef4444]/15 text-[#b91c1c]" },
   today: { label: "Today", cls: "bg-navy/10 text-navy" },
   upcoming: { label: "Upcoming", cls: "bg-muted text-muted-foreground" },
+  regulated: { label: "Excused", cls: "bg-[#6366f1]/15 text-[#4338ca]" },
+  requested: { label: "Requested", cls: "bg-[#6366f1]/10 text-[#4f46e5]" },
 };
 
 export function HabitGrid({
@@ -136,7 +142,13 @@ export function HabitGrid({
                             "cursor-pointer hover:scale-110 hover:ring-2 hover:ring-gold/50",
                         );
                         const content =
-                          state === "completed" ? <Check className="h-3.5 w-3.5" /> : day;
+                          state === "completed" ? (
+                            <Check className="h-3.5 w-3.5" />
+                          ) : state === "regulated" ? (
+                            <HeartPulse className="h-3.5 w-3.5" />
+                          ) : (
+                            day
+                          );
                         return interactive ? (
                           <button
                             key={c}
@@ -163,6 +175,11 @@ export function HabitGrid({
                 <Legend className="bg-[#10b981]" label="All done" />
                 <Legend className="bg-[#f59e0b]" label="Partial" />
                 <Legend className="bg-[#ef4444]" label="Missed" />
+                <Legend className="bg-[#6366f1]" label="Excused" />
+                <Legend
+                  className="border-2 border-dashed border-[#6366f1] bg-[#6366f1]/10"
+                  label="Requested"
+                />
                 <Legend className="border-2 border-[#0F1B2D] bg-card" label="Today" />
                 <Legend className="bg-muted" label="Upcoming" />
               </div>
