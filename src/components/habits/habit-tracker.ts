@@ -233,18 +233,21 @@ function computeDerived(
   let completedDays = 0;
   for (let d = 1; d <= totalDays; d++) if (dayCount(d) === HABITS.length) completedDays++;
 
-  // Streak: an approved-exempt ("regulated") day bridges the streak — it neither
-  // breaks it nor inflates it. A fully-done day increments as usual.
+  // Streak: an approved-exempt ("regulated") day counts exactly like a completed
+  // day — it keeps the streak going AND adds to it (16 → 17), matching that the
+  // member also receives the full day's habit points once staff approve.
   let streak = 0;
   for (let d = programDay; d >= 1; d--) {
-    if (dayCount(d) === HABITS.length) {
+    if (dayCount(d) === HABITS.length || exempt.approved.has(d)) {
       streak++;
       continue;
     }
-    if (exempt.approved.has(d)) continue; // regulated — skip, don't break
     if (d === programDay) continue; // today may still be in progress
     break;
   }
+
+  // Excused days are worth a full 6/6 day of habit ticks (points parity).
+  const exemptTicks = exempt.approved.size * HABITS.length;
 
   const dayState = (day: number): DayState => {
     if (exempt.approved.has(day)) return "regulated";
@@ -268,6 +271,7 @@ function computeDerived(
     habitCount,
     dayState,
     totalTicks,
+    exemptTicks,
     todayDone,
     completedDays,
     streak,
@@ -425,7 +429,7 @@ export function useHabitTracker() {
     startProgram: enrollment.startProgram,
     toggleToday,
     proofsFor,
-    points: d.totalTicks * config.pointsPerTick,
+    points: (d.totalTicks + d.exemptTicks) * config.pointsPerTick,
     ...d,
   };
 }
@@ -573,7 +577,7 @@ export function useParticipantHabits(userId: string | null) {
     workoutMinutes,
     proofsFor,
     todayProofs,
-    points: d.totalTicks * config.pointsPerTick,
+    points: (d.totalTicks + d.exemptTicks) * config.pointsPerTick,
     ...d,
   };
 }

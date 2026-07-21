@@ -286,11 +286,24 @@ function DayDetailModal({
             habits done
           </p>
 
-          {doneHabits.length === 0 ? (
+          {state === "regulated" ? (
+            <div className="flex items-start gap-3 rounded-xl border border-[#6366f1]/30 bg-[#6366f1]/[0.06] px-3 py-4">
+              <HeartPulse className="mt-0.5 h-5 w-5 shrink-0 text-[#4f46e5]" />
+              <div>
+                <p className="text-sm font-semibold text-[#4338ca]">Excused day</p>
+                <p className="mt-0.5 text-xs text-muted-foreground">
+                  Staff approved an exemption for this day — it counts as a full 6/6 day: your
+                  streak keeps going and you earned the day’s habit points.
+                </p>
+              </div>
+            </div>
+          ) : doneHabits.length === 0 ? (
             <p className="rounded-xl bg-secondary/50 px-3 py-6 text-center text-sm text-muted-foreground">
-              {state === "upcoming"
-                ? "This day hasn’t started yet."
-                : "No habits submitted on this day."}
+              {state === "requested"
+                ? "You’ve requested an exemption for this day — waiting on staff."
+                : state === "upcoming"
+                  ? "This day hasn’t started yet."
+                  : "No habits submitted on this day."}
             </p>
           ) : (
             doneHabits.map((h) => {
