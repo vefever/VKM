@@ -4,6 +4,11 @@ A running log of platform updates. Newest first. Ask any time for a **PDF** of t
 
 ---
 
+## 2026-07-22
+
+### Fixed
+- **Habit activity tracker showed some members as empty or half-done** — on the staff "Habits & Activity" cohort view, some participants' grids appeared empty or with only one or two habits ticked even though they'd completed all six. The cause was a data-loading cap: the page loaded every participant's habit records in a single request, which the database limits to 1000 rows — so once the cohort passed ~1000 total records, whichever members fell past the cutoff lost part or all of their data (e.g. P Satish Babu was showing 71 of his 147 records). It now loads the records in pages, so **every member's full history is read** and the grid ticks correctly. Verified against live data: each member now matches their true completion count exactly.
+
 ## 2026-07-21
 
 ### Changed

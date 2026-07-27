@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { fetchAllPaged } from "@/lib/supabase-page";
 import { motion } from "framer-motion";
 import {
   addDays,
@@ -762,32 +763,37 @@ function useBatchDayHabits(userIds: string[]) {
     }
     let active = true;
     setLoading(true);
-    void supabase
-      .from("habit_logs")
-      .select("user_id, habit_id, day_no")
-      .in("user_id", userIds)
-      .then(({ data }) => {
-        if (!active) return;
-        const m = new Map<string, Map<number, Set<string>>>();
-        let mx = 1;
-        (data ?? []).forEach((r) => {
-          if (r.day_no > mx) mx = r.day_no;
-          let dm = m.get(r.user_id);
-          if (!dm) {
-            dm = new Map();
-            m.set(r.user_id, dm);
-          }
-          let s = dm.get(r.day_no);
-          if (!s) {
-            s = new Set();
-            dm.set(r.day_no, s);
-          }
-          s.add(r.habit_id);
-        });
-        setByUserDay(m);
-        setMaxDay(mx);
-        setLoading(false);
+    // Paginate: one flat query is capped at 1000 rows, which truncated whole
+    // participants' grids to empty/partial once the cohort passed ~1000 logs.
+    void fetchAllPaged<{ user_id: string; habit_id: string; day_no: number }>((from, to) =>
+      supabase
+        .from("habit_logs")
+        .select("user_id, habit_id, day_no")
+        .in("user_id", userIds)
+        .order("id", { ascending: true }) // unique key → stable, gap-free paging
+        .range(from, to),
+    ).then((data) => {
+      if (!active) return;
+      const m = new Map<string, Map<number, Set<string>>>();
+      let mx = 1;
+      data.forEach((r) => {
+        if (r.day_no > mx) mx = r.day_no;
+        let dm = m.get(r.user_id);
+        if (!dm) {
+          dm = new Map();
+          m.set(r.user_id, dm);
+        }
+        let s = dm.get(r.day_no);
+        if (!s) {
+          s = new Set();
+          dm.set(r.day_no, s);
+        }
+        s.add(r.habit_id);
       });
+      setByUserDay(m);
+      setMaxDay(mx);
+      setLoading(false);
+    });
     return () => {
       active = false;
     };
