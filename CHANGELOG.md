@@ -6,6 +6,9 @@ A running log of platform updates. Newest first. Ask any time for a **PDF** of t
 
 ## 2026-07-22
 
+### Performance
+- **Fewer repeated database calls on habit pages** — the program-settings row (week count, points-per-habit, step goal) was re-fetched and given its own live subscription by every habit component that mounted, so a single page made several identical round trips. It's now fetched once and cached app-wide (shared across the tracker, the staff viewer and the exemption card), cutting redundant requests. (Two further server-side speed-ups — extra database indexes and keeping the file-upload service "warm" to avoid a ~1.8s first-upload delay — are prepared and will apply on the next database deploy.)
+
 ### Fixed
 - **Habit activity tracker showed some members as empty or half-done** — on the staff "Habits & Activity" cohort view, some participants' grids appeared empty or with only one or two habits ticked even though they'd completed all six. The cause was a data-loading cap: the page loaded every participant's habit records in a single request, which the database limits to 1000 rows — so once the cohort passed ~1000 total records, whichever members fell past the cutoff lost part or all of their data (e.g. P Satish Babu was showing 71 of his 147 records). It now loads the records in pages, so **every member's full history is read** and the grid ticks correctly. Verified against live data: each member now matches their true completion count exactly.
 

@@ -140,6 +140,11 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
   try {
     const { action, ...p } = await req.json();
+
+    // Keep-warm ping (pre-auth, no work) — a scheduled cron hits this so the
+    // function isn't cold when a user actually uploads (cold start ≈ 1.8s).
+    if (action === "warm") return json({ ok: true, warm: true }, 200, cors);
+
     const user = await getUser(req);
     if (!user) return json({ ok: false, error: "Unauthorized" }, 401, cors);
 

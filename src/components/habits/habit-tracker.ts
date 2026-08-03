@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { addDays, differenceInCalendarDays, format, startOfDay, startOfToday } from "date-fns";
 import {
   Footprints,
@@ -160,55 +161,41 @@ const dkey = (day: number, habitId: string) => `${day}:${habitId}`;
 const EMPTY_EXEMPT: ExemptionDaySets = { approved: new Set(), pending: new Set() };
 
 // ---------------------------------------------------------------------------
-// Admin-editable program settings (singleton row), live-synced.
+// Admin-editable program settings (singleton row).
+//
+// This is read by every habit hook (self tracker, staff viewer, exemption card).
+// It used to fetch the row AND open a realtime channel on every mount, so a
+// single habits page fired several identical round trips + websocket channels.
+// It's now a React Query singleton: one cached fetch shared across the whole app
+// (settings change rarely — an admin action — so a 5-minute stale window is
+// plenty; no per-mount channel).
 // ---------------------------------------------------------------------------
+function toConfig(d: {
+  habit_weeks: number;
+  habit_days_per_week: number;
+  habit_points_per_tick: number;
+  step_goal: number;
+}): TrackerConfig {
+  return {
+    weeks: d.habit_weeks,
+    daysPerWeek: d.habit_days_per_week,
+    totalDays: d.habit_weeks * d.habit_days_per_week,
+    pointsPerTick: d.habit_points_per_tick,
+    stepGoal: d.step_goal,
+  };
+}
+
 export function useProgramSettings() {
-  const [config, setConfig] = useState<TrackerConfig>(DEFAULT_CONFIG);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    let active = true;
-    const apply = (d: {
-      habit_weeks: number;
-      habit_days_per_week: number;
-      habit_points_per_tick: number;
-      step_goal: number;
-    }) =>
-      setConfig({
-        weeks: d.habit_weeks,
-        daysPerWeek: d.habit_days_per_week,
-        totalDays: d.habit_weeks * d.habit_days_per_week,
-        pointsPerTick: d.habit_points_per_tick,
-        stepGoal: d.step_goal,
-      });
-
-    supabase
-      .from("program_settings")
-      .select("*")
-      .eq("id", 1)
-      .maybeSingle()
-      .then(({ data }) => {
-        if (!active) return;
-        if (data) apply(data);
-        setLoading(false);
-      });
-
-    const ch = supabase
-      .channel("program_settings")
-      .on(
-        "postgres_changes",
-        { event: "UPDATE", schema: "public", table: "program_settings" },
-        (p) => apply(p.new as Parameters<typeof apply>[0]),
-      )
-      .subscribe();
-
-    return () => {
-      active = false;
-      supabase.removeChannel(ch);
-    };
-  }, []);
-
-  return { config, loading };
+  const { data, isLoading } = useQuery({
+    queryKey: ["program_settings"],
+    queryFn: async () => {
+      const { data } = await supabase.from("program_settings").select("*").eq("id", 1).maybeSingle();
+      return data ? toConfig(data) : DEFAULT_CONFIG;
+    },
+    staleTime: 5 * 60_000,
+    gcTime: 30 * 60_000,
+  });
+  return { config: data ?? DEFAULT_CONFIG, loading: isLoading };
 }
 
 // ---------------------------------------------------------------------------
