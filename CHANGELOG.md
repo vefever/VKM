@@ -4,6 +4,14 @@ A running log of platform updates. Newest first. Ask any time for a **PDF** of t
 
 ---
 
+## 2026-08-03
+
+### Fixed
+- **The notification bell was drowning in "Rapid water logging" alerts** — 80% of every staff member's notifications (thousands of them) were automatic alerts fired each time a participant logged water within 30 minutes, which is completely normal when drinking toward the 4-litre goal. Each one was sent to every coach, mentor and admin. These have been **turned off** — the same signal is already shown where it's useful (the coach cohort "at-risk" view still shows "Rapid water logging (N× in 24h)", and each glass is still ⚠-flagged in the water timeline). The notification bell now shows only meaningful items (proof approvals, exemptions, meetings, messages).
+
+### Changed
+- **Automatic clean-up of old logs** — email/WhatsApp/reminder delivery logs, one-time-code rate-limit records, expired login-code challenges, and notifications older than 30 days are now pruned automatically every week, so the database stays lean. A one-time clean-up also removed the backlog (≈4,000 stale/noise notifications and old delivery logs).
+
 ## 2026-07-22
 
 ### Performance
