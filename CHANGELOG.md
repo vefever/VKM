@@ -7,6 +7,7 @@ A running log of platform updates. Newest first. Ask any time for a **PDF** of t
 ## 2026-08-03
 
 ### Fixed
+- **Live updates now actually work across the platform** — several screens weren't updating in real time (you had to refresh to see changes): weekly proof reviews, habit exemption requests/approvals, business-number reviews, direct messages, meetings, and per-member session videos & certificates. Those tables had never been added to the database's realtime feed, so their live subscriptions silently received nothing. They're now published (and set up so edits/removals broadcast correctly too). Verified live — a proof-review change and a certificate now arrive in well under a second, so staff and members see updates without reloading.
 - **The notification bell was drowning in "Rapid water logging" alerts** — 80% of every staff member's notifications (thousands of them) were automatic alerts fired each time a participant logged water within 30 minutes, which is completely normal when drinking toward the 4-litre goal. Each one was sent to every coach, mentor and admin. These have been **turned off** — the same signal is already shown where it's useful (the coach cohort "at-risk" view still shows "Rapid water logging (N× in 24h)", and each glass is still ⚠-flagged in the water timeline). The notification bell now shows only meaningful items (proof approvals, exemptions, meetings, messages).
 
 ### Changed
