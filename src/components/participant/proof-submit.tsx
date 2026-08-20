@@ -9,6 +9,8 @@ import {
   Send,
   Rocket,
   ArrowRight,
+  Lock,
+  MinusCircle,
 } from "lucide-react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/vkm/page-header";
@@ -17,7 +19,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { Link } from "@tanstack/react-router";
-import { weekByNumber } from "@/lib/vkm/program";
+import { weekByNumber, VKM_POINTS } from "@/lib/vkm/program";
 import { useAuth } from "@/hooks/use-auth";
 import { useMyProofs } from "@/components/coach/coach-data";
 import { useEnrollment, weekFromStart } from "@/components/participant/enrollment-data";
@@ -40,6 +42,10 @@ const STATUS_META: Record<string, { label: string; cls: string; Icon: typeof Clo
     cls: "bg-[oklch(0.93_0.06_25)] text-[oklch(0.45_0.16_25)]",
     Icon: AlertTriangle,
   },
+  // An unlocked week the participant hasn't submitted yet.
+  none: { label: "Not submitted", cls: "bg-muted text-muted-foreground", Icon: MinusCircle },
+  // A future week that hasn't unlocked yet (shown on the full roadmap, locked).
+  locked: { label: "Upcoming", cls: "bg-muted text-muted-foreground/70", Icon: Lock },
 };
 
 export function ProofSubmit() {
@@ -49,6 +55,11 @@ export function ProofSubmit() {
   // cohort calendar. Week 1 opens on their Day 1, a new week every 7 days.
   const { started, startedAt, totalWeeks, loading: enrLoading } = useEnrollment();
   const maxWeek = started ? weekFromStart(startedAt, totalWeeks) : 0;
+  // Show the FULL roadmap: every proof week (1–14) is always visible, plus any
+  // review weeks (15–16) the participant has already reached. Weeks past the
+  // latest unlocked one are shown but locked (like the LMS), so nobody can
+  // submit a future week early while still seeing the whole plan.
+  const lastWeek = Math.min(totalWeeks, Math.max(VKM_POINTS.scoringWeeks, maxWeek));
   const [weekPick, setWeekPick] = useState<number | null>(null);
   const week = weekPick ?? maxWeek; // default to the current (latest unlocked) week
   const [url, setUrl] = useState("");
@@ -115,6 +126,10 @@ export function ProofSubmit() {
   const hasSubmission = !!byWeek[week];
 
   async function onSubmit() {
+    if (week > maxWeek) {
+      toast.error(`Week ${week} unlocks later — you can submit it once you reach it.`);
+      return;
+    }
     if (!url.trim() && staged.length === 0 && existingFiles.length === 0) {
       toast.error("Add a proof link or at least one file.");
       return;
@@ -220,28 +235,46 @@ export function ProofSubmit() {
                 Week
               </label>
               <div className="mt-1.5 flex flex-wrap gap-1.5">
-                {Array.from({ length: maxWeek }, (_, i) => i + 1).map((n) => {
+                {Array.from({ length: lastWeek }, (_, i) => i + 1).map((n) => {
                   const st = byWeek[n]?.proof_status;
+                  const locked = n > maxWeek;
                   return (
                     <button
                       key={n}
                       type="button"
-                      onClick={() => setWeekPick(n)}
-                      title={st === "approved" ? "Approved — open to add files or resubmit" : undefined}
-                      className={cn(
-                        "h-9 w-9 rounded-lg text-sm font-medium transition-colors",
-                        week === n
-                          ? "bg-gradient-navy text-primary-foreground"
+                      disabled={locked}
+                      onClick={() => !locked && setWeekPick(n)}
+                      title={
+                        locked
+                          ? `Week ${n} unlocks on your Day ${(n - 1) * 7 + 1}`
                           : st === "approved"
-                            ? "bg-[oklch(0.93_0.06_160)] text-[oklch(0.35_0.12_160)] hover:opacity-80"
-                            : "bg-muted text-muted-foreground hover:text-foreground",
+                            ? "Approved — open to add files or resubmit"
+                            : undefined
+                      }
+                      className={cn(
+                        "relative h-9 w-9 rounded-lg text-sm font-medium transition-colors",
+                        locked
+                          ? "cursor-not-allowed bg-muted/40 text-muted-foreground/40"
+                          : week === n
+                            ? "bg-gradient-navy text-primary-foreground"
+                            : st === "approved"
+                              ? "bg-[oklch(0.93_0.06_160)] text-[oklch(0.35_0.12_160)] hover:opacity-80"
+                              : st === "pending"
+                                ? "bg-gold/20 text-[oklch(0.45_0.1_85)] hover:opacity-80"
+                                : st === "rejected"
+                                  ? "bg-[oklch(0.93_0.06_25)] text-[oklch(0.45_0.16_25)] hover:opacity-80"
+                                  : "bg-muted text-muted-foreground hover:text-foreground",
                       )}
                     >
-                      {n}
+                      {locked ? <Lock className="mx-auto h-3.5 w-3.5" /> : n}
                     </button>
                   );
                 })}
               </div>
+              <p className="mt-1.5 text-[11px] text-muted-foreground">
+                All {lastWeek} weeks shown · a new week unlocks every 7 days. Tap any unlocked week to
+                submit or update its proof.
+              </p>
             </div>
 
             <div className="space-y-1.5">
@@ -341,35 +374,55 @@ export function ProofSubmit() {
           </div>
         </SectionCard>
 
-        {/* Status */}
-        <SectionCard title="Your submissions" subtitle="Live status" bodyClassName="p-0">
+        {/* Status — the full week-by-week roadmap, all 14 (+ any review weeks). */}
+        <SectionCard title="Your submissions" subtitle="Live status · all weeks" bodyClassName="p-0">
           {loading ? (
             <p className="px-5 py-8 text-center text-sm text-muted-foreground">Loading…</p>
-          ) : weeks.length === 0 ? (
-            <p className="px-5 py-8 text-center text-sm text-muted-foreground">
-              No submissions yet.
-            </p>
           ) : (
             <ul className="divide-y divide-border">
-              {weeks.map((x) => {
-                const meta = STATUS_META[x.proof_status] ?? STATUS_META.pending;
+              {Array.from({ length: lastWeek }, (_, i) => i + 1).map((n) => {
+                const rec = byWeek[n];
+                const locked = n > maxWeek;
+                const key = rec ? rec.proof_status : locked ? "locked" : "none";
+                const meta = STATUS_META[key] ?? STATUS_META.none;
                 const Icon = meta.Icon;
                 return (
-                  <li key={x.week_no} className="flex items-center gap-3 px-5 py-3">
-                    <span className="text-sm font-semibold tabular-nums text-foreground">
-                      W{x.week_no}
-                    </span>
-                    <span className="min-w-0 flex-1 truncate text-xs text-muted-foreground">
-                      {weekByNumber(x.week_no)?.topic}
-                    </span>
-                    <span
+                  <li key={n}>
+                    <button
+                      type="button"
+                      disabled={locked}
+                      onClick={() => !locked && setWeekPick(n)}
                       className={cn(
-                        "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium",
-                        meta.cls,
+                        "flex w-full items-center gap-3 px-5 py-3 text-left transition-colors",
+                        locked ? "cursor-not-allowed" : "hover:bg-secondary/50",
+                        week === n && !locked && "bg-secondary/60",
                       )}
                     >
-                      <Icon className="h-3 w-3" /> {meta.label}
-                    </span>
+                      <span
+                        className={cn(
+                          "text-sm font-semibold tabular-nums",
+                          locked ? "text-muted-foreground/50" : "text-foreground",
+                        )}
+                      >
+                        W{n}
+                      </span>
+                      <span
+                        className={cn(
+                          "min-w-0 flex-1 truncate text-xs",
+                          locked ? "text-muted-foreground/50" : "text-muted-foreground",
+                        )}
+                      >
+                        {weekByNumber(n)?.topic}
+                      </span>
+                      <span
+                        className={cn(
+                          "inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium",
+                          meta.cls,
+                        )}
+                      >
+                        <Icon className="h-3 w-3" /> {meta.label}
+                      </span>
+                    </button>
                   </li>
                 );
               })}
