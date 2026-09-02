@@ -4,7 +4,9 @@ import { Link } from "@tanstack/react-router";
 import {
   Telescope,
   Plus,
+  Download,
   ImagePlus,
+  Maximize2,
   X,
   Loader2,
   Sparkles,
@@ -18,10 +20,14 @@ import {
 import { toast } from "sonner";
 import { PageHeader } from "@/components/vkm/page-header";
 import { SectionCard } from "@/components/vkm/section-card";
+import { VisionImageGenerator } from "@/components/participant/vision-image-generator";
+import { VisionPlanGenerator } from "@/components/participant/vision-plan-generator";
+import { VisionImageLightbox } from "@/components/participant/vision-image-lightbox";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
+import { downloadUrl } from "@/lib/download-file";
 import {
   useVision,
   goalProgress,
@@ -29,6 +35,7 @@ import {
   PILLARS,
   PILLAR_COLOR,
   type Pillar,
+  type GoalInput,
   type VisionGoal,
   type VisionStatement,
   type VisionImage,
@@ -124,6 +131,7 @@ export function VisionBoardPage() {
           onAdd={() => openEditor(1, null)}
           onEdit={(g) => openEditor(g.year, g)}
           onDelete={v.deleteGoal}
+          onAddGoal={v.addGoal}
         />
       </div>
 
@@ -158,7 +166,13 @@ export function VisionBoardPage() {
       />
 
       {/* Vision imagery */}
-      <VisionImagery images={statement.images} onUpload={v.uploadImage} onRemove={v.removeImage} />
+      <VisionImagery
+        images={statement.images}
+        statement={statement}
+        goals={goals}
+        onUpload={v.uploadImage}
+        onRemove={v.removeImage}
+      />
 
       <GoalEditorDialog
         open={editor.open}
@@ -305,6 +319,7 @@ function OneYearVision({
   onAdd,
   onEdit,
   onDelete,
+  onAddGoal,
 }: {
   baseYear: number;
   statement: VisionStatement;
@@ -313,6 +328,7 @@ function OneYearVision({
   onAdd: () => void;
   onEdit: (g: VisionGoal) => void;
   onDelete: (id: string) => void;
+  onAddGoal: (input: GoalInput) => void | Promise<void>;
 }) {
   const [text, setText] = useState(statement.statement_1yr ?? "");
   useEffect(() => setText(statement.statement_1yr ?? ""), [statement.statement_1yr]);
@@ -349,6 +365,24 @@ function OneYearVision({
         </Button>
       }
     >
+      {/* Draft this year's route from the #1 goal below. Lives in the body, not
+          the header, because its proposal panel needs the full card width. */}
+      <div className="mb-3">
+        <VisionPlanGenerator
+          headline={headline}
+          year={baseYear + 1}
+          onApply={async (draft, newGoals) => {
+            // Statement first so the page reflects it even if a goal insert is
+            // slow; goals are ADDED, never replacing what they already set.
+            if (draft) {
+              setText(draft);
+              onSave({ statement_1yr: draft });
+            }
+            for (const g of newGoals) await onAddGoal(g);
+          }}
+        />
+      </div>
+
       {/* #1 goal — the headline that greets them on the dashboard */}
       <label className="mb-3 block rounded-xl border border-gold/40 bg-gold/[0.06] p-3">
         <span className="mb-1 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-gold">
@@ -788,14 +822,19 @@ function FiveYearTimeline({
 // ---------------------------------------------------------------------------
 function VisionImagery({
   images,
+  statement,
+  goals,
   onUpload,
   onRemove,
 }: {
   images: VisionImage[];
-  onUpload: (f: File) => Promise<void>;
+  statement: VisionStatement;
+  goals: VisionGoal[];
+  onUpload: (f: File, opts?: { keepFullSize?: boolean }) => Promise<void>;
   onRemove: (url: string) => void;
 }) {
   const [busy, setBusy] = useState(false);
+  const [viewing, setViewing] = useState<number | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
   async function pick(e: React.ChangeEvent<HTMLInputElement>) {
@@ -819,6 +858,14 @@ function VisionImagery({
   return (
     <SectionCard title="Vision board" subtitle="Picture the dream — office, lifestyle, milestones">
       <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={pick} />
+      <div className="mb-3">
+        <VisionImageGenerator
+          statement={statement}
+          goals={goals}
+          onUpload={onUpload}
+          disabled={busy}
+        />
+      </div>
       {images.length === 0 ? (
         // Full-width dropzone until the first image is added.
         <button
@@ -842,17 +889,39 @@ function VisionImagery({
         </button>
       ) : (
         <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
-          {images.map((img) => (
+          {images.map((img, i) => (
             <div key={img.url} className="group relative aspect-square overflow-hidden rounded-xl">
-              <img
-                src={img.url}
-                alt={img.caption ?? "Vision"}
-                className="h-full w-full object-cover"
-              />
+              {/* The thumbnail is cropped square — tap to see the whole image. */}
+              <button
+                type="button"
+                onClick={() => setViewing(i)}
+                aria-label={`View image ${i + 1} full size`}
+                className="block h-full w-full"
+              >
+                <img
+                  src={img.url}
+                  alt={img.caption ?? "Vision"}
+                  className="h-full w-full object-cover transition-transform duration-200 group-hover:scale-[1.03]"
+                />
+                <span className="pointer-events-none absolute inset-0 flex items-center justify-center bg-black/35 opacity-0 transition-opacity group-hover:opacity-100">
+                  <Maximize2 className="h-5 w-5 text-white" />
+                </span>
+              </button>
+              {/* Save it to print and paste on a real board. Always visible on
+                  touch, where there is no hover to reveal it. */}
+              <button
+                type="button"
+                onClick={() => void downloadUrl(img.url)}
+                aria-label="Download image"
+                className="absolute left-1 top-1 inline-flex h-6 w-6 items-center justify-center rounded-full bg-black/55 text-white opacity-100 transition-opacity md:opacity-0 md:group-hover:opacity-100"
+              >
+                <Download className="h-3.5 w-3.5" />
+              </button>
               <button
                 type="button"
                 onClick={() => onRemove(img.url)}
-                className="absolute right-1 top-1 inline-flex h-6 w-6 items-center justify-center rounded-full bg-black/55 text-white opacity-0 transition-opacity group-hover:opacity-100"
+                aria-label="Remove image"
+                className="absolute right-1 top-1 inline-flex h-6 w-6 items-center justify-center rounded-full bg-black/55 text-white opacity-100 transition-opacity md:opacity-0 md:group-hover:opacity-100"
               >
                 <X className="h-3.5 w-3.5" />
               </button>
@@ -875,6 +944,13 @@ function VisionImagery({
           </button>
         </div>
       )}
+
+      <VisionImageLightbox
+        images={images}
+        index={viewing}
+        onClose={() => setViewing(null)}
+        onIndexChange={setViewing}
+      />
     </SectionCard>
   );
 }

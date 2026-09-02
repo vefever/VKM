@@ -13,14 +13,44 @@ export type VkChunk = {
   similarity: number;
 };
 
+// The `embed` edge function runs gte-small once per input, sequentially, inside
+// a single worker. Past roughly 5 paragraph-sized inputs it exhausts the
+// worker's compute budget and returns HTTP 546 WORKER_RESOURCE_LIMIT — which
+// surfaces to the admin as the useless "Edge Function returned a non-2xx status
+// code". Measured: 5 inputs OK, 10 inputs fails. Keep well under the ceiling.
+const EMBED_BATCH = 5;
+
+// Embed one batch, halving and retrying if the worker ran out of compute, so one
+// unusually heavy input can't fail the whole ingest. Bottoms out at a single
+// input, where a failure is real and worth throwing.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function embedBatch(client: SupabaseClient<any>, texts: string[]): Promise<number[][]> {
+  const { data, error } = await client.functions.invoke("embed", { body: { input: texts } });
+  const embs = (data as { embeddings?: number[][] } | null)?.embeddings;
+  if (!error && embs?.length === texts.length) return embs;
+
+  if (texts.length > 1) {
+    const mid = Math.ceil(texts.length / 2);
+    return [
+      ...(await embedBatch(client, texts.slice(0, mid))),
+      ...(await embedBatch(client, texts.slice(mid))),
+    ];
+  }
+  throw new Error(error?.message || "Embedding service failed");
+}
+
 // Embed one or more texts via the `embed` edge function (Supabase gte-small).
+// Callers may pass any number of texts — batching is handled here so no caller
+// has to know the worker's limit.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export async function embedTexts(client: SupabaseClient<any>, texts: string[]): Promise<number[][]> {
-  const { data, error } = await client.functions.invoke("embed", { body: { input: texts } });
-  if (error) throw new Error(error.message || "Embedding service failed");
-  const embs = (data as { embeddings?: number[][] } | null)?.embeddings;
-  if (!embs || !embs.length) throw new Error("Embedding service returned nothing");
-  return embs;
+  if (!texts.length) throw new Error("Nothing to embed");
+  const out: number[][] = [];
+  for (let i = 0; i < texts.length; i += EMBED_BATCH) {
+    out.push(...(await embedBatch(client, texts.slice(i, i + EMBED_BATCH))));
+  }
+  if (!out.length) throw new Error("Embedding service returned nothing");
+  return out;
 }
 
 // Retrieve the top-k most relevant VK knowledge chunks for a query. Never throws

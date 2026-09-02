@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { BrainCircuit, Loader2, Upload, Trash2, Search, FileText, Database } from "lucide-react";
 import { PageHeader } from "@/components/vkm/page-header";
 import { SectionCard } from "@/components/vkm/section-card";
+import { VenuAvatarUploader } from "@/components/admin/venu-avatar-uploader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -116,6 +117,9 @@ export function KnowledgeBase() {
           <p className="text-[11px] text-muted-foreground">Embeddings: Supabase gte-small (free). Best for English/Tenglish; a multilingual model is a later upgrade.</p>
         </div>
       </div>
+
+      {/* Who the brain speaks as */}
+      <VenuAvatarUploader />
 
       {/* Ingest */}
       <SectionCard title={<span className="flex items-center gap-2"><Upload className="h-4 w-4 text-navy" /> Add teaching</span>} subtitle="Paste a framework, a Q&A, a transcript or notes. Keep one topic per paste for best retrieval.">

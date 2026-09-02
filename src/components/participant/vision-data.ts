@@ -228,11 +228,16 @@ export function useVision() {
   }, []);
 
   const uploadImage = useCallback(
-    async (file: File) => {
+    async (file: File, opts?: { keepFullSize?: boolean }) => {
       if (!user) return;
       const safe = file.name.replace(/[^\w.-]+/g, "_");
       const path = `${user.id}/${Date.now()}-${safe}`;
-      const url = await uploadToStorage("vision-board", path, file);
+      // Uploads are normally downscaled to 1920px and re-encoded as WebP, which
+      // is right for screen but ruins a poster the owner intends to print. Full
+      // size skips that so the printed copy stays sharp.
+      const url = await uploadToStorage("vision-board", path, file, undefined, {
+        skipCompress: !!opts?.keepFullSize,
+      });
       await saveStatement({ images: [...stmtRef.current.images, { url }] });
     },
     [user, saveStatement],

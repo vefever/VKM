@@ -12,7 +12,9 @@
     "lint": "eslint .",
     "format": "prettier --write .",
     "deploy": "npm run build && wrangler deploy",
-    "cf-typegen": "wrangler types"
+    "cf-typegen": "wrangler types",
+    "knowledge:extract": "node scripts/extract-pdf-text.mjs",
+    "knowledge:ingest": "node scripts/ingest-knowledge.mjs"
   },
   "dependencies": {
     "@fontsource/outfit": "^5.2.8",

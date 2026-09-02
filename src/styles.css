@@ -261,6 +261,16 @@
     transform: translateX(100%);
   }
 }
+/* Sliding highlight for shimmering *text* (AI "thinking…" line) — moves the
+   gradient itself rather than the element, so it works with bg-clip-text. */
+@keyframes vkm-text-shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
 @keyframes vkm-gradient-x {
   0%,
   100% {

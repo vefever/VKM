@@ -63,6 +63,30 @@ export type Database = {
         }
         Relationships: []
       }
+      ai_image_generations: {
+        Row: {
+          created_at: string
+          id: string
+          model: string | null
+          prompt: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          model?: string | null
+          prompt: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          model?: string | null
+          prompt?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       batch_members: {
         Row: {
           batch_id: string
@@ -1422,6 +1446,7 @@ export type Database = {
       }
       program_settings: {
         Row: {
+          advisor_avatar_url: string | null
           habit_days_per_week: number
           habit_points_per_tick: number
           habit_weeks: number
@@ -1430,6 +1455,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          advisor_avatar_url?: string | null
           habit_days_per_week?: number
           habit_points_per_tick?: number
           habit_weeks?: number
@@ -1438,6 +1464,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          advisor_avatar_url?: string | null
           habit_days_per_week?: number
           habit_points_per_tick?: number
           habit_weeks?: number
@@ -2237,6 +2264,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      _pub_tables: { Args: never; Returns: string[] }
       _upsert_bonus: {
         Args: {
           _by: string
@@ -2636,6 +2664,7 @@ export type Database = {
         }[]
       }
       points_total: { Args: { uid: string }; Returns: number }
+      prune_old_logs: { Args: never; Returns: undefined }
       reminder_targets: {
         Args: { _target: string }
         Returns: {

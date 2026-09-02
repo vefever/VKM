@@ -16,7 +16,6 @@ export function ImageTestPanel({ model }: { model?: string }) {
   const [size, setSize] = useState("1024x1024");
   const [busy, setBusy] = useState(false);
   const [img, setImg] = useState<string>("");
-  const [balance, setBalance] = useState<number | null>(null);
 
   async function run() {
     if (!prompt.trim() || busy) return;
@@ -29,7 +28,6 @@ export function ImageTestPanel({ model }: { model?: string }) {
         return;
       }
       setImg(r.url || (r.b64 ? `data:image/png;base64,${r.b64}` : ""));
-      setBalance(r.balance ?? null);
     } catch (e) {
       toast.error("Image failed", { description: (e as Error).message });
     } finally {
@@ -67,9 +65,6 @@ export function ImageTestPanel({ model }: { model?: string }) {
           <Button onClick={run} disabled={busy || !prompt.trim()} className="rounded-xl bg-gradient-navy text-primary-foreground hover:opacity-90">
             {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />} Generate image
           </Button>
-          {balance != null && (
-            <span className="text-[11px] text-muted-foreground">Credits left: <span className="font-medium text-foreground">{balance}</span></span>
-          )}
         </div>
 
         {busy && (

@@ -32,6 +32,15 @@ export function PullToRefresh({
 
     function onStart(e: TouchEvent) {
       if (refreshingRef.current) return;
+      // Opt-out for full-height panes that own their own scrolling (the AI
+      // advisor). The document never scrolls there, so `scrollY <= 0` is
+      // permanently true and every downward swipe inside the transcript would
+      // otherwise drag the whole app down.
+      const target = e.target;
+      if (target instanceof Element && target.closest("[data-no-pull-refresh]")) {
+        active.current = false;
+        return;
+      }
       if (window.scrollY <= 0) {
         startY.current = e.touches[0].clientY;
         active.current = true;

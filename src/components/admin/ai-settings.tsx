@@ -21,7 +21,7 @@ import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { testAiProvider } from "@/lib/vkm/advisor.functions";
 import { VoiceTestPanel } from "@/components/admin/voice-test-panel";
-import { ImageTestPanel } from "@/components/admin/image-test-panel";
+import { ImageProviderSettings } from "@/components/admin/image-provider-settings";
 
 type Provider = "openai" | "anthropic";
 
@@ -329,7 +329,7 @@ export function AiSettings() {
           )}
 
           <VoiceTestPanel model={model === CUSTOM_MODEL ? customModel : model} />
-          <ImageTestPanel model={model === CUSTOM_MODEL ? customModel : model} />
+          <ImageProviderSettings />
         </>
       )}
     </motion.div>
