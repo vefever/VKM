@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
-import { MessageCircle, Search, Loader2, GraduationCap, X } from "lucide-react";
+import { MessageCircle, Search, Loader2, GraduationCap, X, SquarePen } from "lucide-react";
 import { format } from "date-fns";
 import { PageHeader } from "@/components/vkm/page-header";
 import { cn } from "@/lib/utils";
@@ -10,6 +10,8 @@ import { useThread } from "@/components/chat/chat-data";
 import { useInbox, type InboxItem } from "@/components/chat/messages-data";
 import { useDmThread } from "@/components/community/community-data";
 import { AvatarBadge } from "@/components/vkm/avatar-badge";
+import { Button } from "@/components/ui/button";
+import { NewChatDialog } from "@/components/chat/new-chat-dialog";
 
 function shortTime(ms: number): string {
   if (!ms) return "";
@@ -28,6 +30,12 @@ export function ChatPage() {
   const { items, loading } = useInbox();
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
   const [q, setQ] = useState("");
+  const [composeOpen, setComposeOpen] = useState(false);
+  // A DM opened from "New message" that has no thread yet — it isn't in the
+  // inbox until the first message is sent, so hold it here.
+  const [draft, setDraft] = useState<{ id: string; name: string; avatar: string | null } | null>(
+    null,
+  );
   const reduceMotion = useReducedMotion();
 
   // Auto-open the coaching thread on desktop only; mobile starts on the list.
@@ -55,16 +63,25 @@ export function ChatPage() {
         title="Messages"
         description="Chat with your coaching team and the VKM community — all in one inbox."
         icon={MessageCircle}
+        actions={
+          <Button
+            size="sm"
+            className="rounded-full bg-gradient-navy text-primary-foreground shadow-vkm hover:opacity-90"
+            onClick={() => setComposeOpen(true)}
+          >
+            <SquarePen className="h-4 w-4" /> New message
+          </Button>
+        }
       />
 
-      <div
-        className="grid gap-4 lg:grid-cols-[320px_1fr] h-[calc(100dvh-6.5rem-var(--vkm-nav-h)-var(--kb,0px))] md:h-[calc(100dvh-12rem-var(--kb,0px))]"
-      >
+      <div className="grid gap-4 lg:grid-cols-[320px_1fr] h-[calc(100dvh-6.5rem-var(--vkm-nav-h)-var(--kb,0px))] md:h-[calc(100dvh-12rem-var(--kb,0px))]">
         {/* Conversation list */}
         <div
           className={cn(
             "glass flex min-h-0 flex-col overflow-hidden rounded-2xl border border-border shadow-vkm-float",
-            selected && "hidden lg:flex",
+            // A draft occupies the thread pane too, so the list must yield to
+            // it on mobile exactly as it does for a selected conversation.
+            (selected || draft) && "hidden lg:flex",
           )}
         >
           <div className="border-b border-border p-2.5">
@@ -103,7 +120,12 @@ export function ChatPage() {
                   index={i}
                   active={item.key === selectedKey}
                   reduceMotion={!!reduceMotion}
-                  onClick={() => setSelectedKey(item.key)}
+                  onClick={() => {
+                    // The draft pane renders ahead of the selection, so it has
+                    // to be cleared or picking a conversation does nothing.
+                    setDraft(null);
+                    setSelectedKey(item.key);
+                  }}
                 />
               ))
             )}
@@ -111,9 +133,25 @@ export function ChatPage() {
         </div>
 
         {/* Active thread */}
-        <div className={cn("min-h-0", !selected && "hidden lg:block")}>
+        <div className={cn("min-h-0", !selected && !draft && "hidden lg:block")}>
           <AnimatePresence mode="wait">
-            {selected ? (
+            {draft ? (
+              <motion.div
+                key={`draft:${draft.id}`}
+                initial={reduceMotion ? false : { opacity: 0, x: 16 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.22, ease: "easeOut" }}
+                className="h-full"
+              >
+                <MemberConversation
+                  otherId={draft.id}
+                  name={draft.name}
+                  avatar={draft.avatar}
+                  onBack={() => setDraft(null)}
+                />
+              </motion.div>
+            ) : selected ? (
               <motion.div
                 key={selected.key}
                 initial={reduceMotion ? false : { opacity: 0, x: 16 }}
@@ -146,6 +184,24 @@ export function ChatPage() {
           </AnimatePresence>
         </div>
       </div>
+
+      <NewChatDialog
+        open={composeOpen}
+        onOpenChange={setComposeOpen}
+        excludeIds={new Set(items.map((i) => i.otherId).filter(Boolean) as string[])}
+        onPick={(m) => {
+          // If we already have a thread with them, just open it; otherwise show
+          // an empty thread that becomes real on the first message.
+          const existing = items.find((i) => i.otherId === m.id);
+          if (existing) {
+            setDraft(null);
+            setSelectedKey(existing.key);
+          } else {
+            setSelectedKey(null);
+            setDraft({ id: m.id, name: m.name, avatar: m.avatar });
+          }
+        }}
+      />
     </motion.div>
   );
 }
@@ -194,14 +250,29 @@ function InboxRow({
       </span>
       <div className="min-w-0 flex-1">
         <div className="flex items-center justify-between gap-2">
-          <span className={cn("truncate text-sm text-foreground", item.unread ? "font-bold" : "font-semibold")}>
+          <span
+            className={cn(
+              "truncate text-sm text-foreground",
+              item.unread ? "font-bold" : "font-semibold",
+            )}
+          >
             {item.name}
           </span>
-          <span className={cn("shrink-0 text-[10px]", item.unread ? "font-semibold text-gold" : "text-muted-foreground")}>
+          <span
+            className={cn(
+              "shrink-0 text-[10px]",
+              item.unread ? "font-semibold text-gold" : "text-muted-foreground",
+            )}
+          >
             {shortTime(item.lastAt)}
           </span>
         </div>
-        <p className={cn("truncate text-xs", item.unread ? "font-medium text-foreground" : "text-muted-foreground")}>
+        <p
+          className={cn(
+            "truncate text-xs",
+            item.unread ? "font-medium text-foreground" : "text-muted-foreground",
+          )}
+        >
           {item.preview}
         </p>
       </div>
@@ -210,8 +281,17 @@ function InboxRow({
 }
 
 function CoachConversation({ convId, onBack }: { convId: string | null; onBack: () => void }) {
-  const { messages, names, loading, send, meId, typingOther, otherOnline, otherLastReadAt, sendTyping } =
-    useThread(convId);
+  const {
+    messages,
+    names,
+    loading,
+    send,
+    meId,
+    typingOther,
+    otherOnline,
+    otherLastReadAt,
+    sendTyping,
+  } = useThread(convId);
   return (
     <ConversationView
       loading={loading}
