@@ -123,7 +123,12 @@ function TabLink({ tab }: { tab: Tab }) {
   return (
     <Link
       to={tab.to}
-      onClick={() => haptic("light")}
+      onClick={() => {
+        haptic("light");
+        // Tapping the tab you're already on scrolls back to the top, the way
+        // every native tab bar behaves. Without it the tap does nothing at all.
+        if (active) window.scrollTo({ top: 0, behavior: "smooth" });
+      }}
       aria-current={active ? "page" : undefined}
       className={cn(
         "app-press relative flex h-14 flex-col items-center justify-center gap-1 rounded-xl text-[11px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold",
@@ -197,7 +202,8 @@ function MoreSheet({
   onOpenChange: (o: boolean) => void;
 }) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
-  const groups = role === "participant" ? navGroupsForTier(NAV_BY_ROLE[role], tier) : NAV_BY_ROLE[role];
+  const groups =
+    role === "participant" ? navGroupsForTier(NAV_BY_ROLE[role], tier) : NAV_BY_ROLE[role];
 
   return (
     <Drawer open={open} onOpenChange={onOpenChange}>

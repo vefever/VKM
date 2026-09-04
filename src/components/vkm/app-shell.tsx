@@ -2,6 +2,7 @@ import { Link, useRouterState, useNavigate, useRouter } from "@tanstack/react-ro
 import { type ReactNode, useState, useCallback, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAppShell } from "@/hooks/use-app-shell";
+import { useNativeNav } from "@/hooks/use-native-nav";
 import { PullToRefresh } from "@/components/vkm/pull-to-refresh";
 import { OfflineBanner } from "@/components/vkm/offline-banner";
 import {
@@ -32,10 +33,23 @@ import {
   DropdownMenuRadioItem,
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
-import { LogOut, Search, ChevronsUpDown, ChevronDown, Command as CmdIcon, UserCircle } from "lucide-react";
+import {
+  LogOut,
+  Search,
+  ChevronsUpDown,
+  ChevronDown,
+  Command as CmdIcon,
+  UserCircle,
+} from "lucide-react";
 import { useAuth, type AppRole } from "@/hooks/use-auth";
 import { NotificationBell } from "@/components/notifications/notification-bell";
-import { NAV_BY_ROLE, PROFILE_PATH, ROLE_BASE, ROLE_LABEL, navGroupsForTier } from "@/components/vkm/nav-config";
+import {
+  NAV_BY_ROLE,
+  PROFILE_PATH,
+  ROLE_BASE,
+  ROLE_LABEL,
+  navGroupsForTier,
+} from "@/components/vkm/nav-config";
 import { useAccessTier } from "@/hooks/use-access-tier";
 import { VKMLogo } from "@/components/vkm/logo";
 import { cn } from "@/lib/utils";
@@ -49,7 +63,8 @@ function VKMSidebar({ role }: { role: AppRole }) {
   const { state } = useSidebar();
   const collapsed = state === "collapsed";
   const { tier } = useAccessTier();
-  const groups = role === "participant" ? navGroupsForTier(NAV_BY_ROLE[role], tier) : NAV_BY_ROLE[role];
+  const groups =
+    role === "participant" ? navGroupsForTier(NAV_BY_ROLE[role], tier) : NAV_BY_ROLE[role];
   // #5 — remember which sidebar sections the user collapsed (per device).
   const [closedGroups, setClosedGroups] = useState<Record<string, boolean>>(() => {
     if (typeof window === "undefined") return {};
@@ -324,16 +339,23 @@ function MobileBarTitle() {
 // #3 — slide route content while the header + bottom nav stay mounted (#2).
 // Desktop pointer users get no wrapper (identical to today).
 function RouteTransition({ children }: { children: ReactNode }) {
-  const pathname = useRouterState({ select: (s) => s.location.pathname });
   const { appShell, reducedMotion } = useAppShell();
-  if (!appShell || reducedMotion) return <>{children}</>;
+  const active = appShell && !reducedMotion;
+  // Runs unconditionally — scroll restoration is worth having even when the
+  // slide is off, and a hook can't sit behind an early return.
+  const { pathname, direction } = useNativeNav(appShell);
+
+  if (!active) return <>{children}</>;
+
+  // Forward pushes a screen in from the right; back returns the way it came.
+  const enter = 18 * direction;
   return (
     <AnimatePresence mode="wait" initial={false}>
       <motion.div
         key={pathname}
-        initial={{ opacity: 0, x: 14 }}
+        initial={{ opacity: 0, x: enter }}
         animate={{ opacity: 1, x: 0 }}
-        exit={{ opacity: 0, x: -14 }}
+        exit={{ opacity: 0, x: -enter }}
         transition={{ duration: 0.22, ease: "easeOut" }}
       >
         {children}
@@ -357,24 +379,24 @@ export function AppShell({ role, children }: { role: AppRole; children: ReactNod
 
   return (
     <PageTitleProvider>
-    <SidebarProvider>
-      <OfflineBanner />
-      <div data-app-root className="flex min-h-screen-mobile w-full bg-background">
-        <VKMSidebar role={role} />
-        <div className="flex min-h-screen-mobile min-w-0 flex-1 flex-col">
-          <TopBar onOpenCommand={() => setCmdOpen(true)} role={role} />
-          <main className="flex-1 overflow-x-hidden px-4 pt-3 pb-[calc(var(--vkm-nav-h)+1rem)] sm:px-8 sm:pt-8 md:pb-8">
-            <div className="min-w-0 w-full">
-              <PullToRefresh onRefresh={refresh}>
-                <RouteTransition>{children}</RouteTransition>
-              </PullToRefresh>
-            </div>
-          </main>
+      <SidebarProvider>
+        <OfflineBanner />
+        <div data-app-root className="flex min-h-screen-mobile w-full bg-background">
+          <VKMSidebar role={role} />
+          <div className="flex min-h-screen-mobile min-w-0 flex-1 flex-col">
+            <TopBar onOpenCommand={() => setCmdOpen(true)} role={role} />
+            <main className="flex-1 overflow-x-hidden px-4 pt-3 pb-[calc(var(--vkm-nav-h)+1rem)] sm:px-8 sm:pt-8 md:pb-8">
+              <div className="min-w-0 w-full">
+                <PullToRefresh onRefresh={refresh}>
+                  <RouteTransition>{children}</RouteTransition>
+                </PullToRefresh>
+              </div>
+            </main>
+          </div>
+          <MobileTabBar role={role} />
         </div>
-        <MobileTabBar role={role} />
-      </div>
-      <CommandMenu role={role} open={cmdOpen} onOpenChange={setCmdOpen} />
-    </SidebarProvider>
+        <CommandMenu role={role} open={cmdOpen} onOpenChange={setCmdOpen} />
+      </SidebarProvider>
     </PageTitleProvider>
   );
 }
