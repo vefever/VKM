@@ -211,7 +211,12 @@ export function useParticipantSnapshots(userId: string | null) {
       .channel(`ps_snap:${userId}`)
       .on(
         "postgres_changes",
-        { event: "*", schema: "public", table: "business_snapshots", filter: `user_id=eq.${userId}` },
+        {
+          event: "*",
+          schema: "public",
+          table: "business_snapshots",
+          filter: `user_id=eq.${userId}`,
+        },
         () => load(),
       )
       .subscribe();
@@ -483,7 +488,9 @@ export function useHabitProofFeed(limit = 60) {
   const load = useCallback(async () => {
     const { data } = await supabase
       .from("habit_logs")
-      .select("id, user_id, habit_id, day_no, log_date, proof_files, proof_status, coach_note, created_at")
+      .select(
+        "id, user_id, habit_id, day_no, log_date, proof_files, proof_status, coach_note, created_at",
+      )
       .eq("proof_status" as "id", "pending") // reviewed ones move to History (col not in generated types)
       .neq("proof_files", "[]")
       .order("created_at", { ascending: false })
@@ -602,8 +609,15 @@ export function useParticipantsOverview() {
           profilesDisplayFor(ids),
           supabase.from("weekly_progress").select("user_id, proof_status").in("user_id", ids),
           supabase.from("points_ledger").select("user_id, points").in("user_id", ids),
-          supabase.from("batch_members").select("user_id, batch_id").in("user_id", ids).eq("role", "participant"),
-          supabase.from("program_enrollments").select("user_id, started_at, total_weeks").in("user_id", ids),
+          supabase
+            .from("batch_members")
+            .select("user_id, batch_id")
+            .in("user_id", ids)
+            .eq("role", "participant"),
+          supabase
+            .from("program_enrollments")
+            .select("user_id, started_at, total_weeks")
+            .in("user_id", ids),
         ]);
       if (!active) return;
 
@@ -625,7 +639,10 @@ export function useParticipantsOverview() {
       const batchIds = [...new Set([...userBatch.values()])];
       const batchName = new Map<string, string>();
       if (batchIds.length > 0) {
-        const { data: batches } = await supabase.from("batches").select("id, name").in("id", batchIds);
+        const { data: batches } = await supabase
+          .from("batches")
+          .select("id, name")
+          .in("id", batchIds);
         if (!active) return;
         (batches ?? []).forEach((b) => batchName.set(b.id, b.name));
       }
@@ -786,11 +803,27 @@ export type HistoryProof = {
   created_at: string;
 };
 
+/**
+ * How far back the review history reaches.
+ *
+ * NOTE: this bounds the VIEW only — it never deletes. "History" is not a log
+ * table; it is a read across weekly_progress and habit_logs, which ARE the
+ * participants' progress records (points, attendance, streaks, proofs). Purging
+ * rows older than this would destroy real programme data, not tidy a log.
+ */
+export const HISTORY_DAYS = 30;
+
 export function useProofHistory() {
   const [items, setItems] = useState<HistoryProof[]>([]);
   const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
+    // History is a review log, not an archive: a coach cares about what was
+    // decided recently. Unbounded, this grew forever (1000+ rows) and PostgREST
+    // silently truncates at its row cap anyway, so the "full" list was never
+    // complete. A 30-day window is bounded, fast, and honest about its span.
+    const cutoff = new Date(Date.now() - HISTORY_DAYS * 86_400_000).toISOString();
+
     const [weeklyRes, habitRes] = await Promise.all([
       supabase
         .from("weekly_progress")
@@ -798,11 +831,15 @@ export function useProofHistory() {
           "id, user_id, week_no, proof_status, proof_url, proof_files, proof_note, coach_note, reviewed_at, attended, points, batch_id, created_at",
         )
         .in("proof_status", ["approved", "rejected"])
+        .gte("reviewed_at", cutoff)
         .order("reviewed_at", { ascending: false }),
       supabase
         .from("habit_logs")
-        .select("id, user_id, habit_id, day_no, proof_files, coach_note, reviewed_at, proof_status, created_at")
+        .select(
+          "id, user_id, habit_id, day_no, proof_files, coach_note, reviewed_at, proof_status, created_at",
+        )
         .in("proof_status", ["approved", "rejected"])
+        .gte("reviewed_at", cutoff)
         .order("reviewed_at", { ascending: false })
         .returns<
           {
@@ -824,12 +861,28 @@ export function useProofHistory() {
     const userIds = [...new Set([...wrows.map((r) => r.user_id), ...hrows.map((r) => r.user_id)])];
     const batchIds = [...new Set(wrows.map((r) => r.batch_id).filter(Boolean))] as string[];
 
-    const [display, batchRes] = await Promise.all([
+    // habit_logs carries no batch_id, so every habit entry used to be hardcoded
+    // to "No batch" — and habit proofs are the bulk of the history, which is why
+    // batch filtering appeared broken. Resolve each participant's batch from
+    // membership instead, and use it for BOTH kinds.
+    const [display, batchRes, memberRes] = await Promise.all([
       profilesDisplayFor(userIds),
-      batchIds.length > 0
-        ? supabase.from("batches").select("id, name").in("id", batchIds)
-        : Promise.resolve({ data: [] as { id: string; name: string }[] }),
+      supabase.from("batches").select("id, name"),
+      userIds.length > 0
+        ? supabase
+            .from("batch_members")
+            .select("user_id, batch_id")
+            .eq("role", "participant")
+            .in("user_id", userIds)
+        : Promise.resolve({ data: [] as { user_id: string; batch_id: string }[] }),
     ]);
+
+    const batchOfUser: Record<string, string> = {};
+    ((memberRes as { data: { user_id: string; batch_id: string }[] | null }).data ?? []).forEach(
+      (m) => {
+        if (m.batch_id) batchOfUser[m.user_id] = m.batch_id;
+      },
+    );
 
     const batchMap: Record<string, string> = {};
     ((batchRes as { data: { id: string; name: string }[] | null }).data ?? []).forEach((b) => {
@@ -845,7 +898,8 @@ export function useProofHistory() {
         proof_status: r.proof_status as "approved" | "rejected",
         name: prof?.name ?? "Participant",
         avatar_url: prof?.avatar ?? null,
-        batch_name: r.batch_id ? (batchMap[r.batch_id] ?? null) : null,
+        batch_id: r.batch_id ?? batchOfUser[r.user_id] ?? null,
+        batch_name: batchMap[r.batch_id ?? batchOfUser[r.user_id] ?? ""] ?? null,
       };
     });
     const habit: HistoryProof[] = hrows.map((r) => {
@@ -874,7 +928,9 @@ export function useProofHistory() {
     });
 
     const all = [...weekly, ...habit].sort(
-      (a, b) => (b.reviewed_at ? +new Date(b.reviewed_at) : 0) - (a.reviewed_at ? +new Date(a.reviewed_at) : 0),
+      (a, b) =>
+        (b.reviewed_at ? +new Date(b.reviewed_at) : 0) -
+        (a.reviewed_at ? +new Date(a.reviewed_at) : 0),
     );
     setItems(all);
     setLoading(false);

@@ -1,7 +1,13 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Link } from "@tanstack/react-router";
-import { formatDistanceToNowStrict, differenceInCalendarDays, format } from "date-fns";
+import {
+  formatDistanceToNowStrict,
+  differenceInCalendarDays,
+  format,
+  isToday,
+  isYesterday,
+} from "date-fns";
 import {
   ShieldCheck,
   Check,
@@ -27,6 +33,13 @@ import { EmptyState } from "@/components/vkm/empty-state";
 import { SectionCard } from "@/components/vkm/section-card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import { safeHref } from "@/lib/safe-url";
 import { weekByNumber } from "@/lib/vkm/program";
@@ -34,6 +47,7 @@ import {
   useProofQueue,
   useHabitProofFeed,
   useProofHistory,
+  HISTORY_DAYS,
   type PendingProof,
   type HabitProofItem,
   type HistoryProof,
@@ -55,6 +69,9 @@ const REJECT_NOTES = [
   "This doesn’t match this week’s task — resubmit.",
   "Add a short note explaining what you did.",
 ];
+
+// How many DAY groups to render before "Show earlier days".
+const DAYS_PER_PAGE = 7;
 
 type Tab = "weekly" | "habits" | "business" | "exemptions" | "history";
 type Sort = "oldest" | "newest" | "week";
@@ -772,6 +789,52 @@ function ProofHistoryTab({ data }: { data: ReturnType<typeof useProofHistory> })
     });
   }, [items, batchFilter, userFilter, statusFilter, q]);
 
+  // Per-participant counts for the select, honouring every OTHER active filter
+  // so the numbers match what picking that person would actually show.
+  const countsByUser = useMemo(() => {
+    const map: Record<string, number> = {};
+    let total = 0;
+    for (const i of items) {
+      if (batchFilter !== "__all__" && (i.batch_id ?? "__none__") !== batchFilter) continue;
+      if (statusFilter !== "all" && i.proof_status !== statusFilter) continue;
+      if (q.trim() && !i.name.toLowerCase().includes(q.toLowerCase())) continue;
+      map[i.user_id] = (map[i.user_id] ?? 0) + 1;
+      total++;
+    }
+    return { map, total };
+  }, [items, batchFilter, statusFilter, q]);
+
+  // Group the visible rows by the day they were reviewed.
+  const grouped = useMemo(() => {
+    const out: { key: string; label: string; items: HistoryProof[] }[] = [];
+    const byKey = new Map<string, HistoryProof[]>();
+    for (const i of visible) {
+      const d = i.reviewed_at ? new Date(i.reviewed_at) : null;
+      const key = d ? format(d, "yyyy-MM-dd") : "unknown";
+      if (!byKey.has(key)) byKey.set(key, []);
+      byKey.get(key)!.push(i);
+    }
+    for (const [key, list] of byKey) {
+      const d = key === "unknown" ? null : new Date(`${key}T00:00:00`);
+      const label = !d
+        ? "Not dated"
+        : isToday(d)
+          ? "Today"
+          : isYesterday(d)
+            ? "Yesterday"
+            : format(d, "EEEE, d MMM");
+      out.push({ key, label, items: list });
+    }
+    return out;
+  }, [visible]);
+
+  // Render a page of DAYS rather than every row — a thousand cards at once made
+  // the tab slow to open and impossible to scan.
+  const [shown, setShown] = useState(DAYS_PER_PAGE);
+  useEffect(() => {
+    setShown(DAYS_PER_PAGE);
+  }, [batchFilter, userFilter, statusFilter, q]);
+
   if (loading) {
     return (
       <div className="flex items-center gap-2 py-8 text-sm text-muted-foreground">
@@ -863,43 +926,49 @@ function ProofHistoryTab({ data }: { data: ReturnType<typeof useProofHistory> })
         </div>
       )}
 
-      {/* Participant pills (only when a batch is selected, or always if few) */}
+      {/* Participant filter. A chip per participant overflowed the row once a
+          coach had more than a handful; a select stays one line at any size and
+          carries each person's entry count. */}
       {participants.length > 1 && (
-        <div className="flex flex-wrap gap-1.5">
-          <button
-            type="button"
-            onClick={() => setUserFilter("__all__")}
-            className={cn(
-              "rounded-full px-3 py-1 text-xs font-medium transition-colors",
-              userFilter === "__all__"
-                ? "bg-gold/20 text-[oklch(0.42_0.1_85)] ring-1 ring-gold/40"
-                : "bg-secondary/40 text-muted-foreground hover:text-foreground",
-            )}
-          >
-            All participants
-          </button>
-          {participants.map(([id, name]) => (
-            <button
-              key={id}
-              type="button"
-              onClick={() => setUserFilter(id)}
-              className={cn(
-                "rounded-full px-3 py-1 text-xs font-medium transition-colors",
-                userFilter === id
-                  ? "bg-gold/20 text-[oklch(0.42_0.1_85)] ring-1 ring-gold/40"
-                  : "bg-secondary/40 text-muted-foreground hover:text-foreground",
-              )}
+        <div className="flex flex-wrap items-center gap-2">
+          <Select value={userFilter} onValueChange={setUserFilter}>
+            <SelectTrigger className="h-9 w-full rounded-lg text-xs sm:w-64">
+              <SelectValue placeholder="All participants" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="__all__">All participants ({countsByUser.total})</SelectItem>
+              {participants.map(([id, name]) => (
+                <SelectItem key={id} value={id}>
+                  {name} ({countsByUser.map[id] ?? 0})
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {(userFilter !== "__all__" ||
+            batchFilter !== "__all__" ||
+            statusFilter !== "all" ||
+            q.trim()) && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-9 rounded-lg text-xs"
+              onClick={() => {
+                setUserFilter("__all__");
+                setBatchFilter("__all__");
+                setStatusFilter("all");
+                setQ("");
+              }}
             >
-              {name}
-            </button>
-          ))}
+              <X className="h-3.5 w-3.5" /> Clear filters
+            </Button>
+          )}
         </div>
       )}
 
       {/* Summary line */}
       <p className="text-xs text-muted-foreground">
         {visible.length} {visible.length === 1 ? "entry" : "entries"}
-        {visible.length !== items.length && ` of ${items.length} total`}
+        {visible.length !== items.length && ` of ${items.length}`} · last {HISTORY_DAYS} days
       </p>
 
       {visible.length === 0 ? (
@@ -907,10 +976,29 @@ function ProofHistoryTab({ data }: { data: ReturnType<typeof useProofHistory> })
           No proofs match the selected filters.
         </p>
       ) : (
-        <div className="space-y-2">
-          {visible.map((item) => (
-            <HistoryCard key={item.id} item={item} />
+        <div className="space-y-4">
+          {/* Grouped by day. A flat run of a thousand identical rows gives no
+              sense of when anything happened; day headings make it scannable. */}
+          {grouped.slice(0, shown).map((g) => (
+            <div key={g.key} className="space-y-2">
+              <p className="sticky top-0 z-10 -mx-1 bg-background/85 px-1 py-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground backdrop-blur">
+                {g.label} · {g.items.length}
+              </p>
+              {g.items.map((item) => (
+                <HistoryCard key={item.id} item={item} />
+              ))}
+            </div>
           ))}
+
+          {shown < grouped.length && (
+            <Button
+              variant="outline"
+              className="w-full rounded-xl"
+              onClick={() => setShown((n) => n + DAYS_PER_PAGE)}
+            >
+              Show earlier days ({grouped.length - shown} more)
+            </Button>
+          )}
         </div>
       )}
     </div>
