@@ -31,7 +31,15 @@ import { PageHeader } from "@/components/vkm/page-header";
 import { BatchInsights } from "@/components/admin/batch-insights";
 import { SectionCard } from "@/components/vkm/section-card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectLabel,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { useCountUp } from "@/hooks/use-count-up";
@@ -101,19 +109,74 @@ export function SystemOverview() {
 
       {/* KPI grid — derived from the live roster (single source of truth) */}
       <section className="grid grid-cols-2 gap-3 md:grid-cols-4">
-        <Metric label="Participants" value={kpis.participants} icon={Users} accent="navy" loading={loading} />
-        <Metric label="Online now" value={kpis.online} icon={Radio} accent="live" loading={loading} live />
-        <Metric label="Today's completion" value={kpis.todayCompletionPct} suffix="%" icon={Activity} accent="gold" loading={loading} />
-        <Metric label="At risk" value={kpis.atRisk} icon={AlertTriangle} accent="danger" loading={loading} />
-        <Metric label="Pending proofs" value={kpis.pendingProofs} icon={Clock3} accent="warning" loading={loading} />
-        <Metric label="Open tickets" value={kpis.openTickets} icon={LifeBuoy} accent="navy" loading={loading} />
-        <Metric label="New signups · 7d" value={overview?.kpis.new_signups_7d ?? 0} icon={TrendingUp} accent="gold" loading={!overview} />
-        <Metric label="Cohort revenue" value={kpis.revenueInr} icon={Wallet} accent="navy" loading={loading} money />
+        <Metric
+          label="Participants"
+          value={kpis.participants}
+          icon={Users}
+          accent="navy"
+          loading={loading}
+        />
+        <Metric
+          label="Online now"
+          value={kpis.online}
+          icon={Radio}
+          accent="live"
+          loading={loading}
+          live
+        />
+        <Metric
+          label="Today's completion"
+          value={kpis.todayCompletionPct}
+          suffix="%"
+          icon={Activity}
+          accent="gold"
+          loading={loading}
+        />
+        <Metric
+          label="At risk"
+          value={kpis.atRisk}
+          icon={AlertTriangle}
+          accent="danger"
+          loading={loading}
+        />
+        <Metric
+          label="Pending proofs"
+          value={kpis.pendingProofs}
+          icon={Clock3}
+          accent="warning"
+          loading={loading}
+        />
+        <Metric
+          label="Open tickets"
+          value={kpis.openTickets}
+          icon={LifeBuoy}
+          accent="navy"
+          loading={loading}
+        />
+        <Metric
+          label="New signups · 7d"
+          value={overview?.kpis.new_signups_7d ?? 0}
+          icon={TrendingUp}
+          accent="gold"
+          loading={!overview}
+        />
+        <Metric
+          label="Cohort revenue"
+          value={kpis.revenueInr}
+          icon={Wallet}
+          accent="navy"
+          loading={loading}
+          money
+        />
       </section>
 
       {/* Tracker (2/3) + live feed (1/3) */}
       <section className="grid gap-4 xl:grid-cols-[1.7fr_1fr]">
-        <LiveTracker rows={rows} loading={loading} scopeLabel={selectedBatch?.name ?? "All batches"} />
+        <LiveTracker
+          rows={rows}
+          loading={loading}
+          scopeLabel={selectedBatch?.name ?? "All batches"}
+        />
         <LiveFeed activity={activity} />
       </section>
 
@@ -122,7 +185,10 @@ export function SystemOverview() {
       {batchId ? (
         <BatchInsights controlledBatchKey={batchId} hidePicker showTrends />
       ) : (
-        <SectionCard title={<span className="text-sm font-semibold">Drill into people</span>} subtitle="Pick a single batch above to see its participants, coaches and mentors">
+        <SectionCard
+          title={<span className="text-sm font-semibold">Drill into people</span>}
+          subtitle="Pick a single batch above to see its participants, coaches and mentors"
+        >
           <p className="py-4 text-center text-sm text-muted-foreground">
             Select a batch in the top-right to drill into its participants, coaches and mentors.
           </p>
@@ -211,7 +277,10 @@ type Accent = "navy" | "gold" | "live" | "danger" | "warning";
 const ACCENT: Record<Accent, { bar: string; chip: string }> = {
   navy: { bar: "bg-gradient-navy", chip: "bg-gradient-navy text-primary-foreground" },
   gold: { bar: "bg-gradient-gold", chip: "bg-gradient-gold text-navy" },
-  live: { bar: "bg-[oklch(0.6_0.16_150)]", chip: "bg-[oklch(0.93_0.06_160)] text-[oklch(0.35_0.12_160)]" },
+  live: {
+    bar: "bg-[oklch(0.6_0.16_150)]",
+    chip: "bg-[oklch(0.93_0.06_160)] text-[oklch(0.35_0.12_160)]",
+  },
   danger: { bar: "bg-red-400", chip: "bg-red-50 text-red-600" },
   warning: { bar: "bg-amber-400", chip: "bg-amber-50 text-amber-700" },
 };
@@ -244,16 +313,25 @@ function Metric({
       <div className="flex items-center justify-between gap-2">
         <div className="min-w-0">
           <p className="flex items-center gap-1.5 truncate text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
-            {live && value > 0 && <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-[oklch(0.6_0.16_150)] animate-blink" />}
+            {live && value > 0 && (
+              <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-[oklch(0.6_0.16_150)] animate-blink" />
+            )}
             {label}
           </p>
           {loading ? (
             <span className="mt-1 block h-7 w-16 animate-pulse rounded bg-secondary/60" />
           ) : (
-            <p className="mt-1 text-2xl font-bold tracking-tight text-foreground tabular-nums">{display}</p>
+            <p className="mt-1 text-2xl font-bold tracking-tight text-foreground tabular-nums">
+              {display}
+            </p>
           )}
         </div>
-        <span className={cn("inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl", style.chip)}>
+        <span
+          className={cn(
+            "inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl",
+            style.chip,
+          )}
+        >
           <Icon className="h-4 w-4" />
         </span>
       </div>
@@ -266,22 +344,38 @@ function Metric({
 // ---------------------------------------------------------------------------
 type TrackerFilter = "all" | "online" | "at_risk" | "pending";
 
-function LiveTracker({ rows, loading, scopeLabel }: { rows: LiveParticipant[]; loading: boolean; scopeLabel: string }) {
+function LiveTracker({
+  rows,
+  loading,
+  scopeLabel,
+}: {
+  rows: LiveParticipant[];
+  loading: boolean;
+  scopeLabel: string;
+}) {
   const [filter, setFilter] = useState<TrackerFilter>("all");
   const [q, setQ] = useState("");
 
   const filtered = useMemo(() => {
     const term = q.trim().toLowerCase();
-    return rows
-      .filter((r) => {
-        if (filter === "online" && !r.is_online_15m) return false;
-        if (filter === "at_risk" && !r.at_risk) return false;
-        if (filter === "pending" && Number(r.pending_proofs) === 0) return false;
-        if (term && !(`${r.full_name ?? ""} ${r.business_name ?? ""}`.toLowerCase().includes(term))) return false;
-        return true;
-      })
-      // At-risk first, then online, then most points.
-      .sort((a, b) => Number(b.at_risk) - Number(a.at_risk) || Number(b.is_online_15m) - Number(a.is_online_15m) || Number(b.points) - Number(a.points));
+    return (
+      rows
+        .filter((r) => {
+          if (filter === "online" && !r.is_online_15m) return false;
+          if (filter === "at_risk" && !r.at_risk) return false;
+          if (filter === "pending" && Number(r.pending_proofs) === 0) return false;
+          if (term && !`${r.full_name ?? ""} ${r.business_name ?? ""}`.toLowerCase().includes(term))
+            return false;
+          return true;
+        })
+        // At-risk first, then online, then most points.
+        .sort(
+          (a, b) =>
+            Number(b.at_risk) - Number(a.at_risk) ||
+            Number(b.is_online_15m) - Number(a.is_online_15m) ||
+            Number(b.points) - Number(a.points),
+        )
+    );
   }, [rows, filter, q]);
 
   const counts = {
@@ -309,10 +403,18 @@ function LiveTracker({ rows, loading, scopeLabel }: { rows: LiveParticipant[]; l
             onClick={() => setFilter(f)}
             className={cn(
               "app-press rounded-full px-2.5 py-1 text-xs font-medium transition-colors",
-              filter === f ? "bg-gradient-navy text-primary-foreground" : "bg-secondary/60 text-muted-foreground hover:text-foreground",
+              filter === f
+                ? "bg-gradient-navy text-primary-foreground"
+                : "bg-secondary/60 text-muted-foreground hover:text-foreground",
             )}
           >
-            {f === "all" ? "All" : f === "at_risk" ? "At risk" : f === "online" ? "Online" : "Pending"}{" "}
+            {f === "all"
+              ? "All"
+              : f === "at_risk"
+                ? "At risk"
+                : f === "online"
+                  ? "Online"
+                  : "Pending"}{" "}
             <span className="tabular-nums opacity-70">{counts[f]}</span>
           </button>
         ))}
@@ -327,7 +429,7 @@ function LiveTracker({ rows, loading, scopeLabel }: { rows: LiveParticipant[]; l
         </div>
       </div>
 
-      <div className="max-h-[560px] divide-y divide-border overflow-y-auto">
+      <div className="vkm-scroll max-h-[560px] divide-y divide-border overflow-y-auto">
         {loading ? (
           <div className="space-y-2 p-4">
             {[0, 1, 2, 3].map((i) => (
@@ -336,7 +438,9 @@ function LiveTracker({ rows, loading, scopeLabel }: { rows: LiveParticipant[]; l
           </div>
         ) : filtered.length === 0 ? (
           <p className="py-10 text-center text-sm text-muted-foreground">
-            {rows.length === 0 ? "No participants in this scope." : "No participants match this filter."}
+            {rows.length === 0
+              ? "No participants in this scope."
+              : "No participants match this filter."}
           </p>
         ) : (
           filtered.map((r) => <TrackerRow key={r.user_id} r={r} />)
@@ -347,27 +451,48 @@ function LiveTracker({ rows, loading, scopeLabel }: { rows: LiveParticipant[]; l
 }
 
 function TrackerRow({ r }: { r: LiveParticipant }) {
-  const initials = (r.full_name || "?").split(" ").map((s) => s[0]).join("").slice(0, 2).toUpperCase();
+  const initials = (r.full_name || "?")
+    .split(" ")
+    .map((s) => s[0])
+    .join("")
+    .slice(0, 2)
+    .toUpperCase();
   const weekPct = r.total_weeks > 0 ? Math.round((r.current_week / r.total_weeks) * 100) : 0;
   return (
-    <div className={cn("flex items-center gap-3 px-4 py-3 transition-colors hover:bg-secondary/30", r.at_risk && "border-l-2 border-l-red-400 bg-red-50/30")}>
+    <div
+      className={cn(
+        "flex items-center gap-3 px-4 py-3 transition-colors hover:bg-secondary/30",
+        r.at_risk && "border-l-2 border-l-red-400 bg-red-50/30",
+      )}
+    >
       <div className="relative shrink-0">
         <Avatar className="h-9 w-9 border border-border">
           <AvatarImage src={r.avatar_url ?? undefined} />
-          <AvatarFallback className="bg-gradient-navy text-[11px] font-semibold text-primary-foreground">{initials}</AvatarFallback>
+          <AvatarFallback className="bg-gradient-navy text-[11px] font-semibold text-primary-foreground">
+            {initials}
+          </AvatarFallback>
         </Avatar>
         {r.is_online_15m && (
-          <span className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-card bg-[oklch(0.6_0.16_150)]" title="Active in the last 15 min" />
+          <span
+            className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-card bg-[oklch(0.6_0.16_150)]"
+            title="Active in the last 15 min"
+          />
         )}
       </div>
 
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
           <p className="truncate text-sm font-semibold text-foreground">{r.full_name ?? "—"}</p>
-          {r.batch_name && <span className="shrink-0 rounded-full bg-secondary px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">{r.batch_name}</span>}
+          {r.batch_name && (
+            <span className="shrink-0 rounded-full bg-secondary px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
+              {r.batch_name}
+            </span>
+          )}
         </div>
         {r.at_risk ? (
-          <p className="truncate text-[11px] font-medium text-red-600">At risk · {r.weeks_approved}/{r.current_week} weeks approved</p>
+          <p className="truncate text-[11px] font-medium text-red-600">
+            At risk · {r.weeks_approved}/{r.current_week} weeks approved
+          </p>
         ) : (
           <p className="truncate text-[11px] text-muted-foreground">
             {r.business_name || "—"} · last seen {lastSeenLabel(r.last_active_at)}
@@ -379,7 +504,10 @@ function TrackerRow({ r }: { r: LiveParticipant }) {
         </div>
       </div>
 
-      <div className="hidden shrink-0 flex-col items-center gap-0.5 sm:flex" title={`Week ${r.current_week} of ${r.total_weeks}`}>
+      <div
+        className="hidden shrink-0 flex-col items-center gap-0.5 sm:flex"
+        title={`Week ${r.current_week} of ${r.total_weeks}`}
+      >
         <span className="text-[10px] uppercase tracking-wide text-muted-foreground">Week</span>
         <span className="text-sm font-bold tabular-nums text-foreground">{r.current_week}</span>
       </div>
@@ -387,10 +515,14 @@ function TrackerRow({ r }: { r: LiveParticipant }) {
       <HabitRing done={r.habits_done_today} />
 
       <div className="w-14 shrink-0 text-right">
-        <p className="text-sm font-bold tabular-nums text-foreground">{Number(r.points).toLocaleString("en-IN")}</p>
+        <p className="text-sm font-bold tabular-nums text-foreground">
+          {Number(r.points).toLocaleString("en-IN")}
+        </p>
         <p className="text-[10px] text-muted-foreground">points</p>
         {Number(r.pending_proofs) > 0 && (
-          <span className="mt-0.5 inline-block rounded-full bg-amber-50 px-1.5 text-[10px] font-semibold text-amber-700">{r.pending_proofs} pending</span>
+          <span className="mt-0.5 inline-block rounded-full bg-amber-50 px-1.5 text-[10px] font-semibold text-amber-700">
+            {r.pending_proofs} pending
+          </span>
         )}
       </div>
     </div>
@@ -404,7 +536,9 @@ function HabitRing({ done }: { done: number }) {
   return (
     <div
       className="relative hidden h-10 w-10 shrink-0 items-center justify-center rounded-full md:flex"
-      style={{ background: `conic-gradient(${complete ? "#46B98A" : GOLD} ${pct}%, oklch(0.9 0.02 90) 0)` }}
+      style={{
+        background: `conic-gradient(${complete ? "#46B98A" : GOLD} ${pct}%, oklch(0.9 0.02 90) 0)`,
+      }}
       title={`${done}/6 habits today`}
     >
       <span className="flex h-7 w-7 items-center justify-center rounded-full bg-card text-[11px] font-bold tabular-nums text-foreground">
@@ -428,26 +562,37 @@ function LiveFeed({ activity }: { activity: ReturnType<typeof useLiveActivity>["
       subtitle="Real events as they happen"
       bodyClassName="p-0"
     >
-      <div className="max-h-[560px] divide-y divide-border overflow-y-auto">
+      <div className="vkm-scroll max-h-[560px] divide-y divide-border overflow-y-auto">
         {activity.length === 0 ? (
           <p className="py-10 text-center text-sm text-muted-foreground">No recent activity.</p>
         ) : (
           activity.map((a) => {
-            const initials = (a.full_name || "?").split(" ").map((s) => s[0]).join("").slice(0, 2).toUpperCase();
+            const initials = (a.full_name || "?")
+              .split(" ")
+              .map((s) => s[0])
+              .join("")
+              .slice(0, 2)
+              .toUpperCase();
             return (
               <div key={a.id} className="flex items-center gap-3 px-4 py-2.5">
                 <Avatar className="h-7 w-7 border border-border">
                   <AvatarImage src={a.avatar_url ?? undefined} />
-                  <AvatarFallback className="bg-gradient-navy text-[10px] font-semibold text-primary-foreground">{initials}</AvatarFallback>
+                  <AvatarFallback className="bg-gradient-navy text-[10px] font-semibold text-primary-foreground">
+                    {initials}
+                  </AvatarFallback>
                 </Avatar>
                 <p className="min-w-0 flex-1 truncate text-sm text-foreground">
                   <span className="font-semibold">{a.full_name ?? "Someone"}</span>{" "}
                   <span className="text-muted-foreground">{describeActivity(a)}</span>
                 </p>
                 {a.points > 0 && (
-                  <span className="shrink-0 rounded-full bg-gradient-gold px-1.5 py-0.5 text-[10px] font-bold text-navy">+{a.points}</span>
+                  <span className="shrink-0 rounded-full bg-gradient-gold px-1.5 py-0.5 text-[10px] font-bold text-navy">
+                    +{a.points}
+                  </span>
                 )}
-                <span className="shrink-0 text-[10px] text-muted-foreground">{timeAgo(a.awarded_at)}</span>
+                <span className="shrink-0 text-[10px] text-muted-foreground">
+                  {timeAgo(a.awarded_at)}
+                </span>
               </div>
             );
           })
@@ -466,11 +611,23 @@ function LiveFeed({ activity }: { activity: ReturnType<typeof useLiveActivity>["
 // ---------------------------------------------------------------------------
 // Batch health — current vs previous, clickable to scope the whole dashboard
 // ---------------------------------------------------------------------------
-function BatchHealth({ batches, selectedId, onSelect }: { batches: BatchRow[]; selectedId: string | null; onSelect: (v: string | null) => void }) {
+function BatchHealth({
+  batches,
+  selectedId,
+  onSelect,
+}: {
+  batches: BatchRow[];
+  selectedId: string | null;
+  onSelect: (v: string | null) => void;
+}) {
   if (batches.length === 0) return null;
   return (
     <SectionCard
-      title={<span className="flex items-center gap-2 text-sm font-semibold"><Layers3 className="h-4 w-4 text-muted-foreground" /> Batch health</span>}
+      title={
+        <span className="flex items-center gap-2 text-sm font-semibold">
+          <Layers3 className="h-4 w-4 text-muted-foreground" /> Batch health
+        </span>
+      }
       subtitle="Click a batch to scope the dashboard · current batches highlighted"
     >
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -489,20 +646,56 @@ function BatchHealth({ batches, selectedId, onSelect }: { batches: BatchRow[]; s
               )}
             >
               <div className="flex items-center justify-between gap-2">
-                <p className={cn("truncate text-sm font-semibold", isActive ? "text-primary-foreground" : "text-foreground")}>{b.name}</p>
-                <span className={cn("shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-semibold", isActive ? "bg-white/15 text-primary-foreground" : "bg-secondary text-muted-foreground")}>
+                <p
+                  className={cn(
+                    "truncate text-sm font-semibold",
+                    isActive ? "text-primary-foreground" : "text-foreground",
+                  )}
+                >
+                  {b.name}
+                </p>
+                <span
+                  className={cn(
+                    "shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-semibold",
+                    isActive
+                      ? "bg-white/15 text-primary-foreground"
+                      : "bg-secondary text-muted-foreground",
+                  )}
+                >
                   {BATCH_STATUS_LABEL[b.status] ?? b.status}
                 </span>
               </div>
-              <p className={cn("mt-2 text-2xl font-bold tabular-nums", isActive ? "text-primary-foreground" : "text-foreground")}>
+              <p
+                className={cn(
+                  "mt-2 text-2xl font-bold tabular-nums",
+                  isActive ? "text-primary-foreground" : "text-foreground",
+                )}
+              >
                 {b.participant_count}
               </p>
-              <p className={cn("text-[11px]", isActive ? "text-primary-foreground/70" : "text-muted-foreground")}>participants</p>
-              <div className={cn("mt-2 flex items-center gap-3 text-[11px]", isActive ? "text-primary-foreground/80" : "text-muted-foreground")}>
+              <p
+                className={cn(
+                  "text-[11px]",
+                  isActive ? "text-primary-foreground/70" : "text-muted-foreground",
+                )}
+              >
+                participants
+              </p>
+              <div
+                className={cn(
+                  "mt-2 flex items-center gap-3 text-[11px]",
+                  isActive ? "text-primary-foreground/80" : "text-muted-foreground",
+                )}
+              >
                 <span>Wk {b.avg_week ?? "—"}</span>
                 <span>{b.avg_completion_pct}% done</span>
                 {Number(b.at_risk_count) > 0 && (
-                  <span className={cn("inline-flex items-center gap-1 font-semibold", isActive ? "text-amber-200" : "text-red-600")}>
+                  <span
+                    className={cn(
+                      "inline-flex items-center gap-1 font-semibold",
+                      isActive ? "text-amber-200" : "text-red-600",
+                    )}
+                  >
                     <AlertTriangle className="h-3 w-3" /> {b.at_risk_count}
                   </span>
                 )}
@@ -518,23 +711,59 @@ function BatchHealth({ batches, selectedId, onSelect }: { batches: BatchRow[]; s
 // ---------------------------------------------------------------------------
 // System health strip — real signals only
 // ---------------------------------------------------------------------------
-function SystemHealthStrip({ overview }: { overview: ReturnType<typeof useAnalyticsOverview>["data"] }) {
-  const items: { icon: ComponentType<{ className?: string }>; label: string; value: string; ok: boolean }[] = [
+function SystemHealthStrip({
+  overview,
+}: {
+  overview: ReturnType<typeof useAnalyticsOverview>["data"];
+}) {
+  const items: {
+    icon: ComponentType<{ className?: string }>;
+    label: string;
+    value: string;
+    ok: boolean;
+  }[] = [
     { icon: ShieldCheck, label: "Database", value: overview ? "Connected" : "…", ok: !!overview },
-    { icon: Trophy, label: "Active batches", value: String(overview?.kpis.active_batches ?? "—"), ok: true },
-    { icon: LifeBuoy, label: "Open tickets", value: String(overview?.kpis.open_tickets ?? "—"), ok: (overview?.kpis.open_tickets ?? 0) === 0 },
-    { icon: Radio, label: "Active · 15m", value: String(overview?.kpis.active_last_15m ?? "—"), ok: true },
+    {
+      icon: Trophy,
+      label: "Active batches",
+      value: String(overview?.kpis.active_batches ?? "—"),
+      ok: true,
+    },
+    {
+      icon: LifeBuoy,
+      label: "Open tickets",
+      value: String(overview?.kpis.open_tickets ?? "—"),
+      ok: (overview?.kpis.open_tickets ?? 0) === 0,
+    },
+    {
+      icon: Radio,
+      label: "Active · 15m",
+      value: String(overview?.kpis.active_last_15m ?? "—"),
+      ok: true,
+    },
     { icon: Mail, label: "Email log", value: "See Messaging", ok: true },
   ];
   return (
     <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
       {items.map((it) => (
-        <div key={it.label} className="flex items-center gap-2.5 rounded-xl border border-border bg-card px-3 py-2.5 shadow-vkm">
-          <span className={cn("inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg", it.ok ? "bg-[oklch(0.93_0.06_160)] text-[oklch(0.35_0.12_160)]" : "bg-amber-50 text-amber-700")}>
+        <div
+          key={it.label}
+          className="flex items-center gap-2.5 rounded-xl border border-border bg-card px-3 py-2.5 shadow-vkm"
+        >
+          <span
+            className={cn(
+              "inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg",
+              it.ok
+                ? "bg-[oklch(0.93_0.06_160)] text-[oklch(0.35_0.12_160)]"
+                : "bg-amber-50 text-amber-700",
+            )}
+          >
             <it.icon className="h-4 w-4" />
           </span>
           <div className="min-w-0">
-            <p className="truncate text-[11px] uppercase tracking-wide text-muted-foreground">{it.label}</p>
+            <p className="truncate text-[11px] uppercase tracking-wide text-muted-foreground">
+              {it.label}
+            </p>
             <p className="truncate text-sm font-semibold text-foreground">{it.value}</p>
           </div>
         </div>

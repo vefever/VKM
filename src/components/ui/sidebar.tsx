@@ -396,7 +396,9 @@ const SidebarContent = React.forwardRef<HTMLDivElement, React.ComponentProps<"di
         ref={ref}
         data-sidebar="content"
         className={cn(
-          "flex min-h-0 flex-1 flex-col gap-2 overflow-auto group-data-[collapsible=icon]:overflow-hidden",
+          // vkm-scroll: slim themed scrollbar. The platform default drew a wide
+          // stepper trough down the middle of the sidebar.
+          "vkm-scroll flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto overflow-x-hidden group-data-[collapsible=icon]:overflow-hidden",
           className,
         )}
         {...props}
