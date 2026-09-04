@@ -136,13 +136,18 @@ export function endDate(totalDays: number, anchor: Date = START_DATE): Date {
 export function dateForDay(day: number, anchor: Date = START_DATE): Date {
   return addDays(anchor, day - 1);
 }
-// The participant's current program day, relative to THEIR own start date.
-// Returns 0 until they've started; Day 1 on their start date, then one per
-// calendar day, clamped to the program length.
+// The participant's current program day, relative to their batch's start date.
+// Returns 0 until the programme has actually begun; Day 1 on the start date,
+// then one per calendar day, clamped to the program length.
+//
+// A start date in the FUTURE returns 0, not Day 1. The old Math.max(diff, 1)
+// floor is what let Batch 17 participants tick habits and bank points days
+// before their programme started.
 export function currentProgramDay(totalDays: number, startedAt: Date | null): number {
   if (!startedAt) return 0;
   const diff = differenceInCalendarDays(startOfToday(), startOfDay(startedAt)) + 1;
-  return Math.min(Math.max(diff, 1), totalDays);
+  if (diff < 1) return 0;
+  return Math.min(diff, totalDays);
 }
 
 export type DoneMap = Record<string, true>;
@@ -189,7 +194,11 @@ export function useProgramSettings() {
   const { data, isLoading } = useQuery({
     queryKey: ["program_settings"],
     queryFn: async () => {
-      const { data } = await supabase.from("program_settings").select("*").eq("id", 1).maybeSingle();
+      const { data } = await supabase
+        .from("program_settings")
+        .select("*")
+        .eq("id", 1)
+        .maybeSingle();
       return data ? toConfig(data) : DEFAULT_CONFIG;
     },
     staleTime: 5 * 60_000,
@@ -601,7 +610,8 @@ export function useDailySteps(programDay: number, goal: number) {
 
   const persist = useCallback(
     (value: number) => {
-      if (!user) return;
+      // Nothing is tracked before the batch start date staff set.
+      if (!user || programDay < 1) return;
       if (saveTimer.current) clearTimeout(saveTimer.current);
       saveTimer.current = window.setTimeout(() => {
         void supabase
@@ -709,7 +719,8 @@ export function useDailyWater(programDay: number) {
   // consumed, so we MUST attach `.then` (not fire-and-forget) or nothing saves.
   const writeEvent = useCallback(
     (delta: number, total: number, reason: string | null, rapid: boolean) => {
-      if (!user) return;
+      // Nothing is tracked before the batch start date staff set.
+      if (!user || programDay < 1) return;
       void supabase
         .from("daily_water")
         .upsert(
@@ -788,7 +799,8 @@ export function useWorkouts(programDay: number) {
 
   const addWorkout = useCallback(
     async (kind: string, minutes: number) => {
-      if (!user) return;
+      // Nothing is tracked before the batch start date staff set.
+      if (!user || programDay < 1) return;
       const { data } = await supabase
         .from("workout_logs")
         .insert({ user_id: user.id, log_date: todayDate, day_no: programDay, kind, minutes })

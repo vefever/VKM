@@ -10,6 +10,7 @@ import {
   Users,
   Download,
   FileUp,
+  CalendarDays,
 } from "lucide-react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/vkm/page-header";
@@ -26,7 +27,13 @@ import {
   DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { createInvite } from "@/lib/vkm/invites.functions";
@@ -68,13 +75,18 @@ export function BatchesManager({ eyebrow = "Admin" }: { eyebrow?: string } = {})
 
   const load = useCallback(async () => {
     const [{ data: bs }, { data: bm }, { data: profs }, { data: progs }] = await Promise.all([
-      supabase.from("batches").select("id, name, status, start_date, program_id").order("start_date", { ascending: false, nullsFirst: false }),
+      supabase
+        .from("batches")
+        .select("id, name, status, start_date, program_id")
+        .order("start_date", { ascending: false, nullsFirst: false }),
       supabase.from("batch_members").select("batch_id, user_id").eq("role", "participant"),
       supabase.from("profiles").select("id, is_alumni"),
       supabase.from("programs").select("id, title").order("created_at", { ascending: true }),
     ]);
     setPrograms((progs ?? []) as ProgramLite[]);
-    const alumniSet = new Set((profs ?? []).filter((p) => (p as { is_alumni?: boolean }).is_alumni).map((p) => p.id));
+    const alumniSet = new Set(
+      (profs ?? []).filter((p) => (p as { is_alumni?: boolean }).is_alumni).map((p) => p.id),
+    );
     const byBatch = new Map<string, { total: number; alumni: number }>();
     (bm ?? []).forEach((r) => {
       if (!r.batch_id) return;
@@ -123,7 +135,10 @@ export function BatchesManager({ eyebrow = "Admin" }: { eyebrow?: string } = {})
     let ok = 0;
     for (const uid of ids) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { error } = await (supabase.rpc as any)("admin_set_alumni", { _user_id: uid, _value: value });
+      const { error } = await (supabase.rpc as any)("admin_set_alumni", {
+        _user_id: uid,
+        _value: value,
+      });
       if (!error) ok++;
     }
     toast.success(value ? "Marked as alumni" : "Alumni removed", {
@@ -132,16 +147,35 @@ export function BatchesManager({ eyebrow = "Admin" }: { eyebrow?: string } = {})
     await load();
   }
 
-  async function createBatch(name: string, status: string) {
-    const { error } = await supabase.from("batches").insert({ name: name.trim(), status });
+  async function createBatch(name: string, status: string, startDate: string | null) {
+    const { error } = await supabase
+      .from("batches")
+      .insert({ name: name.trim(), status, start_date: startDate });
     if (error) throw error;
+    await load();
+  }
+
+  // Moving a batch's start date moves the whole cohort with it: enrollment reads
+  // this value, so Day 1, week numbers and habit availability all follow.
+  async function setBatchStartDate(b: Batch, startDate: string | null) {
+    const { error } = await supabase
+      .from("batches")
+      .update({ start_date: startDate, updated_at: new Date().toISOString() })
+      .eq("id", b.id);
+    if (error) return toast.error("Couldn't set the start date", { description: error.message });
+    toast.success(startDate ? `${b.name} starts ${startDate}` : `${b.name} start date cleared`, {
+      description: "Every member's Day 1 and week number follow this date.",
+    });
     await load();
   }
 
   // Which program this batch runs — scopes what its participants see (curriculum,
   // class videos, resources) via resolveMyProgramId.
   async function setBatchProgram(b: Batch, programId: string | null) {
-    const { error } = await supabase.from("batches").update({ program_id: programId }).eq("id", b.id);
+    const { error } = await supabase
+      .from("batches")
+      .update({ program_id: programId })
+      .eq("id", b.id);
     if (error) return toast.error("Couldn't set program", { description: error.message });
     const prog = programs.find((p) => p.id === programId);
     toast.success(prog ? `${b.name} → ${prog.title}` : `${b.name} → default program`);
@@ -161,7 +195,10 @@ export function BatchesManager({ eyebrow = "Admin" }: { eyebrow?: string } = {})
         description="Manage cohorts & access. Completed/archived batches see only the Community page; alumni also get My Business, Support & Settings."
         icon={Layers3}
         actions={
-          <Button className="rounded-full bg-gradient-navy shadow-vkm" onClick={() => setNewOpen(true)}>
+          <Button
+            className="rounded-full bg-gradient-navy shadow-vkm"
+            onClick={() => setNewOpen(true)}
+          >
             <Plus className="h-4 w-4" /> New batch
           </Button>
         }
@@ -193,7 +230,12 @@ export function BatchesManager({ eyebrow = "Admin" }: { eyebrow?: string } = {})
                     <div>
                       <div className="flex items-center gap-2">
                         <p className="text-sm font-semibold text-foreground">{b.name}</p>
-                        <span className={cn("rounded-full px-2 py-0.5 text-[10px] font-semibold capitalize", STATUS_BADGE[b.status] ?? STATUS_BADGE.archived)}>
+                        <span
+                          className={cn(
+                            "rounded-full px-2 py-0.5 text-[10px] font-semibold capitalize",
+                            STATUS_BADGE[b.status] ?? STATUS_BADGE.archived,
+                          )}
+                        >
                           {b.status}
                         </span>
                       </div>
@@ -210,14 +252,38 @@ export function BatchesManager({ eyebrow = "Admin" }: { eyebrow?: string } = {})
                   </div>
 
                   <div className="flex flex-wrap items-center gap-2">
-                    <Select value={b.program_id ?? "default"} onValueChange={(v) => setBatchProgram(b, v === "default" ? null : v)}>
-                      <SelectTrigger className="h-9 w-44 rounded-lg text-xs" title="Which program this batch runs">
+                    {/* Day 1 for this cohort. Everything date-driven follows it. */}
+                    <label
+                      className="flex items-center gap-1.5"
+                      title="Programme start date — Day 1 for every member of this batch"
+                    >
+                      <CalendarDays className="h-4 w-4 shrink-0 text-muted-foreground" />
+                      <Input
+                        type="date"
+                        value={b.start_date ?? ""}
+                        onChange={(e) => setBatchStartDate(b, e.target.value || null)}
+                        className={cn(
+                          "h-9 w-40 rounded-lg text-xs",
+                          !b.start_date && "border-amber-400 text-amber-700",
+                        )}
+                      />
+                    </label>
+                    <Select
+                      value={b.program_id ?? "default"}
+                      onValueChange={(v) => setBatchProgram(b, v === "default" ? null : v)}
+                    >
+                      <SelectTrigger
+                        className="h-9 w-44 rounded-lg text-xs"
+                        title="Which program this batch runs"
+                      >
                         <SelectValue placeholder="Program…" />
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="default">Default program</SelectItem>
                         {programs.map((p) => (
-                          <SelectItem key={p.id} value={p.id}>{p.title}</SelectItem>
+                          <SelectItem key={p.id} value={p.id}>
+                            {p.title}
+                          </SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
@@ -233,7 +299,12 @@ export function BatchesManager({ eyebrow = "Admin" }: { eyebrow?: string } = {})
                         ))}
                       </SelectContent>
                     </Select>
-                    <Button size="sm" variant="outline" className="h-9 rounded-lg" onClick={() => setImportFor(b)}>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-9 rounded-lg"
+                      onClick={() => setImportFor(b)}
+                    >
                       <Upload className="h-4 w-4" /> Import members
                     </Button>
                     <Button
@@ -245,7 +316,9 @@ export function BatchesManager({ eyebrow = "Admin" }: { eyebrow?: string } = {})
                       title="Toggle alumni access for this batch's members"
                     >
                       <GraduationCap className="h-4 w-4" />
-                      {b.alumniCount >= b.memberCount && b.memberCount > 0 ? "Unmark alumni" : "Mark alumni"}
+                      {b.alumniCount >= b.memberCount && b.memberCount > 0
+                        ? "Unmark alumni"
+                        : "Mark alumni"}
                     </Button>
                   </div>
                 </div>
@@ -275,20 +348,26 @@ function NewBatchDialog({
 }: {
   open: boolean;
   onOpenChange: (o: boolean) => void;
-  onCreate: (name: string, status: string) => Promise<void>;
+  onCreate: (name: string, status: string, startDate: string | null) => Promise<void>;
 }) {
   const [name, setName] = useState("");
   const [status, setStatus] = useState("active");
+  const [startDate, setStartDate] = useState("");
   const [busy, setBusy] = useState(false);
 
   async function submit() {
     if (!name.trim() || busy) return;
     setBusy(true);
     try {
-      await onCreate(name, status);
-      toast.success(`${name.trim()} created`);
+      await onCreate(name, status, startDate || null);
+      toast.success(`${name.trim()} created`, {
+        description: startDate
+          ? `Programme starts ${startDate}`
+          : "No start date set — members stay on Day 0 until you set one.",
+      });
       setName("");
       setStatus("active");
+      setStartDate("");
       onOpenChange(false);
     } catch (e) {
       toast.error("Couldn't create batch", { description: (e as Error).message });
@@ -308,6 +387,21 @@ function NewBatchDialog({
           <div className="space-y-1.5">
             <Label>Name</Label>
             <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Batch 17" />
+          </div>
+          {/* The single source of truth for when this cohort's programme begins.
+              Day 1, week 1, habits and streaks are all measured from here. */}
+          <div className="space-y-1.5">
+            <Label>Programme start date</Label>
+            <Input
+              type="date"
+              value={startDate}
+              onChange={(e) => setStartDate(e.target.value)}
+              className="rounded-xl"
+            />
+            <p className="text-[11px] text-muted-foreground">
+              Day 1 of the programme. Habits, streaks and weekly content all start from this date —
+              members can't log anything before it.
+            </p>
           </div>
           <div className="space-y-1.5">
             <Label>Status</Label>
@@ -330,7 +424,8 @@ function NewBatchDialog({
             Cancel
           </Button>
           <Button onClick={submit} disabled={busy || !name.trim()} className="bg-gradient-navy">
-            {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />} Create
+            {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}{" "}
+            Create
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -358,7 +453,10 @@ function parseMembers(text: string): ParsedMember[] {
   for (const line of text.split(/\r?\n/)) {
     const t = line.trim();
     if (!t) continue;
-    const parts = t.split(/[,\t]/).map((p) => p.trim()).filter(Boolean);
+    const parts = t
+      .split(/[,\t]/)
+      .map((p) => p.trim())
+      .filter(Boolean);
     const email = parts.find((p) => /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(p));
     if (!email) continue; // skip lines without a valid email
     const phone = parts.find((p) => /^\+?[\d\s-]{7,}$/.test(p) && p !== email);
@@ -412,7 +510,13 @@ function ImportMembersDialog({
       const m = parsed[i];
       try {
         await invite({
-          data: { email: m.email, name: m.name, role: "participant", phone: m.phone, batch: batch.name },
+          data: {
+            email: m.email,
+            name: m.name,
+            role: "participant",
+            phone: m.phone,
+            batch: batch.name,
+          },
         });
         ok++;
       } catch (e) {
@@ -422,7 +526,8 @@ function ImportMembersDialog({
     }
     setBusy(false);
     if (ok > 0) toast.success(`Imported ${ok} member${ok > 1 ? "s" : ""} to ${batch.name}`);
-    if (failed.length > 0) toast.error(`${failed.length} failed`, { description: failed.slice(0, 3).join("; ") });
+    if (failed.length > 0)
+      toast.error(`${failed.length} failed`, { description: failed.slice(0, 3).join("; ") });
     onDone();
     if (failed.length === 0) onClose();
   }
@@ -433,8 +538,9 @@ function ImportMembersDialog({
         <DialogHeader>
           <DialogTitle>Import members → {batch.name}</DialogTitle>
           <DialogDescription>
-            One per line: <span className="font-medium text-foreground">Name, email, phone</span> (phone
-            optional). Each gets an invite and is added to this batch. Existing users are matched by email.
+            One per line: <span className="font-medium text-foreground">Name, email, phone</span>{" "}
+            (phone optional). Each gets an invite and is added to this batch. Existing users are
+            matched by email.
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-2">
@@ -459,7 +565,13 @@ function ImportMembersDialog({
             >
               <FileUp className="h-4 w-4" /> Upload CSV
             </Button>
-            <Button type="button" size="sm" variant="ghost" className="h-8 rounded-lg" onClick={downloadSample}>
+            <Button
+              type="button"
+              size="sm"
+              variant="ghost"
+              className="h-8 rounded-lg"
+              onClick={downloadSample}
+            >
               <Download className="h-4 w-4" /> Download sample
             </Button>
           </div>
@@ -467,13 +579,15 @@ function ImportMembersDialog({
             value={text}
             onChange={(e) => setText(e.target.value)}
             rows={8}
-            placeholder={"Name, Email, Phone\nRavi Kumar, ravi@example.com, +91 98765 43210\nAnitha Rao, anitha@example.com"}
+            placeholder={
+              "Name, Email, Phone\nRavi Kumar, ravi@example.com, +91 98765 43210\nAnitha Rao, anitha@example.com"
+            }
             disabled={busy}
             className="font-mono text-xs"
           />
           <p className="text-[11px] text-muted-foreground">
-            {parsed.length} valid {parsed.length === 1 ? "member" : "members"} detected · each gets an
-            invite email
+            {parsed.length} valid {parsed.length === 1 ? "member" : "members"} detected · each gets
+            an invite email
             {progress && ` · ${progress.done}/${progress.total} processed`}
           </p>
         </div>

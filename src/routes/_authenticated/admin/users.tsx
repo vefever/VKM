@@ -28,6 +28,7 @@ import {
   X,
   ChevronDown,
   ArrowRightLeft,
+  RotateCcw,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -106,6 +107,7 @@ import {
   adminSetUserBlocked,
   adminDeleteUser,
 } from "@/lib/vkm/admin-users.functions";
+import { resetParticipantProgram } from "@/lib/vkm/program-reset.functions";
 
 type CoachOpt = { id: string; full_name: string | null; email: string; participant_count: number };
 type CoachRef = { id: string; name: string };
@@ -255,7 +257,9 @@ function UsersPage() {
       .select("name, start_date")
       .order("start_date", { ascending: false, nullsFirst: false })
       .then(({ data }) => {
-        const names = Array.from(new Set(((data ?? []) as { name: string }[]).map((b) => b.name).filter(Boolean)));
+        const names = Array.from(
+          new Set(((data ?? []) as { name: string }[]).map((b) => b.name).filter(Boolean)),
+        );
         setProgramBatches(names);
       });
   }, []);
@@ -476,6 +480,7 @@ function UsersTable({
   const bulkResend = useServerFn(bulkResendInvites);
   const setBlocked = useServerFn(adminSetUserBlocked);
   const deleteUser = useServerFn(adminDeleteUser);
+  const resetProgram = useServerFn(resetParticipantProgram);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [assigningEmail, setAssigningEmail] = useState<string | null>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -483,6 +488,8 @@ function UsersTable({
   const [bulkBatch, setBulkBatch] = useState<string>("");
   const [bulkBusy, setBulkBusy] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState<{ email: string; name: string } | null>(null);
+  const [confirmReset, setConfirmReset] = useState<{ email: string; name: string } | null>(null);
+  const [resetBusy, setResetBusy] = useState(false);
   const [deleteBusy, setDeleteBusy] = useState(false);
 
   const batchOptions = useMemo(() => {
@@ -650,6 +657,28 @@ function UsersTable({
       setBusyId(null);
     }
   }
+  // Wipe a participant's programme progress so they can start fresh on their
+  // batch's start date. Their profile, business and vision content are kept —
+  // this resets the programme, not the person.
+  async function handleReset(clearEnrollment: boolean) {
+    if (!confirmReset) return;
+    setResetBusy(true);
+    try {
+      const r = await resetProgram({ data: { email: confirmReset.email, clearEnrollment } });
+      toast.success("Programme reset", {
+        description: r.totalDeleted
+          ? `Cleared ${r.totalDeleted} record${r.totalDeleted === 1 ? "" : "s"}${r.batchStart ? ` · restarts ${r.batchStart}` : ""}`
+          : "They had no progress recorded yet.",
+      });
+      setConfirmReset(null);
+      onChanged();
+    } catch (e) {
+      toast.error("Couldn't reset", { description: (e as Error).message });
+    } finally {
+      setResetBusy(false);
+    }
+  }
+
   async function handleDelete() {
     if (!confirmDelete) return;
     setDeleteBusy(true);
@@ -962,6 +991,11 @@ function UsersTable({
                             )}
                           </DropdownMenuItem>
                           <DropdownMenuItem
+                            onClick={() => setConfirmReset({ email: u.email, name: u.name })}
+                          >
+                            <RotateCcw className="h-4 w-4" /> Reset programme
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
                             className="text-destructive focus:text-destructive"
                             onClick={() => setConfirmDelete({ email: u.email, name: u.name })}
                           >
@@ -978,6 +1012,58 @@ function UsersTable({
         </Table>
       </div>
 
+      {/* Reset programme — two ways to start fresh, both keeping the person's
+          own content (profile, business, vision) intact. */}
+      <AlertDialog
+        open={!!confirmReset}
+        onOpenChange={(o) => !resetBusy && !o && setConfirmReset(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Reset {confirmReset?.name}'s programme?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Clears all programme progress for{" "}
+              <span className="font-medium text-foreground">{confirmReset?.email}</span> — habits,
+              streaks, points, steps, water, workouts, focus sessions and milestones.
+              <br />
+              <br />
+              Their profile, business brain, vision board and uploaded files are{" "}
+              <span className="font-medium text-foreground">kept</span>. This can't be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="flex-col gap-2 sm:flex-row">
+            <AlertDialogCancel disabled={resetBusy}>Cancel</AlertDialogCancel>
+            <Button
+              variant="outline"
+              disabled={resetBusy}
+              onClick={() => handleReset(true)}
+              title="Also removes the enrollment — they start the programme again themselves"
+            >
+              {resetBusy ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <RotateCcw className="mr-2 h-4 w-4" />
+              )}
+              Reset &amp; unenroll
+            </Button>
+            <AlertDialogAction
+              onClick={(e) => {
+                e.preventDefault();
+                handleReset(false);
+              }}
+              disabled={resetBusy}
+            >
+              {resetBusy ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <RotateCcw className="mr-2 h-4 w-4" />
+              )}
+              Reset to batch start
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       <AlertDialog
         open={!!confirmDelete}
         onOpenChange={(o) => !deleteBusy && !o && setConfirmDelete(null)}
@@ -989,7 +1075,8 @@ function UsersTable({
               This permanently deletes{" "}
               <span className="font-medium text-foreground">{confirmDelete?.email}</span> and all of
               their data (progress, points, proofs, memberships, invites). This can't be undone. To
-              only stop their access, use <span className="font-medium">Block sign-in</span> instead.
+              only stop their access, use <span className="font-medium">Block sign-in</span>{" "}
+              instead.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -1126,8 +1213,8 @@ function InviteDialog({
             </Select>
             {role === "co_admin" && (
               <p className="text-[11px] text-amber-600 dark:text-amber-400">
-                A co-admin has the same full access as a Super Admin — they can manage users, batches,
-                content and settings. They're just labelled "Co-Admin".
+                A co-admin has the same full access as a Super Admin — they can manage users,
+                batches, content and settings. They're just labelled "Co-Admin".
               </p>
             )}
           </div>
@@ -1174,17 +1261,21 @@ function InviteDialog({
                   </SelectTrigger>
                   <SelectContent>
                     {batchOptions.map((b) => (
-                      <SelectItem key={b} value={b}>{b}</SelectItem>
+                      <SelectItem key={b} value={b}>
+                        {b}
+                      </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               ) : (
                 <p className="rounded-xl border border-dashed border-border px-3 py-2.5 text-xs text-muted-foreground">
-                  No batches yet — create one in <span className="font-medium">Academy → Batches</span> first.
+                  No batches yet — create one in{" "}
+                  <span className="font-medium">Academy → Batches</span> first.
                 </p>
               )}
               <p className="text-xs text-muted-foreground">
-                Links this participant to the batch and makes them visible in the Community directory.
+                Links this participant to the batch and makes them visible in the Community
+                directory.
               </p>
             </div>
           )}
@@ -1510,4 +1601,3 @@ function ImportDialog({
     </Dialog>
   );
 }
-

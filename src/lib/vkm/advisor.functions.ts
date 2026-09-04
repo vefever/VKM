@@ -140,7 +140,10 @@ function programProgress(startedAt: string | null | undefined, totalWeeks: numbe
       Date.UTC(start.getFullYear(), start.getMonth(), start.getDate())) /
     86_400_000,
   );
-  if (Number.isNaN(days) || days < 0) return { week: 1, day: 1 };
+  // Before the batch's start date the programme has not begun — week/day 0, not
+  // week 1. Reporting week 1 early made the advisor coach people through content
+  // their batch had not reached.
+  if (Number.isNaN(days) || days < 0) return { week: 0, day: 0 };
   const day = days + 1;
   const week = Math.min(totalWeeks || 16, Math.floor(days / 7) + 1);
   return { week, day };
