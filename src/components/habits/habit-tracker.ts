@@ -10,6 +10,7 @@ import {
   ListChecks,
   type LucideIcon,
 } from "lucide-react";
+import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { useEnrollment } from "@/components/participant/enrollment-data";
@@ -375,23 +376,34 @@ export function useHabitTracker() {
         else n[k] = true;
         return n;
       });
+      // Remember the proofs we're about to replace, so a rejected write can be
+      // rolled back to exactly what was there.
+      let priorProofs: Attachment[] = [];
       setProofs((prev) => {
+        priorProofs = prev[k] ?? [];
         const n = { ...prev };
         if (was) delete n[k];
         else n[k] = files;
         return n;
       });
 
+      // supabase-js does NOT throw on a rejected write — an RLS denial or a
+      // constraint violation comes back as { error }. Catching only thrown
+      // errors meant a refused tick still looked completed: the habit stayed
+      // ticked, no points were awarded, and nothing corrected until a reload.
+      // Roll the optimistic update back and say so instead.
+      let failure: string | null = null;
       try {
         if (was) {
-          await supabase
+          const { error } = await supabase
             .from("habit_logs")
             .delete()
             .eq("user_id", user.id)
             .eq("habit_id", habitId)
             .eq("day_no", day);
+          if (error) failure = error.message;
         } else {
-          await supabase.from("habit_logs").insert({
+          const { error } = await supabase.from("habit_logs").insert({
             user_id: user.id,
             habit_id: habitId,
             day_no: day,
@@ -399,9 +411,28 @@ export function useHabitTracker() {
             points: config.pointsPerTick,
             proof_files: files,
           });
+          if (error) failure = error.message;
         }
-      } catch {
-        /* realtime / next load reconciles */
+      } catch (e) {
+        failure = (e as Error).message;
+      }
+
+      if (failure) {
+        setDone((prev) => {
+          const n = { ...prev };
+          if (was) n[k] = true;
+          else delete n[k];
+          return n;
+        });
+        setProofs((prev) => {
+          const n = { ...prev };
+          if (was) n[k] = priorProofs;
+          else delete n[k];
+          return n;
+        });
+        toast.error(was ? "Couldn't undo that habit" : "Couldn't save that habit", {
+          description: failure,
+        });
       }
     },
     [user, programDay, config.pointsPerTick],

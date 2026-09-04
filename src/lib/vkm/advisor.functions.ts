@@ -138,7 +138,7 @@ function programProgress(startedAt: string | null | undefined, totalWeeks: numbe
   const days = Math.floor(
     (Date.UTC(today.getFullYear(), today.getMonth(), today.getDate()) -
       Date.UTC(start.getFullYear(), start.getMonth(), start.getDate())) /
-    86_400_000,
+      86_400_000,
   );
   // Before the batch's start date the programme has not begun — week/day 0, not
   // week 1. Reporting week 1 early made the advisor coach people through content
@@ -199,10 +199,22 @@ async function buildAdvisorSystem(
   let knowledgeBlock = "";
   if (query && query.trim()) {
     const chunks = await retrieveVkKnowledge(supabase, query, 5);
-    const relevant = chunks.filter((c) => (c.similarity ?? 0) >= 0.68);
+    // Confidence gate. gte-small scores everything high, so the original 0.68
+    // never rejected anything: measured against the ingested workbooks, 12 real
+    // business questions scored 0.822–0.904 while 10 deliberately off-topic ones
+    // ("capital of France", "how to cook biryani") scored 0.736–0.812 — all of
+    // which sailed through and were handed to the model as "Venu's real
+    // teaching". 0.82 is the separating line, and the errors are asymmetric:
+    // dropping a real match just falls back to the honest "general business
+    // principle" answer, whereas admitting an unrelated chunk makes the advisor
+    // cite workbook text that has nothing to do with the question.
+    const relevant = chunks.filter((c) => (c.similarity ?? 0) >= 0.82);
     if (relevant.length) {
       const body = relevant
-        .map((c) => `[source: ${c.source_title || "VK teaching"}${c.topic ? " · " + c.topic : ""}]\n${c.content}`)
+        .map(
+          (c) =>
+            `[source: ${c.source_title || "VK teaching"}${c.topic ? " · " + c.topic : ""}]\n${c.content}`,
+        )
         .join("\n\n");
       knowledgeBlock =
         `--- VK KNOWLEDGE (Venu's real teaching — ground your answer in this and reference it naturally) ---\n${body}\n--- END VK KNOWLEDGE ---\n` +
@@ -276,8 +288,8 @@ function logTurn(
     .from("ai_advisor_threads")
     .insert({ user_id: userId, prompt, response })
     .then(
-      () => { },
-      () => { },
+      () => {},
+      () => {},
     );
 }
 

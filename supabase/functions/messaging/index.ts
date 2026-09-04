@@ -59,7 +59,10 @@ async function loadSetting(id: string): Promise<Setting> {
   return { provider: data?.provider ?? null, enabled: !!data?.enabled, config: data?.config ?? {} };
 }
 
-type AdminCheck = { ok: boolean; reason: "ok" | "no-auth" | "invalid-token" | "not-admin" | "error" };
+type AdminCheck = {
+  ok: boolean;
+  reason: "ok" | "no-auth" | "invalid-token" | "not-admin" | "error";
+};
 
 // Returns WHY admin auth failed so the caller can give the user an actionable
 // message. The single biggest cause of the client-side "Edge Function returned a
@@ -315,7 +318,11 @@ async function sendEmail(to: string, subject: string, html: string, text?: strin
     const token = raw.toLowerCase().startsWith("zoho-enczapikey") ? raw : `Zoho-enczapikey ${raw}`;
     const r = await fetch(`https://api.zeptomail.${region}/v1.1/email`, {
       method: "POST",
-      headers: { Authorization: token, "Content-Type": "application/json", Accept: "application/json" },
+      headers: {
+        Authorization: token,
+        "Content-Type": "application/json",
+        Accept: "application/json",
+      },
       body: JSON.stringify({
         from: { address: fromEmail, name: fromName },
         to: [{ email_address: { address: to } }],
@@ -734,7 +741,11 @@ function fillVars(tpl: string, v: { name: string; done: number; remaining: numbe
 }
 
 // Modern, email-client-safe (table + inline CSS) reminder. Navy/gold theme.
-function renderReminderEmail(cfg: AutomationCfg, name: string, done: number): {
+function renderReminderEmail(
+  cfg: AutomationCfg,
+  name: string,
+  done: number,
+): {
   subject: string;
   html: string;
   text: string;
@@ -744,7 +755,11 @@ function renderReminderEmail(cfg: AutomationCfg, name: string, done: number): {
   const intro =
     cfg.email_intro ||
     "You still have tasks left for today. A few focused minutes now keeps your momentum going.";
-  const subject = fillVars(cfg.email_subject || "Finish today's tasks ⏰", { name, done, remaining });
+  const subject = fillVars(cfg.email_subject || "Finish today's tasks ⏰", {
+    name,
+    done,
+    remaining,
+  });
 
   const dots = Array.from({ length: 6 }, (_, i) => {
     const filled = i < done;
@@ -758,8 +773,8 @@ function renderReminderEmail(cfg: AutomationCfg, name: string, done: number): {
   const habitRows = HABIT_NAMES.map(
     (h, i) => `<tr><td style="padding:6px 0;font:400 14px/1.4 system-ui,Arial;color:#1e2430">
         <span style="display:inline-block;width:18px;color:${i < done ? "#1f8f4e" : "#c9ccd3"}">${
-      i < done ? "✓" : "○"
-    }</span>${h}</td></tr>`,
+          i < done ? "✓" : "○"
+        }</span>${h}</td></tr>`,
   ).join("");
 
   const html = `<!doctype html><html><body style="margin:0;background:#f4f6f9;padding:24px 12px">
@@ -791,8 +806,9 @@ function renderReminderEmail(cfg: AutomationCfg, name: string, done: number): {
 }
 
 function escapeHtml(s: string): string {
-  return s.replace(/[&<>"']/g, (c) =>
-    ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!,
+  return s.replace(
+    /[&<>"']/g,
+    (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!,
   );
 }
 
@@ -843,7 +859,9 @@ Deno.serve(async (req) => {
       // ok regardless so member/non-member status can't be probed; we simply
       // send nothing for non-members.
       if (!(await emailIsMember(email))) {
-        console.warn("request_otp for non-member email — skipped (invite-only; no code sent, no account created)");
+        console.warn(
+          "request_otp for non-member email — skipped (invite-only; no code sent, no account created)",
+        );
         return json({ ok: true }, 200, cors);
       }
 
@@ -862,7 +880,9 @@ Deno.serve(async (req) => {
     // OTP entry screen for a code that was never sent. Does NOT require OTP
     // login to be enabled — password reset is always available to members.
     if (action === "request_password_reset") {
-      const email = String(p.email || "").trim().toLowerCase();
+      const email = String(p.email || "")
+        .trim()
+        .toLowerCase();
       if (!email) return json({ ok: false, error: "Email required" }, 400, cors);
 
       const ip =
@@ -870,7 +890,11 @@ Deno.serve(async (req) => {
         req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
         "unknown";
       if (await otpRateLimited(email, ip)) {
-        return json({ ok: false, error: "Too many requests. Please wait a minute and try again." }, 429, cors);
+        return json(
+          { ok: false, error: "Too many requests. Please wait a minute and try again." },
+          429,
+          cors,
+        );
       }
 
       // Only real members get a code. Non-members are told plainly (no OTP step).
@@ -880,7 +904,11 @@ Deno.serve(async (req) => {
 
       const sent = await issueLoginCode(email);
       if (sent === "send-failed") {
-        return json({ ok: false, error: "Could not send the reset code. Try again later." }, 500, cors);
+        return json(
+          { ok: false, error: "Could not send the reset code. Try again later." },
+          500,
+          cors,
+        );
       }
       return json({ ok: true, sent: true }, 200, cors);
     }
@@ -892,11 +920,15 @@ Deno.serve(async (req) => {
       const enabled = (await loadSetting("general")).config?.signups_enabled;
       if (!enabled) return json({ ok: false, error: "Sign-ups are currently closed." }, 403, cors);
 
-      const email = String(p.email || "").trim().toLowerCase();
+      const email = String(p.email || "")
+        .trim()
+        .toLowerCase();
       const password = String(p.password || "");
       const fullName = String(p.full_name || "").trim();
-      if (!email || !email.includes("@")) return json({ ok: false, error: "A valid email is required." }, 400, cors);
-      if (password.length < 8) return json({ ok: false, error: "Password must be at least 8 characters." }, 400, cors);
+      if (!email || !email.includes("@"))
+        return json({ ok: false, error: "A valid email is required." }, 400, cors);
+      if (password.length < 8)
+        return json({ ok: false, error: "Password must be at least 8 characters." }, 400, cors);
 
       // Anti-abuse: same throttle as the OTP endpoint (per-email + per-IP).
       const ip =
@@ -909,7 +941,11 @@ Deno.serve(async (req) => {
 
       // Never clobber an existing account (and don't reveal it plainly).
       if (await emailHasAccount(email)) {
-        return json({ ok: false, error: "An account with this email already exists — please sign in." }, 409, cors);
+        return json(
+          { ok: false, error: "An account with this email already exists — please sign in." },
+          409,
+          cors,
+        );
       }
 
       // Create the account server-side (email pre-confirmed). The handle_new_user
@@ -922,7 +958,11 @@ Deno.serve(async (req) => {
       });
       if (cErr) {
         console.error("public_signup createUser failed:", cErr.message);
-        return json({ ok: false, error: "Could not create your account. Try again later." }, 500, cors);
+        return json(
+          { ok: false, error: "Could not create your account. Try again later." },
+          500,
+          cors,
+        );
       }
       return json({ ok: true }, 200, cors);
     }
@@ -962,7 +1002,14 @@ Deno.serve(async (req) => {
         <p style="font-size:32px;font-weight:700;letter-spacing:6px;color:#0B2545">${code}</p>
         <p style="color:#667">If you didn't request this, someone may have your password — consider changing it.</p></div>`;
       try {
-        await sendEmailLogged(email, "Your VKM security code", html, `Your VKM security code: ${code}`, "mfa", staff.userId);
+        await sendEmailLogged(
+          email,
+          "Your VKM security code",
+          html,
+          `Your VKM security code: ${code}`,
+          "mfa",
+          staff.userId,
+        );
       } catch (e) {
         console.error("request_mfa_email_otp sendEmail failed:", (e as Error).message);
         return json({ ok: false, error: "Could not send the code. Try again later." }, 500, cors);
@@ -1003,8 +1050,8 @@ Deno.serve(async (req) => {
 
       const emailOn = cfg.email_enabled !== false;
       const waOn = cfg.whatsapp_enabled === true;
-      let email = { sent: 0, failed: 0, skipped: 0 };
-      let whatsapp = { sent: 0, failed: 0, skipped: 0 };
+      const email = { sent: 0, failed: 0, skipped: 0 };
+      const whatsapp = { sent: 0, failed: 0, skipped: 0 };
 
       for (const t of (targets ?? []) as Array<{
         user_id: string;

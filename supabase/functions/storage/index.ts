@@ -12,12 +12,15 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const ALLOWED_ORIGINS = (Deno.env.get("ALLOWED_ORIGINS") || "")
-  .split(",").map((o) => o.trim()).filter(Boolean);
+  .split(",")
+  .map((o) => o.trim())
+  .filter(Boolean);
 
 function corsFor(req: Request): Record<string, string> {
   const origin = req.headers.get("Origin") || "";
   let allow = "*";
-  if (ALLOWED_ORIGINS.length > 0) allow = ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0];
+  if (ALLOWED_ORIGINS.length > 0)
+    allow = ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0];
   return {
     "Access-Control-Allow-Origin": allow,
     "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
@@ -26,7 +29,10 @@ function corsFor(req: Request): Record<string, string> {
   };
 }
 const json = (b: unknown, status = 200, cors: Record<string, string> = {}) =>
-  new Response(JSON.stringify(b), { status, headers: { ...cors, "Content-Type": "application/json" } });
+  new Response(JSON.stringify(b), {
+    status,
+    headers: { ...cors, "Content-Type": "application/json" },
+  });
 
 const admin = createClient(
   Deno.env.get("SUPABASE_URL")!,
@@ -62,7 +68,11 @@ async function getUser(req: Request) {
   return data.user ?? null;
 }
 async function isSuperAdmin(userId: string): Promise<boolean> {
-  const { data } = await admin.from("user_roles").select("role").eq("user_id", userId).eq("role", "super_admin");
+  const { data } = await admin
+    .from("user_roles")
+    .select("role")
+    .eq("user_id", userId)
+    .eq("role", "super_admin");
   return (data?.length ?? 0) > 0;
 }
 // mentor/super_admin manage shared content (class videos, branding, PWA/SEO
@@ -82,7 +92,7 @@ function isSafeKey(key: string): boolean {
   if (!key || key.length > 512) return false;
   if (key.startsWith("/") || key.endsWith("/") || key.includes("//")) return false;
   if (key.includes("..") || key.includes("\\")) return false;
-  return key.split("/").every((seg) => seg.length > 0 && /^[\w.\-]+$/.test(seg));
+  return key.split("/").every((seg) => seg.length > 0 && /^[\w.-]+$/.test(seg));
 }
 
 // --- S3 SigV4 query-string presign (PUT) for R2 -----------------------------
@@ -91,11 +101,16 @@ async function sha256hex(data: string): Promise<string> {
   return [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, "0")).join("");
 }
 async function hmac(key: ArrayBuffer | Uint8Array, data: string): Promise<ArrayBuffer> {
-  const k = await crypto.subtle.importKey("raw", key, { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
+  const k = await crypto.subtle.importKey("raw", key, { name: "HMAC", hash: "SHA-256" }, false, [
+    "sign",
+  ]);
   return crypto.subtle.sign("HMAC", k, new TextEncoder().encode(data));
 }
 const enc = (s: string) =>
-  encodeURIComponent(s).replace(/[!*'()]/g, (ch) => "%" + ch.charCodeAt(0).toString(16).toUpperCase());
+  encodeURIComponent(s).replace(
+    /[!*'()]/g,
+    (ch) => "%" + ch.charCodeAt(0).toString(16).toUpperCase(),
+  );
 const encKey = (key: string) => key.split("/").map(enc).join("/");
 
 async function presignR2(c: StorageConfig, key: string): Promise<string> {
@@ -121,16 +136,25 @@ async function presignR2(c: StorageConfig, key: string): Promise<string> {
     .join("&");
 
   const canonicalRequest = [
-    "PUT", canonicalUri, canonicalQuery, `host:${host}\n`, "host", "UNSIGNED-PAYLOAD",
+    "PUT",
+    canonicalUri,
+    canonicalQuery,
+    `host:${host}\n`,
+    "host",
+    "UNSIGNED-PAYLOAD",
   ].join("\n");
-  const stringToSign = ["AWS4-HMAC-SHA256", amzDate, scope, await sha256hex(canonicalRequest)].join("\n");
+  const stringToSign = ["AWS4-HMAC-SHA256", amzDate, scope, await sha256hex(canonicalRequest)].join(
+    "\n",
+  );
 
   const kDate = await hmac(new TextEncoder().encode("AWS4" + c.secretAccessKey), dateStamp);
   const kRegion = await hmac(kDate, region);
   const kService = await hmac(kRegion, service);
   const kSigning = await hmac(kService, "aws4_request");
   const sigBuf = await hmac(kSigning, stringToSign);
-  const signature = [...new Uint8Array(sigBuf)].map((b) => b.toString(16).padStart(2, "0")).join("");
+  const signature = [...new Uint8Array(sigBuf)]
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
 
   return `https://${host}${canonicalUri}?${canonicalQuery}&X-Amz-Signature=${signature}`;
 }
@@ -162,7 +186,15 @@ Deno.serve(async (req) => {
       if (!ownsKey && !(await isContentManager(user.id))) {
         return json({ ok: false, error: "Forbidden" }, 403, cors);
       }
-      if (provider === "r2" && enabled && c.accountId && c.accessKeyId && c.secretAccessKey && c.bucket && c.publicBaseUrl) {
+      if (
+        provider === "r2" &&
+        enabled &&
+        c.accountId &&
+        c.accessKeyId &&
+        c.secretAccessKey &&
+        c.bucket &&
+        c.publicBaseUrl
+      ) {
         const uploadUrl = await presignR2(c, key);
         const publicUrl = `${c.publicBaseUrl.replace(/\/$/, "")}/${encKey(key)}`;
         return json({ ok: true, provider: "r2", uploadUrl, publicUrl }, 200, cors);
@@ -175,15 +207,20 @@ Deno.serve(async (req) => {
 
     if (action === "get_config") {
       const { provider, enabled, c } = await loadStorage();
-      return json({
-        ok: true,
-        provider, enabled,
-        accountId: c.accountId ?? "",
-        bucket: c.bucket ?? "",
-        publicBaseUrl: c.publicBaseUrl ?? "",
-        accessKeyId: c.accessKeyId ?? "",
-        hasSecret: !!c.secretAccessKey,
-      }, 200, cors);
+      return json(
+        {
+          ok: true,
+          provider,
+          enabled,
+          accountId: c.accountId ?? "",
+          bucket: c.bucket ?? "",
+          publicBaseUrl: c.publicBaseUrl ?? "",
+          accessKeyId: c.accessKeyId ?? "",
+          hasSecret: !!c.secretAccessKey,
+        },
+        200,
+        cors,
+      );
     }
 
     if (action === "set_config") {
@@ -193,17 +230,28 @@ Deno.serve(async (req) => {
         accountId: String(p.accountId || "").trim(),
         accessKeyId: String(p.accessKeyId || "").trim(),
         // Keep the stored secret if the admin left the field blank on re-save.
-        secretAccessKey: p.secretAccessKey ? String(p.secretAccessKey).trim() : existing.secretAccessKey || "",
+        secretAccessKey: p.secretAccessKey
+          ? String(p.secretAccessKey).trim()
+          : existing.secretAccessKey || "",
         bucket: String(p.bucket || "").trim(),
         publicBaseUrl: String(p.publicBaseUrl || "").trim(),
       };
-      const enabled = provider === "r2"
-        ? !!(config.accountId && config.accessKeyId && config.secretAccessKey && config.bucket && config.publicBaseUrl)
-        : false;
-      const { error } = await admin.from("messaging_settings").upsert(
-        { id: "storage", provider, enabled, config, updated_at: new Date().toISOString() },
-        { onConflict: "id" },
-      );
+      const enabled =
+        provider === "r2"
+          ? !!(
+              config.accountId &&
+              config.accessKeyId &&
+              config.secretAccessKey &&
+              config.bucket &&
+              config.publicBaseUrl
+            )
+          : false;
+      const { error } = await admin
+        .from("messaging_settings")
+        .upsert(
+          { id: "storage", provider, enabled, config, updated_at: new Date().toISOString() },
+          { onConflict: "id" },
+        );
       if (error) return json({ ok: false, error: error.message }, 500, cors);
       return json({ ok: true, provider, enabled }, 200, cors);
     }
