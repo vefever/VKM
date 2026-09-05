@@ -13,7 +13,7 @@ import {
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
-import { useEnrollment } from "@/components/participant/enrollment-data";
+import { useEnrollment, fetchBatchStartDate } from "@/components/participant/enrollment-data";
 import { type Attachment } from "@/components/chat/chat-data";
 import {
   fetchExemptionDaySets,
@@ -111,7 +111,12 @@ export const HABITS: HabitDef[] = [
   },
 ];
 
-export const START_ISO = "2026-04-27"; // Batch 16 program start
+// Legacy cohort anchor. NOT a source of truth — a programme's start comes from
+// its batch (batches.start_date, via fetchBatchStartDate). This is only a
+// last-resort default for helpers called without an anchor, and it is stale by
+// design: Batch 16 now starts 2026-07-01. Never use it to label a date the user
+// will read — a wrong date is worse than no date.
+export const START_ISO = "2026-04-27";
 export const START_DATE = new Date(`${START_ISO}T00:00:00`);
 
 export type TrackerConfig = {
@@ -503,6 +508,7 @@ export function useParticipantHabits(userId: string | null) {
         { data: workouts },
         { data: events },
         { data: enr },
+        batchStart,
       ] = await Promise.all([
         supabase.from("habit_logs").select("habit_id, day_no, proof_files").eq("user_id", userId),
         supabase
@@ -529,6 +535,12 @@ export function useParticipantHabits(userId: string | null) {
           .select("started_at")
           .eq("user_id", userId)
           .maybeSingle(),
+        // The batch start date is the source of truth for when a programme
+        // begins (see fetchBatchStartDate). Reading only the enrollment row here
+        // let the staff view compute a different day number from the
+        // participant's own view — the exact disagreement that stamped Batch 16
+        // proofs with the wrong day and made them vanish from the tracker.
+        fetchBatchStartDate(userId),
       ]);
       if (!active) return;
       const m: DoneMap = {};
@@ -546,7 +558,8 @@ export function useParticipantHabits(userId: string | null) {
       setWaterGoal(waterRow?.goal_ml ?? 4000);
       setWaterEvents((events ?? []) as WaterEvent[]);
       setWorkoutMinutes((workouts ?? []).reduce((n, w) => n + (w.minutes ?? 0), 0));
-      setStartedAt(enr?.started_at ? new Date(enr.started_at) : null);
+      // Batch start wins, exactly as the participant-side hook resolves it.
+      setStartedAt(batchStart ?? (enr?.started_at ? new Date(enr.started_at) : null));
       setLoading(false);
     };
     load();

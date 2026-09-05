@@ -244,7 +244,11 @@ function DayDetailModal({
   anchor?: Date;
   onClose: () => void;
 }) {
-  const date = dateForDay(day, anchor);
+  // Only label a calendar date when we actually know the participant's start.
+  // The old fallback used a hardcoded cohort constant (2026-04-27), so a day
+  // whose anchor hadn't loaded was captioned with a confidently wrong date —
+  // "Day 67 · Thursday, Jul 2" when day 67 was really 5 September.
+  const date = anchor ? dateForDay(day, anchor) : null;
   const state = dayState(day);
   const meta = STATE_LABEL[state];
   const doneHabits = HABITS.filter((h) => isDone(day, h.id));
@@ -263,7 +267,9 @@ function DayDetailModal({
       >
         <div className="flex items-center gap-3 border-b border-border p-4">
           <div className="min-w-0 flex-1">
-            <p className="text-sm font-semibold text-foreground">{format(date, "EEEE, MMM d")}</p>
+            <p className="text-sm font-semibold text-foreground">
+              {date ? format(date, "EEEE, MMM d") : `Day ${day}`}
+            </p>
             <p className="text-[11px] text-muted-foreground">Day {day}</p>
           </div>
           <span className={cn("rounded-full px-2.5 py-1 text-xs font-medium", meta.cls)}>
