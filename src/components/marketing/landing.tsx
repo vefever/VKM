@@ -4,15 +4,36 @@
 import { Link } from "@tanstack/react-router";
 import { motion } from "framer-motion";
 import {
-  ArrowRight, Sparkles, BookOpen, Users, Trophy, BrainCircuit, Bot, BarChart3, ShieldCheck, Zap,
+  ArrowRight,
+  Sparkles,
+  BookOpen,
+  Users,
+  Trophy,
+  BrainCircuit,
+  Bot,
+  BarChart3,
+  ShieldCheck,
+  Zap,
 } from "lucide-react";
 import { VKMLogo } from "@/components/vkm/logo";
 import { Button } from "@/components/ui/button";
 
 const pillars = [
-  { icon: BookOpen, title: "Living LMS", body: "Videos, PDFs, assignments, and weekly proof — designed to be opened daily, not buried in folders." },
-  { icon: Bot, title: "AI Business Advisor", body: "Your personal AI knows your revenue, leads, KPIs and what to do next. Always on, always premium." },
-  { icon: Trophy, title: "Recognition that compounds", body: "Leaderboards, milestones, badges, certificates — built so every win is visible and shareable." },
+  {
+    icon: BookOpen,
+    title: "Living LMS",
+    body: "Videos, PDFs, assignments, and weekly proof — designed to be opened daily, not buried in folders.",
+  },
+  {
+    icon: Bot,
+    title: "AI Business Advisor",
+    body: "Your personal AI knows your revenue, leads, KPIs and what to do next. Always on, always premium.",
+  },
+  {
+    icon: Trophy,
+    title: "Recognition that compounds",
+    body: "Leaderboards, milestones, badges, certificates — built so every win is visible and shareable.",
+  },
 ];
 
 const stack = [
@@ -60,15 +81,19 @@ export function LandingPage() {
             Official platform of Venu Kalyan Mentorship
           </span>
           <h1 className="mx-auto mt-6 max-w-4xl text-5xl font-semibold tracking-tight text-foreground sm:text-7xl">
-            The operating system for{" "}
+            Venu Kalyan Mentorship for{" "}
             <span className="text-gradient-gold">business transformation</span>
           </h1>
           <p className="mx-auto mt-6 max-w-2xl text-lg text-muted-foreground sm:text-xl">
-            Coaching, LMS, AI advisor, community, recognition — one premium experience for participants, coaches, mentors,
-            and operations. Designed like Apple, built like Linear.
+            Coaching, LMS, AI advisor, community and recognition — one experience for participants,
+            coaches, mentors and operations.
           </p>
           <div className="mt-10 flex flex-wrap items-center justify-center gap-3">
-            <Button asChild size="lg" className="rounded-full bg-gradient-navy px-6 shadow-vkm-float">
+            <Button
+              asChild
+              size="lg"
+              className="rounded-full bg-gradient-navy px-6 shadow-vkm-float"
+            >
               <Link to="/auth">
                 Get started <ArrowRight className="ml-1.5 h-4 w-4" />
               </Link>
@@ -92,7 +117,9 @@ export function LandingPage() {
               <span className="h-2.5 w-2.5 rounded-full bg-destructive/70" />
               <span className="h-2.5 w-2.5 rounded-full bg-[oklch(0.82_0.14_80)]" />
               <span className="h-2.5 w-2.5 rounded-full bg-[oklch(0.71_0.14_160)]" />
-              <span className="ml-3 text-xs text-muted-foreground">vkmentorship.com · Dashboard</span>
+              <span className="ml-3 text-xs text-muted-foreground">
+                vkmentorship.com · Dashboard
+              </span>
             </div>
             <div className="grid gap-4 p-6 md:grid-cols-4">
               <div className="md:col-span-1 rounded-2xl bg-gradient-navy p-5 text-primary-foreground">
@@ -117,8 +144,17 @@ export function LandingPage() {
                   <span className="text-xs text-muted-foreground">3 of 5 done</span>
                 </div>
                 <div className="mt-3 flex flex-wrap gap-2">
-                  {["Morning routine", "10 outreach calls", "Submit Week 6 proof", "AI strategy review", "Coach check-in"].map((t, i) => (
-                    <span key={t} className={`rounded-full px-3 py-1 text-xs ${i < 3 ? "bg-gradient-gold text-navy" : "border border-border bg-card text-muted-foreground"}`}>
+                  {[
+                    "Morning routine",
+                    "10 outreach calls",
+                    "Submit Week 6 proof",
+                    "AI strategy review",
+                    "Coach check-in",
+                  ].map((t, i) => (
+                    <span
+                      key={t}
+                      className={`rounded-full px-3 py-1 text-xs ${i < 3 ? "bg-gradient-gold text-navy" : "border border-border bg-card text-muted-foreground"}`}
+                    >
                       {t}
                     </span>
                   ))}
@@ -154,13 +190,18 @@ export function LandingPage() {
       {/* Stack */}
       <section className="mx-auto max-w-7xl px-6 py-12">
         <div className="rounded-3xl bg-gradient-navy p-10 text-primary-foreground shadow-vkm-float">
-          <p className="text-xs font-medium uppercase tracking-[0.2em] text-primary-foreground/70">Built for scale</p>
+          <p className="text-xs font-medium uppercase tracking-[0.2em] text-primary-foreground/70">
+            Built for scale
+          </p>
           <h2 className="mt-3 max-w-2xl text-3xl font-semibold tracking-tight sm:text-4xl">
             Enterprise-grade. Member-friendly.
           </h2>
           <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {stack.map((s) => (
-              <div key={s.label} className="flex items-start gap-3 rounded-2xl bg-white/5 p-4 backdrop-blur">
+              <div
+                key={s.label}
+                className="flex items-start gap-3 rounded-2xl bg-white/5 p-4 backdrop-blur"
+              >
                 <span className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-gold text-navy">
                   <s.icon className="h-4 w-4" />
                 </span>
@@ -182,7 +223,11 @@ export function LandingPage() {
         <p className="mt-4 text-muted-foreground">
           Designed for the mentor, built for the member, loved by operations.
         </p>
-        <Button asChild size="lg" className="mt-8 rounded-full bg-gradient-navy px-8 shadow-vkm-float">
+        <Button
+          asChild
+          size="lg"
+          className="mt-8 rounded-full bg-gradient-navy px-8 shadow-vkm-float"
+        >
           <Link to="/auth">
             Enter VKM <ArrowRight className="ml-2 h-4 w-4" />
           </Link>

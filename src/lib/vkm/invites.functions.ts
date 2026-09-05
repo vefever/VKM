@@ -116,7 +116,7 @@ function buildInviteEmail(args: {
         </td></tr>
         <!-- Footer -->
         <tr><td style="padding:18px 32px;border-top:1px solid #eef1f5;background:#fbfcfd;">
-          <p style="margin:0;font-size:11.5px;color:#9aa3b2;">VK Mentorship — the operating system for business transformation.<br>If you weren't expecting this invitation, you can safely ignore this email.</p>
+          <p style="margin:0;font-size:11.5px;color:#9aa3b2;">VK Mentorship — Venu Kalyan Mentorship.<br>If you weren't expecting this invitation, you can safely ignore this email.</p>
         </td></tr>
       </table>
       <p style="margin:14px 0 0;font-size:11px;color:#b3bccb;">© VK Mentorship</p>

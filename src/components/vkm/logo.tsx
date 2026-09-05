@@ -42,7 +42,7 @@ export function VKMLogo({
               inverted ? "text-white/60" : "text-muted-foreground",
             )}
           >
-            Operating System
+            Venu Kalyan Mentorship
           </span>
         </span>
       )}

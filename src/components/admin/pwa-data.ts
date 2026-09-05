@@ -18,7 +18,7 @@ export const PWA_DEFAULTS: PwaSettings = {
   app_name: "VK Mentorship",
   short_name: "VKM",
   description:
-    "The operating system for Venu Kalyan Mentorship — your premium coaching, learning, and business transformation platform.",
+    "Venu Kalyan Mentorship — your coaching, learning and business growth platform.",
   theme_color: "#0B2545",
   background_color: "#0B2545",
   apple_title: "VKM",

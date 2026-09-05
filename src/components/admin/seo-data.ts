@@ -19,14 +19,14 @@ export type SeoSettings = {
 // Must match the seeded defaults in the migration (and the static <head> in
 // __root) so an untouched config leaves the current behaviour exactly as-is.
 export const SEO_DEFAULTS: SeoSettings = {
-  site_title: "VK Mentorship — The operating system for Venu Kalyan Mentorship",
+  site_title: "VK Mentorship — Venu Kalyan Mentorship",
   meta_description:
-    "VK Mentorship is the premium coaching, learning, and business transformation platform for the Venu Kalyan Mentorship community.",
+    "VK Mentorship is the coaching, learning and business growth platform for the Venu Kalyan Mentorship community.",
   keywords: "VK Mentorship, Venu Kalyan, business coaching, mentorship, entrepreneur",
   canonical_url: "https://vkmentorship.com",
   robots_index: true,
   og_title: "VK Mentorship",
-  og_description: "Premium coaching, learning, and business transformation OS.",
+  og_description: "Coaching, learning and business growth with Venu Kalyan Mentorship.",
   og_image_url: "/icon-512.png",
   twitter_handle: "",
   ga_enabled: false,

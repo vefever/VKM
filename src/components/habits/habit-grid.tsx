@@ -112,7 +112,9 @@ export function HabitGrid({
               )}
               {/* Column header */}
               <div className="mb-1.5 flex items-center gap-2">
-                <span className="w-8 shrink-0" />
+                {/* Must match the week-label width below or the weekday headers
+                    sit out of line with the columns they label. */}
+                <span className="w-14 shrink-0 sm:w-20" />
                 <div
                   className="grid flex-1"
                   style={{
@@ -135,8 +137,20 @@ export function HabitGrid({
               <div className="space-y-1.5">
                 {Array.from({ length: weeks }, (_, w) => (
                   <div key={w} className="flex items-center gap-2">
-                    <span className="w-8 shrink-0 text-[11px] font-semibold text-muted-foreground">
-                      W{w + 1}
+                    {/* Week number plus the dates it covers. Completed cells show
+                        a tick rather than their day number, so without this there
+                        was no way to tell which dates a row represented — and a
+                        hover tooltip is unreachable on a phone. */}
+                    <span className="w-14 shrink-0 sm:w-20">
+                      <span className="block text-[11px] font-semibold text-muted-foreground">
+                        W{w + 1}
+                      </span>
+                      {anchor && (
+                        <span className="block text-[9px] leading-tight text-muted-foreground/70">
+                          {format(dateForDay(w * daysPerWeek + 1, anchor), "d MMM")} –{" "}
+                          {format(dateForDay((w + 1) * daysPerWeek, anchor), "d MMM")}
+                        </span>
+                      )}
                     </span>
                     <div
                       className="grid flex-1"
@@ -167,13 +181,25 @@ export function HabitGrid({
                             key={c}
                             type="button"
                             onClick={() => setSelectedDay(day)}
-                            title={`Day ${day} · ${STATE_LABEL[state].label}`}
+                            title={
+                              anchor
+                                ? `${format(dateForDay(day, anchor), "EEE d MMM")} · Day ${day} · ${STATE_LABEL[state].label}`
+                                : `Day ${day} · ${STATE_LABEL[state].label}`
+                            }
                             className={cellCls}
                           >
                             {content}
                           </button>
                         ) : (
-                          <div key={c} title={`Day ${day} · ${state}`} className={cellCls}>
+                          <div
+                            key={c}
+                            title={
+                              anchor
+                                ? `${format(dateForDay(day, anchor), "EEE d MMM")} · Day ${day} · ${state}`
+                                : `Day ${day} · ${state}`
+                            }
+                            className={cellCls}
+                          >
                             {content}
                           </div>
                         );

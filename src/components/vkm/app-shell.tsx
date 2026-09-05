@@ -172,7 +172,7 @@ function VKMSidebar({ role }: { role: AppRole }) {
           <div className="rounded-xl bg-gradient-navy p-3 text-primary-foreground shadow-vkm">
             <p className="text-xs font-semibold">VKM Pro</p>
             <p className="mt-0.5 text-[11px] text-primary-foreground/70">
-              Premium coaching OS · v1.0
+              Venu Kalyan Mentorship · v1.0
             </p>
           </div>
         )}

@@ -96,17 +96,17 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { name: "apple-mobile-web-app-title", content: "VKM" },
       { name: "apple-mobile-web-app-status-bar-style", content: "black-translucent" },
       { name: "format-detection", content: "telephone=no" },
-      { title: "VK Mentorship — The operating system for Venu Kalyan Mentorship" },
+      { title: "VK Mentorship — Venu Kalyan Mentorship" },
       {
         name: "description",
         content:
-          "VK Mentorship is the premium coaching, learning, and business transformation platform for the Venu Kalyan Mentorship community.",
+          "VK Mentorship is the coaching, learning and business growth platform for the Venu Kalyan Mentorship community.",
       },
       { name: "author", content: "VK Mentorship" },
       { property: "og:title", content: "VK Mentorship" },
       {
         property: "og:description",
-        content: "Premium coaching, learning, and business transformation OS.",
+        content: "Coaching, learning and business growth with Venu Kalyan Mentorship.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },

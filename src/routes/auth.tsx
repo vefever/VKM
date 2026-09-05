@@ -4,7 +4,11 @@ import { motion } from "framer-motion";
 import { ArrowRight, Eye, EyeOff, Loader2, KeyRound, Mail } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { invokeMessaging, otpLoginEnabled, signupsEnabled } from "@/components/admin/messaging-data";
+import {
+  invokeMessaging,
+  otpLoginEnabled,
+  signupsEnabled,
+} from "@/components/admin/messaging-data";
 import { useAuth } from "@/hooks/use-auth";
 import { VKMLogo } from "@/components/vkm/logo";
 import { Button } from "@/components/ui/button";
@@ -110,14 +114,14 @@ export function AuthPage() {
           <div className="relative space-y-6">
             <p className="inline-flex items-center gap-2 text-xs font-medium uppercase tracking-[0.2em] text-primary-foreground/70">
               <span className="inline-block h-1.5 w-1.5 rounded-full bg-gold animate-blink" />
-              Operating System for Transformation
+              Venu Kalyan Mentorship
             </p>
             <h2 className="text-4xl font-semibold tracking-tight sm:text-5xl">
               Welcome to the <span className="text-gradient-gold">VKM</span> community.
             </h2>
             <p className="max-w-md text-primary-foreground/80">
-              Premium coaching, AI-powered business intelligence, and a recognition system designed
-              to compound your wins — every single week.
+              Coaching, AI-powered business intelligence, and a recognition system designed to
+              compound your wins — every single week.
             </p>
             <div className="flex flex-wrap gap-2 pt-2">
               {["Cohort 17", "AI Co-pilot", "Live Sprints", "Wealth Stack"].map((tag, i) => (
@@ -154,9 +158,7 @@ export function AuthPage() {
             <div className="mb-4 flex justify-center">
               <VKMLogo />
             </div>
-            <p className="text-sm text-muted-foreground tracking-[0.5px]">
-              The operating system for transformation
-            </p>
+            <p className="text-sm text-muted-foreground tracking-[0.5px]">Venu Kalyan Mentorship</p>
           </div>
 
           {loading ? (
@@ -200,7 +202,7 @@ export function AuthPage() {
 
           {/* Subtle modern app footer on mobile */}
           <div className="lg:hidden mt-8 text-center text-[10px] text-muted-foreground/60 tracking-wider">
-            Premium • Secure • Built for ambitious founders
+            Venu Kalyan Mentorship • Secure • Built for ambitious founders
           </div>
         </motion.div>
       </div>
@@ -229,7 +231,8 @@ function SignInForm() {
     };
   }, []);
 
-  if (forgotMode) return <ForgotPassword initialEmail={email} onBack={() => setForgotMode(false)} />;
+  if (forgotMode)
+    return <ForgotPassword initialEmail={email} onBack={() => setForgotMode(false)} />;
   if (otpMode) return <OtpSignIn initialEmail={email} onBack={() => setOtpMode(false)} />;
 
   return (
@@ -433,7 +436,8 @@ function ForgotPassword({ initialEmail, onBack }: { initialEmail: string; onBack
         setStage("reset");
       } else {
         toast.error("No account found", {
-          description: "This email isn't registered. VK Mentorship is invite-only — please use your invitation to join.",
+          description:
+            "This email isn't registered. VK Mentorship is invite-only — please use your invitation to join.",
         });
       }
     } catch (err) {
@@ -498,7 +502,9 @@ function ForgotPassword({ initialEmail, onBack }: { initialEmail: string; onBack
               autoComplete="one-time-code"
               required
               value={code}
-              onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, EMAIL_OTP_LENGTH))}
+              onChange={(e) =>
+                setCode(e.target.value.replace(/\D/g, "").slice(0, EMAIL_OTP_LENGTH))
+              }
               maxLength={EMAIL_OTP_LENGTH}
               placeholder={"•".repeat(EMAIL_OTP_LENGTH)}
               disabled={busy}

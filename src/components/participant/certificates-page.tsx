@@ -36,7 +36,11 @@ export function CertificatesPage() {
   const { user } = useAuth();
   const { weeks } = useMyProofs();
   // useEnrollment returns flat fields (no `enrollment` object).
-  const { totalWeeks: enrolledWeeks, status: enrollmentStatus, loading: enrollmentLoading } = useEnrollment();
+  const {
+    totalWeeks: enrolledWeeks,
+    status: enrollmentStatus,
+    loading: enrollmentLoading,
+  } = useEnrollment();
   const { rows: certificates, loading: certsLoading } = useMyCertificates();
   const [name, setName] = useState("");
 
@@ -66,8 +70,7 @@ export function CertificatesPage() {
   // the locked teaser with their progress.
   const issued = certificates[0] ?? null;
   const unlocked = Boolean(issued);
-  const completed =
-    enrollmentStatus === "completed" || weeksApproved >= VKM_PROGRAM.graduationWeek;
+  const completed = enrollmentStatus === "completed" || weeksApproved >= VKM_PROGRAM.graduationWeek;
 
   return (
     <motion.div
@@ -94,7 +97,11 @@ export function CertificatesPage() {
           subtitle={`Issued ${format(new Date(issued.issued_at), "d MMMM yyyy")}`}
           accent
         >
-          <CertificateView fileUrl={issued.file_url} fileType={issued.file_type} title={issued.title} />
+          <CertificateView
+            fileUrl={issued.file_url}
+            fileType={issued.file_type}
+            title={issued.title}
+          />
           {issued.note && <p className="mt-3 text-sm text-muted-foreground">{issued.note}</p>}
 
           {certificates.length > 1 && (
@@ -110,81 +117,88 @@ export function CertificatesPage() {
                       · {format(new Date(c.issued_at), "d MMM yyyy")}
                     </span>
                   </p>
-                  <CertificateView fileUrl={c.file_url} fileType={c.file_type} title={c.title} compact />
+                  <CertificateView
+                    fileUrl={c.file_url}
+                    fileType={c.file_type}
+                    title={c.title}
+                    compact
+                  />
                 </div>
               ))}
             </div>
           )}
         </SectionCard>
       ) : (
-      /* Not issued yet — glass-locked teaser with real progress. */
-      <div className="relative overflow-hidden rounded-3xl border border-gold/25 shadow-vkm-float">
-        <span
-          aria-hidden
-          className="pointer-events-none absolute -right-16 -top-16 h-56 w-56 rounded-full bg-gradient-gold opacity-25 blur-3xl"
-        />
-        <span
-          aria-hidden
-          className="pointer-events-none absolute -bottom-20 -left-16 h-48 w-48 rounded-full bg-gradient-navy opacity-15 blur-3xl"
-        />
+        /* Not issued yet — glass-locked teaser with real progress. */
+        <div className="relative overflow-hidden rounded-3xl border border-gold/25 shadow-vkm-float">
+          <span
+            aria-hidden
+            className="pointer-events-none absolute -right-16 -top-16 h-56 w-56 rounded-full bg-gradient-gold opacity-25 blur-3xl"
+          />
+          <span
+            aria-hidden
+            className="pointer-events-none absolute -bottom-20 -left-16 h-48 w-48 rounded-full bg-gradient-navy opacity-15 blur-3xl"
+          />
 
-        <div className="relative p-4 sm:p-6">
-          <CertificatePreview name={name} blurred />
+          <div className="relative p-4 sm:p-6">
+            <CertificatePreview name={name} blurred />
 
-          {(
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ delay: 0.15 }}
-              className="absolute inset-0 z-10 flex flex-col items-center justify-center rounded-2xl bg-white/25 p-6 backdrop-blur-[18px] dark:bg-navy/20"
-            >
-              <span
-                aria-hidden
-                className="pointer-events-none absolute inset-3 rounded-2xl border border-white/40 ring-1 ring-gold/20"
-              />
-
-              <motion.span
-                animate={{ scale: [1, 1.05, 1] }}
-                transition={{ duration: 2.5, repeat: Infinity, ease: "easeInOut" }}
-                className="relative mb-4 inline-flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-navy text-primary-foreground shadow-vkm-float ring-2 ring-gold/40"
+            {
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 0.15 }}
+                className="absolute inset-0 z-10 flex flex-col items-center justify-center rounded-2xl bg-white/25 p-6 backdrop-blur-[18px] dark:bg-navy/20"
               >
-                <Lock className="h-7 w-7" />
-                <span className="absolute -right-1 -top-1 inline-flex h-6 w-6 items-center justify-center rounded-full bg-gradient-gold text-navy shadow-gold-glow">
-                  <Sparkles className="h-3.5 w-3.5" />
-                </span>
-              </motion.span>
+                <span
+                  aria-hidden
+                  className="pointer-events-none absolute inset-3 rounded-2xl border border-white/40 ring-1 ring-gold/20"
+                />
 
-              <p className="text-center text-lg font-semibold tracking-tight text-foreground">
-                {completed ? "Your certificate is being prepared" : "Unlocks after course completion"}
-              </p>
-              <p className="mt-1 max-w-xs text-center text-sm text-muted-foreground">
-                {completed
-                  ? "You've finished the program — your coach is issuing your official certificate. It appears here the moment it's ready."
-                  : `Finish all ${VKM_PROGRAM.durationWeeks} weeks and graduate to claim your official certificate.`}
-              </p>
+                <motion.span
+                  animate={{ scale: [1, 1.05, 1] }}
+                  transition={{ duration: 2.5, repeat: Infinity, ease: "easeInOut" }}
+                  className="relative mb-4 inline-flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-navy text-primary-foreground shadow-vkm-float ring-2 ring-gold/40"
+                >
+                  <Lock className="h-7 w-7" />
+                  <span className="absolute -right-1 -top-1 inline-flex h-6 w-6 items-center justify-center rounded-full bg-gradient-gold text-navy shadow-gold-glow">
+                    <Sparkles className="h-3.5 w-3.5" />
+                  </span>
+                </motion.span>
 
-              {enrollmentLoading ? (
-                <Loader2 className="mt-4 h-5 w-5 animate-spin text-muted-foreground" />
-              ) : (
-                <div className="mt-5 w-full max-w-xs space-y-2">
-                  <div className="flex items-center justify-between text-xs font-medium">
-                    <span className="text-muted-foreground">Program progress</span>
-                    <span className="text-foreground">
-                      {weeksApproved} / {totalWeeks} weeks
-                    </span>
+                <p className="text-center text-lg font-semibold tracking-tight text-foreground">
+                  {completed
+                    ? "Your certificate is being prepared"
+                    : "Unlocks after course completion"}
+                </p>
+                <p className="mt-1 max-w-xs text-center text-sm text-muted-foreground">
+                  {completed
+                    ? "You've finished the program — your coach is issuing your official certificate. It appears here the moment it's ready."
+                    : `Finish all ${VKM_PROGRAM.durationWeeks} weeks and graduate to claim your official certificate.`}
+                </p>
+
+                {enrollmentLoading ? (
+                  <Loader2 className="mt-4 h-5 w-5 animate-spin text-muted-foreground" />
+                ) : (
+                  <div className="mt-5 w-full max-w-xs space-y-2">
+                    <div className="flex items-center justify-between text-xs font-medium">
+                      <span className="text-muted-foreground">Program progress</span>
+                      <span className="text-foreground">
+                        {weeksApproved} / {totalWeeks} weeks
+                      </span>
+                    </div>
+                    <Progress value={progressPct} className="h-2" />
+                    <p className="text-center text-[11px] text-muted-foreground">
+                      {weeksLeft > 0
+                        ? `${weeksLeft} more week${weeksLeft !== 1 ? "s" : ""} to graduation`
+                        : "Almost there — awaiting final graduation approval"}
+                    </p>
                   </div>
-                  <Progress value={progressPct} className="h-2" />
-                  <p className="text-center text-[11px] text-muted-foreground">
-                    {weeksLeft > 0
-                      ? `${weeksLeft} more week${weeksLeft !== 1 ? "s" : ""} to graduation`
-                      : "Almost there — awaiting final graduation approval"}
-                  </p>
-                </div>
-              )}
-            </motion.div>
-          )}
+                )}
+              </motion.div>
+            }
+          </div>
         </div>
-      </div>
       )}
 
       {unlocked ? (
@@ -204,7 +218,7 @@ export function CertificatesPage() {
       ) : (
         <SectionCard
           title="What you'll receive"
-          subtitle="A premium certificate that captures your transformation journey"
+          subtitle="A certificate that captures your transformation journey"
         >
           <ul className="space-y-2.5">
             {INCLUDES.map((item) => (
