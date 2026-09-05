@@ -178,9 +178,10 @@ const SUBMIT_OPTIONS = [
 ] as const;
 
 function CenterAction({ tab }: { tab: Tab }) {
+  const pathname = useRouterState({ select: (s) => s.location.pathname });
   const [open, setOpen] = useState(false);
   const close = useCallback(() => setOpen(false), []);
-  useBackDismiss(open, close);
+  const closeForNavigation = useBackDismiss(open, close);
 
   return (
     <div className="flex flex-col items-center justify-end">
@@ -209,6 +210,11 @@ function CenterAction({ tab }: { tab: Tab }) {
                 to={o.to}
                 onClick={() => {
                   haptic("light");
+                  // Order matters: mark the close as a navigation *before* it
+                  // happens, or unwinding the sheet's history entry can pop the
+                  // route we're about to push. Tapping the page you're already
+                  // on pushes nothing, so there it stays a plain close.
+                  if (pathname !== o.to) closeForNavigation();
                   setOpen(false);
                 }}
                 className="app-press flex items-center gap-3 rounded-2xl border border-border bg-card p-3.5 text-left transition-colors hover:bg-secondary/50"
@@ -264,7 +270,7 @@ function MoreSheet({
   // Back used to navigate the page underneath and leave this sheet sitting on
   // top of the new screen. It now dismisses the sheet, as on Android/iOS.
   const close = useCallback(() => onOpenChange(false), [onOpenChange]);
-  useBackDismiss(open, close);
+  const closeForNavigation = useBackDismiss(open, close);
 
   return (
     <Drawer open={open} onOpenChange={onOpenChange}>
@@ -290,6 +296,7 @@ function MoreSheet({
                       to={item.to}
                       onClick={() => {
                         haptic("light");
+                        if (!active) closeForNavigation();
                         onOpenChange(false);
                       }}
                       className={cn(

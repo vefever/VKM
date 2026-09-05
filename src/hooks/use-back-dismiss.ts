@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useCallback, useEffect, useRef } from "react";
 
 let overlayCounter = 0;
 
@@ -12,14 +12,24 @@ let overlayCounter = 0;
  *
  * Opening pushes a throwaway history entry that "belongs" to this overlay, so
  * Back pops that instead of the route. Closing any other way unwinds it again —
- * but ONLY if the entry is still current. That check matters: tapping a link
- * inside the sheet both closes it and navigates, and unwinding blindly there
- * would undo the navigation the user just asked for.
+ * but ONLY if the entry is still current.
+ *
+ * Returns a function to call when the overlay is closing *because the user is
+ * navigating* (tapping a link inside it). That case must NOT unwind: the router
+ * pushes the new route asynchronously, so our history.back() could land after
+ * it and pop the page the user just asked for, dropping them back where they
+ * started. That is exactly what made the Submit sheet's "Weekly proof" bounce
+ * back to the habits page. Skipping the unwind leaves our throwaway entry in
+ * place — harmless, since it carries the same URL as the page they came from,
+ * so Back from the destination still returns there.
  */
 export function useBackDismiss(open: boolean, onClose: () => void) {
+  const skipUnwind = useRef(false);
+
   useEffect(() => {
     if (!open || typeof window === "undefined") return;
 
+    skipUnwind.current = false;
     const id = ++overlayCounter;
     window.history.pushState({ vkmOverlayId: id }, "");
 
@@ -28,12 +38,18 @@ export function useBackDismiss(open: boolean, onClose: () => void) {
 
     return () => {
       window.removeEventListener("popstate", onPop);
+      // Navigating away — leave history alone (see above).
+      if (skipUnwind.current) return;
       // Still ours → closed by a button/backdrop, so drop the entry we added.
-      // Not ours → either Back already consumed it, or a navigation replaced
-      // it; going back in that case would rewind the user's own move.
+      // Not ours → Back already consumed it, and going back again would rewind
+      // the user's own move.
       if ((window.history.state as { vkmOverlayId?: number } | null)?.vkmOverlayId === id) {
         window.history.back();
       }
     };
   }, [open, onClose]);
+
+  return useCallback(() => {
+    skipUnwind.current = true;
+  }, []);
 }

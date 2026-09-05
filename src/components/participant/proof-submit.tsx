@@ -11,6 +11,7 @@ import {
   ArrowRight,
   MinusCircle,
 } from "lucide-react";
+import { format } from "date-fns";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/vkm/page-header";
 import { SectionCard } from "@/components/vkm/section-card";
@@ -176,26 +177,44 @@ export function ProofSubmit() {
         <PageHeader
           eyebrow="Participant"
           title="Submit Weekly Proof"
-          description="Your weekly tasks unlock one at a time once you start your program."
+          description="Your weekly tasks unlock one at a time once your programme begins."
           icon={Upload}
         />
         <div className="relative overflow-hidden rounded-3xl bg-gradient-navy p-6 text-primary-foreground shadow-vkm-float sm:p-8">
           <span className="relative inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-white/10">
             <Rocket className="h-6 w-6 text-gold" />
           </span>
-          <h2 className="relative mt-4 text-2xl font-bold">Start your program first</h2>
-          <p className="relative mt-2 max-w-xl text-sm text-white/80">
-            Week 1 opens on your Day 1, then a new week unlocks every 7 days. Begin from Program
-            Progress and you can submit this week's proof right away.
-          </p>
-          <Button
-            asChild
-            className="relative mt-6 w-full rounded-xl bg-gradient-gold py-6 text-base font-bold text-navy hover:opacity-90 sm:w-auto sm:px-8"
-          >
-            <Link to="/participant/progress">
-              <Rocket className="h-5 w-5" /> Start my program <ArrowRight className="h-5 w-5" />
-            </Link>
-          </Button>
+          {/* A programme now starts on the date staff set on the batch, so the
+              old "Start my program" button sent people to Program Progress,
+              changed nothing, and bounced them straight back here. Say when it
+              opens instead of offering an action that cannot work yet. */}
+          {startedAt && startedAt > new Date() ? (
+            <>
+              <h2 className="relative mt-4 text-2xl font-bold">
+                Your programme starts {format(startedAt, "EEEE d MMMM")}
+              </h2>
+              <p className="relative mt-2 max-w-xl text-sm text-white/80">
+                Week 1 opens that day, then a new week unlocks every 7 days. Nothing to submit yet —
+                we'll be ready for you.
+              </p>
+            </>
+          ) : (
+            <>
+              <h2 className="relative mt-4 text-2xl font-bold">Your start date isn't set yet</h2>
+              <p className="relative mt-2 max-w-xl text-sm text-white/80">
+                Your batch doesn't have a start date on it, so weekly tasks can't open. Your coach
+                or the VKM team can set it — message them and you'll be up and running.
+              </p>
+              <Button
+                asChild
+                className="relative mt-6 w-full rounded-xl bg-gradient-gold py-6 text-base font-bold text-navy hover:opacity-90 sm:w-auto sm:px-8"
+              >
+                <Link to="/participant/chat">
+                  <Rocket className="h-5 w-5" /> Message my coach <ArrowRight className="h-5 w-5" />
+                </Link>
+              </Button>
+            </>
+          )}
         </div>
       </motion.div>
     );

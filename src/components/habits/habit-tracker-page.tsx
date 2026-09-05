@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { Link } from "@tanstack/react-router";
-import { addDays, format, startOfToday } from "date-fns";
+import { addDays, format, formatDistanceToNowStrict, startOfDay, startOfToday } from "date-fns";
 import { toast } from "sonner";
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, XAxis, Tooltip } from "recharts";
 import {
@@ -89,8 +89,7 @@ export function HabitTrackerPage() {
   }, [water.ml, water.goalMl, t]);
 
   // Hold until we know the enrollment, then gate: the daily tracker only begins
-  // once the participant has started their program (Day 1). Before that they're
-  // on "Day 0" and we point them to Program Progress to start.
+  // on Day 1, i.e. the start date set on the participant's batch.
   if (t.enrLoading) {
     return (
       <div className="flex min-h-[40vh] items-center justify-center">
@@ -98,8 +97,11 @@ export function HabitTrackerPage() {
       </div>
     );
   }
-  if (!t.started) {
-    return <NotStartedGate config={t.config} />;
+  // programDay is 0 until the batch's start date arrives. Without this second
+  // check a batch starting next week rendered the full tracker as "Week 1" with
+  // every tile silently refusing to save.
+  if (!t.started || t.programDay < 1) {
+    return <NotStartedGate config={t.config} startedAt={t.startedAt} />;
   }
 
   return (
@@ -177,9 +179,12 @@ type Tracker = ReturnType<typeof useHabitTracker>;
 type Ped = ReturnType<typeof usePedometer>;
 
 // ---------------------------------------------------------------------------
-// Shown before the participant has started their program — their daily clock
-// (and Day 1) only begins from Program Progress, so we send them there.
-function NotStartedGate({ config }: { config: TrackerConfig }) {
+// Shown before Day 1. The programme now begins on the start date staff set on
+// the batch, so there is nothing the participant can press to bring it forward —
+// this used to offer "Start my program", which bounced them to Program Progress
+// and straight back here. Tell them the date instead.
+function NotStartedGate({ config, startedAt }: { config: TrackerConfig; startedAt: Date | null }) {
+  const upcoming = startedAt && startedAt > new Date() ? startedAt : null;
   return (
     <motion.div
       initial={{ opacity: 0, y: 8 }}
@@ -196,20 +201,38 @@ function NotStartedGate({ config }: { config: TrackerConfig }) {
         <span className="relative inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-white/10">
           <Rocket className="h-6 w-6 text-gold" />
         </span>
-        <h2 className="relative mt-4 text-2xl font-bold sm:text-3xl">You're on Day 0</h2>
-        <p className="relative mt-2 max-w-xl text-sm text-white/80 sm:text-base">
-          Your daily habits, streak and program clock start on{" "}
-          <span className="font-semibold">Day 1</span> — the day you begin your program. Start it
-          from Program Progress and this page unlocks right away.
-        </p>
-        <Button
-          asChild
-          className="relative mt-6 w-full rounded-xl bg-gradient-gold py-6 text-base font-bold text-navy hover:opacity-90 sm:w-auto sm:px-8"
-        >
-          <Link to="/participant/progress">
-            <Rocket className="h-5 w-5" /> Start my program <ArrowRight className="h-5 w-5" />
-          </Link>
-        </Button>
+        {upcoming ? (
+          <>
+            <h2 className="relative mt-4 text-2xl font-bold sm:text-3xl">
+              Day 1 is {format(upcoming, "EEEE d MMMM")}
+            </h2>
+            <p className="relative mt-2 max-w-xl text-sm text-white/80 sm:text-base">
+              Your daily habits, streak and program clock all begin that morning — in{" "}
+              <span className="font-semibold">
+                {formatDistanceToNowStrict(startOfDay(upcoming), { unit: "day" })}
+              </span>
+              . Nothing to tick yet, so rest up.
+            </p>
+          </>
+        ) : (
+          <>
+            <h2 className="relative mt-4 text-2xl font-bold sm:text-3xl">
+              Your start date isn't set yet
+            </h2>
+            <p className="relative mt-2 max-w-xl text-sm text-white/80 sm:text-base">
+              Your batch doesn't have a start date on it, so Day 1 can't begin. Your coach or the
+              VKM team sets it — message them and this page unlocks.
+            </p>
+            <Button
+              asChild
+              className="relative mt-6 w-full rounded-xl bg-gradient-gold py-6 text-base font-bold text-navy hover:opacity-90 sm:w-auto sm:px-8"
+            >
+              <Link to="/participant/chat">
+                <Rocket className="h-5 w-5" /> Message my coach <ArrowRight className="h-5 w-5" />
+              </Link>
+            </Button>
+          </>
+        )}
       </div>
     </motion.div>
   );
