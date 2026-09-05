@@ -1,5 +1,5 @@
 import { Link, useRouterState } from "@tanstack/react-router";
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import { motion, useReducedMotion } from "framer-motion";
 import {
   LayoutDashboard,
@@ -24,6 +24,7 @@ import { MessagesSquare, Briefcase, LifeBuoy } from "lucide-react";
 import type { AccessTier } from "@/lib/vkm/access";
 import { cn } from "@/lib/utils";
 import { haptic } from "@/lib/haptics";
+import { useBackDismiss } from "@/hooks/use-back-dismiss";
 
 type Tab = { label: string; to: string; icon: LucideIcon };
 
@@ -157,18 +158,73 @@ function TabLink({ tab }: { tab: Tab }) {
   );
 }
 
+// Two different things are called "submitting proof": the daily habit proofs and
+// the weekly task proof. The button used to jump straight to the weekly form,
+// which is the less frequent of the two, so daily submitters landed on the wrong
+// screen. It now asks which.
+const SUBMIT_OPTIONS = [
+  {
+    to: "/participant/habits",
+    icon: Activity,
+    label: "Daily proof",
+    hint: "Today's habits — walking, water, meditation…",
+  },
+  {
+    to: "/participant/proof",
+    icon: Upload,
+    label: "Weekly proof",
+    hint: "This week's task proof for your coach",
+  },
+] as const;
+
 function CenterAction({ tab }: { tab: Tab }) {
+  const [open, setOpen] = useState(false);
+  const close = useCallback(() => setOpen(false), []);
+  useBackDismiss(open, close);
+
   return (
     <div className="flex flex-col items-center justify-end">
-      <Link
-        to={tab.to}
-        onClick={() => haptic("medium")}
+      <button
+        type="button"
+        onClick={() => {
+          haptic("medium");
+          setOpen(true);
+        }}
         aria-label={tab.label}
         className="app-press -mt-7 inline-flex h-14 w-14 items-center justify-center rounded-full bg-gradient-gold text-navy shadow-gold-glow ring-4 ring-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-navy"
       >
         <tab.icon className="h-6 w-6" />
-      </Link>
+      </button>
       <span className="mt-0.5 text-[10px] font-semibold text-muted-foreground">{tab.label}</span>
+
+      <Drawer open={open} onOpenChange={setOpen}>
+        <DrawerContent>
+          <DrawerHeader className="pb-2">
+            <DrawerTitle>What are you submitting?</DrawerTitle>
+          </DrawerHeader>
+          <div className="space-y-2 px-4 pb-[calc(env(safe-area-inset-bottom)+1.5rem)]">
+            {SUBMIT_OPTIONS.map((o) => (
+              <Link
+                key={o.to}
+                to={o.to}
+                onClick={() => {
+                  haptic("light");
+                  setOpen(false);
+                }}
+                className="app-press flex items-center gap-3 rounded-2xl border border-border bg-card p-3.5 text-left transition-colors hover:bg-secondary/50"
+              >
+                <span className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gradient-navy text-primary-foreground">
+                  <o.icon className="h-5 w-5" />
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block text-sm font-semibold text-foreground">{o.label}</span>
+                  <span className="block truncate text-xs text-muted-foreground">{o.hint}</span>
+                </span>
+              </Link>
+            ))}
+          </div>
+        </DrawerContent>
+      </Drawer>
     </div>
   );
 }
@@ -204,6 +260,11 @@ function MoreSheet({
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const groups =
     role === "participant" ? navGroupsForTier(NAV_BY_ROLE[role], tier) : NAV_BY_ROLE[role];
+
+  // Back used to navigate the page underneath and leave this sheet sitting on
+  // top of the new screen. It now dismisses the sheet, as on Android/iOS.
+  const close = useCallback(() => onOpenChange(false), [onOpenChange]);
+  useBackDismiss(open, close);
 
   return (
     <Drawer open={open} onOpenChange={onOpenChange}>

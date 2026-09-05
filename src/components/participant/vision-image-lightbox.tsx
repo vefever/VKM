@@ -4,6 +4,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { ChevronLeft, ChevronRight, Download, X } from "lucide-react";
 import type { VisionImage } from "@/components/participant/vision-data";
 import { downloadUrl } from "@/lib/download-file";
+import { useBackDismiss } from "@/hooks/use-back-dismiss";
 
 /**
  * Full-size viewer for vision board images.
@@ -28,6 +29,9 @@ export function VisionImageLightbox({
   onIndexChange: (i: number) => void;
 }) {
   const open = index !== null && index >= 0 && index < images.length;
+
+  // Back closes the viewer instead of leaving the page behind it.
+  useBackDismiss(open, onClose);
 
   const step = useCallback(
     (delta: number) => {

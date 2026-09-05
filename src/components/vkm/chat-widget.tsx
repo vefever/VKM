@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useLocation } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { motion, AnimatePresence } from "framer-motion";
@@ -7,6 +7,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { useAppShell } from "@/hooks/use-app-shell";
 import { askPlatformAssistantStream, type ChatMsg } from "@/lib/vkm/platform-assistant.functions";
 import { haptic } from "@/lib/haptics";
+import { useBackDismiss } from "@/hooks/use-back-dismiss";
 import { cn } from "@/lib/utils";
 
 // Foundation · Systems · Sell · Review — the page's phase colour language.
@@ -34,6 +35,10 @@ export function ChatWidget() {
   const { appShell } = useAppShell();
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState<ChatMsg[]>([]);
+
+  // Back closes the assistant rather than navigating the page behind it.
+  const closeChat = useCallback(() => setOpen(false), []);
+  useBackDismiss(open && appShell, closeChat);
 
   // Lock the page behind the mobile sheet (native sheets don't let the
   // background scroll). Hook stays above the early returns to keep order stable.
@@ -251,7 +256,10 @@ function AssistantBody({
         if (!started) {
           setMessages((m) => [
             ...m,
-            { role: "assistant", content: "I couldn't generate a reply just now — please try again." },
+            {
+              role: "assistant",
+              content: "I couldn't generate a reply just now — please try again.",
+            },
           ]);
         }
         return;
@@ -260,7 +268,10 @@ function AssistantBody({
       const fallbackText = res instanceof Response ? await res.text() : "";
       setMessages((m) => [
         ...m,
-        { role: "assistant", content: fallbackText || "I couldn't generate a reply just now — please try again." },
+        {
+          role: "assistant",
+          content: fallbackText || "I couldn't generate a reply just now — please try again.",
+        },
       ]);
     } catch (err) {
       setMessages((m) => [
@@ -289,7 +300,8 @@ function AssistantBody({
         <div className="min-w-0 flex-1">
           <p className="text-sm font-semibold leading-tight">AI Assistant</p>
           <p className="flex items-center gap-1 text-[11px] text-white/70">
-            <span className="h-1.5 w-1.5 rounded-full bg-[#22c55e]" /> Instant answers · how the platform works
+            <span className="h-1.5 w-1.5 rounded-full bg-[#22c55e]" /> Instant answers · how the
+            platform works
           </p>
         </div>
         <button
@@ -306,7 +318,10 @@ function AssistantBody({
       </div>
 
       {/* messages */}
-      <div className="min-h-0 flex-1 space-y-2 overflow-y-auto overscroll-contain bg-secondary/20 p-3" data-selectable>
+      <div
+        className="min-h-0 flex-1 space-y-2 overflow-y-auto overscroll-contain bg-secondary/20 p-3"
+        data-selectable
+      >
         {messages.length === 0 && (
           <div className="max-w-[85%] rounded-2xl rounded-tl-sm bg-card px-3 py-2 text-sm text-foreground shadow-vkm">
             {GREETING}
@@ -342,7 +357,10 @@ function AssistantBody({
         className="flex shrink-0 items-center gap-2 border-t border-border bg-card p-2.5"
         style={
           mobile
-            ? { paddingBottom: "calc(max(env(safe-area-inset-bottom), 0px) + 0.625rem + var(--kb, 0px))" }
+            ? {
+                paddingBottom:
+                  "calc(max(env(safe-area-inset-bottom), 0px) + 0.625rem + var(--kb, 0px))",
+              }
             : undefined
         }
       >
