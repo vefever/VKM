@@ -50,6 +50,7 @@ import {
   FilePickerZone,
 } from "@/components/participant/proof-attachments";
 import { haptic } from "@/lib/haptics";
+import { useBackDismiss } from "@/hooks/use-back-dismiss";
 import { flyPoints } from "@/lib/fly-points";
 import { playSuccessChime } from "@/lib/sfx";
 
@@ -827,6 +828,9 @@ function HabitProofModal({
   const proofOptional = !!habit.optionalProof;
   const [staged, setStaged] = useState<StagedFile[]>([]);
   const [busy, setBusy] = useState(false);
+
+  // Back closes the pop-up rather than leaving the habits page behind it.
+  useBackDismiss(true, onClose);
 
   // Revoke still-staged blob URLs when the habit sheet closes without submitting
   // (this is a daily-use surface, so abandoned photo/video proofs would otherwise

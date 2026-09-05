@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import type { Attachment } from "@/components/chat/chat-data";
 import { useAppShell } from "@/hooks/use-app-shell";
+import { useBackDismiss } from "@/hooks/use-back-dismiss";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { useDisplaySrc, isHeicUrl, isHeicSource } from "@/lib/heic";
@@ -30,7 +31,12 @@ function SmartImage({ url, alt, className }: { url: string; alt: string; classNa
   const { src, converting, failed } = useDisplaySrc(url);
   if (converting) {
     return (
-      <div className={cn("flex flex-col items-center justify-center gap-1.5 bg-secondary/40", className)}>
+      <div
+        className={cn(
+          "flex flex-col items-center justify-center gap-1.5 bg-secondary/40",
+          className,
+        )}
+      >
         <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
         <span className="text-[10px] text-muted-foreground">Loading photo…</span>
       </div>
@@ -89,7 +95,12 @@ export function ProofAttachments({ files }: { files: Attachment[] }) {
         ))}
       </div>
       {openIdx !== null && (
-        <Lightbox files={files} index={openIdx} onIndex={setOpenIdx} onClose={() => setOpenIdx(null)} />
+        <Lightbox
+          files={files}
+          index={openIdx}
+          onIndex={setOpenIdx}
+          onClose={() => setOpenIdx(null)}
+        />
       )}
     </>
   );
@@ -119,7 +130,12 @@ function Tile({ a, onOpen }: { a: Attachment; onOpen: () => void }) {
         className="group relative block w-full overflow-hidden rounded-xl border border-border"
         title={a.name}
       >
-        <video src={a.url} preload="metadata" muted className="h-28 w-full bg-black object-contain" />
+        <video
+          src={a.url}
+          preload="metadata"
+          muted
+          className="h-28 w-full bg-black object-contain"
+        />
         <span className="absolute inset-0 flex items-center justify-center">
           <span className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-black/55 text-white transition-transform group-hover:scale-110">
             <Play className="h-4 w-4 fill-current" />
@@ -158,6 +174,9 @@ function Lightbox({
 }) {
   const a = files[index];
   const many = files.length > 1;
+
+  // Back closes the viewer rather than leaving the page behind it.
+  useBackDismiss(true, onClose);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -363,7 +382,11 @@ export function ExistingFileTile({
   return (
     <div className="group relative overflow-hidden rounded-xl border border-border">
       {isImage ? (
-        <SmartImage url={file.url} alt={file.name || "proof"} className="h-28 w-full object-cover" />
+        <SmartImage
+          url={file.url}
+          alt={file.name || "proof"}
+          className="h-28 w-full object-cover"
+        />
       ) : isVideo ? (
         <video src={file.url} className="h-28 w-full bg-black object-contain" />
       ) : (
@@ -398,8 +421,7 @@ export function FilePickerZone({ onFiles }: { onFiles: (files: FileList | null) 
   const fileRef = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState(false);
 
-  const ALL =
-    "image/*,.heic,.heif,video/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv";
+  const ALL = "image/*,.heic,.heif,video/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv";
   const inputs = (
     <>
       <input

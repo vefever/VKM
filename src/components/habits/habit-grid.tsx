@@ -13,6 +13,7 @@ import {
 } from "@/components/habits/habit-tracker";
 import { ProofAttachments } from "@/components/participant/proof-attachments";
 import type { Attachment } from "@/components/chat/chat-data";
+import { useBackDismiss } from "@/hooks/use-back-dismiss";
 
 const CELL: Record<DayState, string> = {
   completed: "bg-[#10b981] text-white",
@@ -287,6 +288,9 @@ function DayDetailModal({
   // The old fallback used a hardcoded cohort constant (2026-04-27), so a day
   // whose anchor hadn't loaded was captioned with a confidently wrong date —
   // "Day 67 · Thursday, Jul 2" when day 67 was really 5 September.
+  // Back closes the day sheet rather than leaving the page behind it.
+  useBackDismiss(true, onClose);
+
   const date = anchor ? dateForDay(day, anchor) : null;
   const state = dayState(day);
   const meta = STATE_LABEL[state];

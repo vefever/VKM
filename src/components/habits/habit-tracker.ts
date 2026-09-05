@@ -296,6 +296,11 @@ export function useHabitTracker() {
 
   const doneRef = useRef(done);
   doneRef.current = done;
+  // Habit keys with a write in flight. A double-tap used to fire an insert and
+  // a delete at once; if the delete reached the server first it removed
+  // nothing, the insert then committed, and local state was left saying "not
+  // done" over a row that existed — so the next tap failed on the unique key.
+  const writing = useRef<Set<string>>(new Set());
 
   useEffect(() => {
     if (!user) return;
@@ -373,6 +378,8 @@ export function useHabitTracker() {
       if (!user || programDay < 1) return; // no logging before the program has started
       const day = programDay;
       const k = dkey(day, habitId);
+      if (writing.current.has(k)) return; // one write per habit-day at a time
+      writing.current.add(k);
       const was = !!doneRef.current[k];
 
       setDone((prev) => {
@@ -416,11 +423,29 @@ export function useHabitTracker() {
             points: config.pointsPerTick,
             proof_files: files,
           });
-          if (error) failure = error.message;
+          // 23505 = the (user, habit, day) row is already there: a second device,
+          // another tab, or a tap that beat the initial fetch. The participant
+          // asked for exactly the state the database is already in, so treat it
+          // as done rather than showing "Couldn't save that habit" — and attach
+          // any new proof files to the row that exists.
+          if (error?.code === "23505") {
+            if (files.length > 0) {
+              await supabase
+                .from("habit_logs")
+                .update({ proof_files: files })
+                .eq("user_id", user.id)
+                .eq("habit_id", habitId)
+                .eq("day_no", day);
+            }
+          } else if (error) {
+            failure = error.message;
+          }
         }
       } catch (e) {
         failure = (e as Error).message;
       }
+
+      writing.current.delete(k);
 
       if (failure) {
         setDone((prev) => {

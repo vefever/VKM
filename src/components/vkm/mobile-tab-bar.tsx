@@ -1,5 +1,5 @@
 import { Link, useRouterState } from "@tanstack/react-router";
-import { useCallback, useState } from "react";
+import { useState } from "react";
 import { motion, useReducedMotion } from "framer-motion";
 import {
   LayoutDashboard,
@@ -24,7 +24,6 @@ import { MessagesSquare, Briefcase, LifeBuoy } from "lucide-react";
 import type { AccessTier } from "@/lib/vkm/access";
 import { cn } from "@/lib/utils";
 import { haptic } from "@/lib/haptics";
-import { useBackDismiss } from "@/hooks/use-back-dismiss";
 
 type Tab = { label: string; to: string; icon: LucideIcon };
 
@@ -178,10 +177,7 @@ const SUBMIT_OPTIONS = [
 ] as const;
 
 function CenterAction({ tab }: { tab: Tab }) {
-  const pathname = useRouterState({ select: (s) => s.location.pathname });
   const [open, setOpen] = useState(false);
-  const close = useCallback(() => setOpen(false), []);
-  const closeForNavigation = useBackDismiss(open, close);
 
   return (
     <div className="flex flex-col items-center justify-end">
@@ -210,11 +206,6 @@ function CenterAction({ tab }: { tab: Tab }) {
                 to={o.to}
                 onClick={() => {
                   haptic("light");
-                  // Order matters: mark the close as a navigation *before* it
-                  // happens, or unwinding the sheet's history entry can pop the
-                  // route we're about to push. Tapping the page you're already
-                  // on pushes nothing, so there it stays a plain close.
-                  if (pathname !== o.to) closeForNavigation();
                   setOpen(false);
                 }}
                 className="app-press flex items-center gap-3 rounded-2xl border border-border bg-card p-3.5 text-left transition-colors hover:bg-secondary/50"
@@ -267,11 +258,6 @@ function MoreSheet({
   const groups =
     role === "participant" ? navGroupsForTier(NAV_BY_ROLE[role], tier) : NAV_BY_ROLE[role];
 
-  // Back used to navigate the page underneath and leave this sheet sitting on
-  // top of the new screen. It now dismisses the sheet, as on Android/iOS.
-  const close = useCallback(() => onOpenChange(false), [onOpenChange]);
-  const closeForNavigation = useBackDismiss(open, close);
-
   return (
     <Drawer open={open} onOpenChange={onOpenChange}>
       <DrawerContent className="max-h-[82vh]">
@@ -296,7 +282,6 @@ function MoreSheet({
                       to={item.to}
                       onClick={() => {
                         haptic("light");
-                        if (!active) closeForNavigation();
                         onOpenChange(false);
                       }}
                       className={cn(
