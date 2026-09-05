@@ -35,7 +35,6 @@ import {
   useHabitTracker,
   useDailySteps,
   useDailyWater,
-  useWorkouts,
   type TrackerConfig,
   type HabitCategory,
   type HabitDef,
@@ -43,7 +42,6 @@ import {
 import { HabitGrid } from "@/components/habits/habit-grid";
 import { ExemptionRequestCard } from "@/components/habits/exemption-request-card";
 import { WaterTracker } from "@/components/habits/water-tracker";
-import { WorkoutCard } from "@/components/habits/workout-card";
 import { usePedometer } from "@/components/habits/use-pedometer";
 import { uploadAttachment } from "@/components/chat/chat-data";
 import {
@@ -60,7 +58,6 @@ export function HabitTrackerPage() {
   const steps = useDailySteps(t.programDay, t.config.stepGoal);
   const ped = usePedometer(steps.addStep);
   const water = useDailyWater(t.programDay);
-  const workouts = useWorkouts(t.programDay);
   const [proofHabit, setProofHabit] = useState<HabitDef | null>(null);
 
   const walkingHabit = HABITS.find((h) => h.id === "walking");
@@ -142,16 +139,6 @@ export function HabitTrackerPage() {
           removeGlass={water.removeGlass}
         />
       </div>
-
-      {/* Gym & workouts. The card and its hook already existed but were never
-          rendered anywhere, so sessions could not be logged at all — which is
-          why workout_logs was empty. */}
-      <WorkoutCard
-        items={workouts.items}
-        totalMinutes={workouts.totalMinutes}
-        addWorkout={workouts.addWorkout}
-        removeWorkout={workouts.removeWorkout}
-      />
 
       {/* Single habit-completion surface (grouped Body / Mind / Business). */}
       <SectionCard

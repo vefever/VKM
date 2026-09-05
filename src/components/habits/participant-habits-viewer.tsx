@@ -21,7 +21,6 @@ import {
   Trophy,
   Loader2,
   Droplets,
-  Dumbbell,
   AlertTriangle,
   Layers3,
   ChevronRight,
@@ -765,12 +764,6 @@ function HabitDetail({ userId, name }: { userId: string; name: string }) {
           accent="text-[#0ea5e9]"
           label="Water"
           value={`${(t.waterMl / 1000).toFixed(1)}L`}
-        />
-        <Stat
-          icon={Dumbbell}
-          accent="text-[#ef4444]"
-          label="Workout"
-          value={`${t.workoutMinutes}m`}
         />
       </div>
 

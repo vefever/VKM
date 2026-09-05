@@ -15,7 +15,6 @@ import {
   Flame,
   Footprints,
   Droplets,
-  Dumbbell,
   CheckCircle2,
   Loader2,
   Star,
@@ -74,7 +73,12 @@ import {
 } from "@/components/coach/coach-data";
 import { profileDisplayMap } from "@/lib/profiles-display";
 import { staffLoginAsParticipant } from "@/lib/vkm/admin-users.functions";
-import { useParticipantHabits, HABITS, TRACKER_HABITS, dateForDay } from "@/components/habits/habit-tracker";
+import {
+  useParticipantHabits,
+  HABITS,
+  TRACKER_HABITS,
+  dateForDay,
+} from "@/components/habits/habit-tracker";
 import { HabitGrid } from "@/components/habits/habit-grid";
 import { ProofAttachments } from "@/components/participant/proof-attachments";
 import { toast } from "sonner";
@@ -203,8 +207,8 @@ function LoginAsParticipant({ participantId, name }: { participantId: string; na
   return (
     <>
       <Button variant="outline" className="rounded-full" onClick={generate} disabled={busy}>
-        {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <LogIn className="h-4 w-4" />} Login as
-        participant
+        {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <LogIn className="h-4 w-4" />} Login
+        as participant
       </Button>
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="sm:max-w-[520px]">
@@ -216,9 +220,9 @@ function LoginAsParticipant({ participantId, name }: { participantId: string; na
           <div className="space-y-3">
             <p className="flex items-start gap-1.5 rounded-xl border border-amber-400/40 bg-amber-50/50 p-3 text-xs text-muted-foreground dark:bg-amber-950/10">
               <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
-              This one-time link signs you in <span className="font-medium">as {name}</span>. Open it
-              in a private/incognito window so it doesn't replace your own session. The link expires
-              shortly.
+              This one-time link signs you in <span className="font-medium">as {name}</span>. Open
+              it in a private/incognito window so it doesn't replace your own session. The link
+              expires shortly.
             </p>
             {link && (
               <div className="flex gap-2">
@@ -377,7 +381,17 @@ export function ParticipantDetail({
   async function onExport(kind: "pdf" | "excel") {
     setExporting(kind);
     try {
-      const spec = await buildExportSpec({ name, profile, brain, weeks, points, stage, weeksDone, attended, userId });
+      const spec = await buildExportSpec({
+        name,
+        profile,
+        brain,
+        weeks,
+        points,
+        stage,
+        weeksDone,
+        attended,
+        userId,
+      });
       const filename = `${name.replace(/[^\w.-]+/g, "_")}_profile`;
       if (kind === "pdf") await exportReportPdf(spec, filename);
       else await exportReportExcel(spec, filename);
@@ -407,8 +421,16 @@ export function ParticipantDetail({
           <LoginAsParticipant participantId={userId} name={name} />
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button className="rounded-full bg-gradient-navy shadow-vkm" disabled={exporting !== null}>
-                {exporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />} Export
+              <Button
+                className="rounded-full bg-gradient-navy shadow-vkm"
+                disabled={exporting !== null}
+              >
+                {exporting ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Download className="h-4 w-4" />
+                )}{" "}
+                Export
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
@@ -506,25 +528,46 @@ export function ParticipantDetail({
         ) : (
           <Tabs defaultValue="overview">
             <TabsList className="no-print flex h-auto flex-wrap gap-1 bg-transparent p-0">
-              <TabsTrigger value="overview" className="gap-1.5 rounded-full border border-border bg-card px-3.5 py-1.5 data-[state=active]:border-transparent data-[state=active]:bg-gradient-navy data-[state=active]:text-primary-foreground data-[state=active]:shadow-vkm">
+              <TabsTrigger
+                value="overview"
+                className="gap-1.5 rounded-full border border-border bg-card px-3.5 py-1.5 data-[state=active]:border-transparent data-[state=active]:bg-gradient-navy data-[state=active]:text-primary-foreground data-[state=active]:shadow-vkm"
+              >
                 <LayoutDashboard className="h-3.5 w-3.5" /> Overview
               </TabsTrigger>
-              <TabsTrigger value="program" className="gap-1.5 rounded-full border border-border bg-card px-3.5 py-1.5 data-[state=active]:border-transparent data-[state=active]:bg-gradient-navy data-[state=active]:text-primary-foreground data-[state=active]:shadow-vkm">
+              <TabsTrigger
+                value="program"
+                className="gap-1.5 rounded-full border border-border bg-card px-3.5 py-1.5 data-[state=active]:border-transparent data-[state=active]:bg-gradient-navy data-[state=active]:text-primary-foreground data-[state=active]:shadow-vkm"
+              >
                 <Activity className="h-3.5 w-3.5" /> Program &amp; Habits
               </TabsTrigger>
-              <TabsTrigger value="business" className="gap-1.5 rounded-full border border-border bg-card px-3.5 py-1.5 data-[state=active]:border-transparent data-[state=active]:bg-gradient-navy data-[state=active]:text-primary-foreground data-[state=active]:shadow-vkm">
+              <TabsTrigger
+                value="business"
+                className="gap-1.5 rounded-full border border-border bg-card px-3.5 py-1.5 data-[state=active]:border-transparent data-[state=active]:bg-gradient-navy data-[state=active]:text-primary-foreground data-[state=active]:shadow-vkm"
+              >
                 <Briefcase className="h-3.5 w-3.5" /> Business
               </TabsTrigger>
-              <TabsTrigger value="vision" className="gap-1.5 rounded-full border border-border bg-card px-3.5 py-1.5 data-[state=active]:border-transparent data-[state=active]:bg-gradient-navy data-[state=active]:text-primary-foreground data-[state=active]:shadow-vkm">
+              <TabsTrigger
+                value="vision"
+                className="gap-1.5 rounded-full border border-border bg-card px-3.5 py-1.5 data-[state=active]:border-transparent data-[state=active]:bg-gradient-navy data-[state=active]:text-primary-foreground data-[state=active]:shadow-vkm"
+              >
                 <Compass className="h-3.5 w-3.5" /> Vision Board
               </TabsTrigger>
-              <TabsTrigger value="sessions" className="gap-1.5 rounded-full border border-border bg-card px-3.5 py-1.5 data-[state=active]:border-transparent data-[state=active]:bg-gradient-navy data-[state=active]:text-primary-foreground data-[state=active]:shadow-vkm">
+              <TabsTrigger
+                value="sessions"
+                className="gap-1.5 rounded-full border border-border bg-card px-3.5 py-1.5 data-[state=active]:border-transparent data-[state=active]:bg-gradient-navy data-[state=active]:text-primary-foreground data-[state=active]:shadow-vkm"
+              >
                 <Video className="h-3.5 w-3.5" /> Sessions
               </TabsTrigger>
-              <TabsTrigger value="certificate" className="gap-1.5 rounded-full border border-border bg-card px-3.5 py-1.5 data-[state=active]:border-transparent data-[state=active]:bg-gradient-navy data-[state=active]:text-primary-foreground data-[state=active]:shadow-vkm">
+              <TabsTrigger
+                value="certificate"
+                className="gap-1.5 rounded-full border border-border bg-card px-3.5 py-1.5 data-[state=active]:border-transparent data-[state=active]:bg-gradient-navy data-[state=active]:text-primary-foreground data-[state=active]:shadow-vkm"
+              >
                 <Award className="h-3.5 w-3.5" /> Certificate
               </TabsTrigger>
-              <TabsTrigger value="files" className="gap-1.5 rounded-full border border-border bg-card px-3.5 py-1.5 data-[state=active]:border-transparent data-[state=active]:bg-gradient-navy data-[state=active]:text-primary-foreground data-[state=active]:shadow-vkm">
+              <TabsTrigger
+                value="files"
+                className="gap-1.5 rounded-full border border-border bg-card px-3.5 py-1.5 data-[state=active]:border-transparent data-[state=active]:bg-gradient-navy data-[state=active]:text-primary-foreground data-[state=active]:shadow-vkm"
+              >
                 <FolderOpen className="h-3.5 w-3.5" /> Files
               </TabsTrigger>
             </TabsList>
@@ -635,12 +678,6 @@ export function ParticipantDetail({
                   color="#0ea5e9"
                   label="Water"
                   value={`${(habits.waterMl / 1000).toFixed(1)}L`}
-                />
-                <MiniStat
-                  icon={Dumbbell}
-                  color="#ef4444"
-                  label="Workout"
-                  value={`${habits.workoutMinutes}m`}
                 />
               </div>
               {!habits.loading && (
@@ -1186,11 +1223,15 @@ function TeamCard({ userId, reportedSize }: { userId: string; reportedSize: numb
           : `${members.length} member${members.length === 1 ? "" : "s"}` +
             ` · ${active} active` +
             (payroll ? ` · ${inr(payroll)}/mo payroll` : "") +
-            (reportedSize != null && reportedSize !== members.length ? ` · reported size ${reportedSize}` : "")
+            (reportedSize != null && reportedSize !== members.length
+              ? ` · reported size ${reportedSize}`
+              : "")
       }
     >
       {loading ? (
-        <div className="flex justify-center py-6"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>
+        <div className="flex justify-center py-6">
+          <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+        </div>
       ) : members.length === 0 ? (
         <p className="flex items-center gap-2 py-2 text-sm text-muted-foreground">
           <Users className="h-4 w-4" /> No team members added yet.
@@ -1198,7 +1239,10 @@ function TeamCard({ userId, reportedSize }: { userId: string; reportedSize: numb
       ) : (
         <div className="space-y-1.5">
           {members.map((m) => (
-            <div key={m.id} className="flex items-center justify-between gap-3 rounded-lg border border-border bg-card px-3 py-2">
+            <div
+              key={m.id}
+              className="flex items-center justify-between gap-3 rounded-lg border border-border bg-card px-3 py-2"
+            >
               <div className="min-w-0">
                 <p className="truncate text-sm font-medium text-foreground">{m.name}</p>
                 <p className="truncate text-xs text-muted-foreground">
@@ -1207,10 +1251,18 @@ function TeamCard({ userId, reportedSize }: { userId: string; reportedSize: numb
               </div>
               <div className="flex shrink-0 items-center gap-2">
                 {m.monthly_salary_inr != null && (
-                  <span className="text-xs tabular-nums text-muted-foreground">{inr(m.monthly_salary_inr)}/mo</span>
+                  <span className="text-xs tabular-nums text-muted-foreground">
+                    {inr(m.monthly_salary_inr)}/mo
+                  </span>
                 )}
-                <span className={cn("rounded-full px-2 py-0.5 text-[10px] font-medium",
-                  m.status === "active" ? "bg-[oklch(0.93_0.06_160)] text-[oklch(0.35_0.12_160)]" : "bg-muted text-muted-foreground")}>
+                <span
+                  className={cn(
+                    "rounded-full px-2 py-0.5 text-[10px] font-medium",
+                    m.status === "active"
+                      ? "bg-[oklch(0.93_0.06_160)] text-[oklch(0.35_0.12_160)]"
+                      : "bg-muted text-muted-foreground",
+                  )}
+                >
                   {m.status}
                 </span>
               </div>

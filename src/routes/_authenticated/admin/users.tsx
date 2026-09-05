@@ -1024,7 +1024,7 @@ function UsersTable({
             <AlertDialogDescription>
               Clears all programme progress for{" "}
               <span className="font-medium text-foreground">{confirmReset?.email}</span> — habits,
-              streaks, points, steps, water, workouts, focus sessions and milestones.
+              streaks, points, steps, water, focus sessions and milestones.
               <br />
               <br />
               Their profile, business brain, vision board and uploaded files are{" "}

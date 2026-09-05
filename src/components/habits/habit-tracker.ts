@@ -479,7 +479,6 @@ export function useParticipantHabits(userId: string | null) {
   const [waterMl, setWaterMl] = useState(0);
   const [waterGoal, setWaterGoal] = useState(4000);
   const [waterEvents, setWaterEvents] = useState<WaterEvent[]>([]);
-  const [workoutMinutes, setWorkoutMinutes] = useState(0);
   const [exempt, setExempt] = useState<ExemptionDaySets>(EMPTY_EXEMPT);
   const [loading, setLoading] = useState(true);
 
@@ -490,7 +489,6 @@ export function useParticipantHabits(userId: string | null) {
       setSteps(0);
       setWaterMl(0);
       setWaterEvents([]);
-      setWorkoutMinutes(0);
       setExempt(EMPTY_EXEMPT);
       setStartedAt(null);
       setLoading(false);
@@ -505,7 +503,6 @@ export function useParticipantHabits(userId: string | null) {
         { data: logs },
         { data: stepRow },
         { data: waterRow },
-        { data: workouts },
         { data: events },
         { data: enr },
         batchStart,
@@ -523,7 +520,6 @@ export function useParticipantHabits(userId: string | null) {
           .eq("user_id", userId)
           .eq("log_date", today)
           .maybeSingle(),
-        supabase.from("workout_logs").select("minutes").eq("user_id", userId).eq("log_date", today),
         supabase
           .from("water_events")
           .select("id, ml, reason, rapid, created_at")
@@ -557,7 +553,6 @@ export function useParticipantHabits(userId: string | null) {
       setWaterMl(waterRow?.ml ?? 0);
       setWaterGoal(waterRow?.goal_ml ?? 4000);
       setWaterEvents((events ?? []) as WaterEvent[]);
-      setWorkoutMinutes((workouts ?? []).reduce((n, w) => n + (w.minutes ?? 0), 0));
       // Batch start wins, exactly as the participant-side hook resolves it.
       setStartedAt(batchStart ?? (enr?.started_at ? new Date(enr.started_at) : null));
       setLoading(false);
@@ -574,11 +569,6 @@ export function useParticipantHabits(userId: string | null) {
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "daily_water", filter: `user_id=eq.${userId}` },
-        () => load(),
-      )
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "workout_logs", filter: `user_id=eq.${userId}` },
         () => load(),
       )
       .on(
@@ -614,7 +604,6 @@ export function useParticipantHabits(userId: string | null) {
     waterMl,
     waterGoal,
     waterEvents,
-    workoutMinutes,
     proofsFor,
     todayProofs,
     points: (d.totalTicks + d.exemptTicks) * config.pointsPerTick,
@@ -853,57 +842,4 @@ export function useDailyWater(programDay: number) {
     setGlasses,
     removeGlass,
   };
-}
-
-// ---------------------------------------------------------------------------
-// Workout / gym sessions — persisted, RLS-scoped to self.
-// ---------------------------------------------------------------------------
-export type Workout = { id: string; kind: string; minutes: number };
-
-export function useWorkouts(programDay: number) {
-  const { user } = useAuth();
-  const [items, setItems] = useState<Workout[]>([]);
-  const todayDate = format(startOfToday(), "yyyy-MM-dd");
-
-  useEffect(() => {
-    if (!user) return;
-    let active = true;
-    supabase
-      .from("workout_logs")
-      .select("id, kind, minutes")
-      .eq("user_id", user.id)
-      .eq("log_date", todayDate)
-      .order("created_at", { ascending: false })
-      .then(({ data }) => {
-        if (active) setItems((data ?? []) as Workout[]);
-      });
-    return () => {
-      active = false;
-    };
-  }, [user, todayDate]);
-
-  const addWorkout = useCallback(
-    async (kind: string, minutes: number) => {
-      // Nothing is tracked before the batch start date staff set.
-      if (!user || programDay < 1) return;
-      const { data } = await supabase
-        .from("workout_logs")
-        .insert({ user_id: user.id, log_date: todayDate, day_no: programDay, kind, minutes })
-        .select("id, kind, minutes")
-        .single();
-      if (data) setItems((prev) => [data as Workout, ...prev]);
-    },
-    [user, todayDate, programDay],
-  );
-
-  const removeWorkout = useCallback(
-    async (id: string) => {
-      setItems((prev) => prev.filter((w) => w.id !== id));
-      if (user) await supabase.from("workout_logs").delete().eq("id", id);
-    },
-    [user],
-  );
-
-  const totalMinutes = items.reduce((n, w) => n + w.minutes, 0);
-  return { items, totalMinutes, addWorkout, removeWorkout };
 }
