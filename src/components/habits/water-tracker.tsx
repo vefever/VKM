@@ -1,6 +1,5 @@
-import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import { GlassWater, Plus, Minus, Droplets, AlertTriangle } from "lucide-react";
+import { GlassWater, Plus, Minus, Droplets } from "lucide-react";
 import { SectionCard } from "@/components/vkm/section-card";
 import { cn } from "@/lib/utils";
 import { haptic } from "@/lib/haptics";
@@ -49,49 +48,52 @@ function BigGlass({ pct, label }: { pct: number; label: string }) {
 export function WaterTracker({
   ml,
   goalMl,
-  lastAddAt,
-  cooldownMs,
-  addGlass,
+  addGlasses,
+  setGlasses,
   removeGlass,
 }: {
   ml: number;
   goalMl: number;
-  lastAddAt: number | null;
-  cooldownMs: number;
-  addGlass: () => void;
+  addGlasses: (count?: number) => void;
+  setGlasses: (target: number) => void;
   removeGlass: () => void;
 }) {
   const glasses = Math.round(goalMl / GLASS_ML);
   const filled = Math.floor(ml / GLASS_ML);
   const pct = Math.min((ml / goalMl) * 100, 100);
 
-  // Live clock so the "logged recently" hint clears itself after the window.
-  const [now, setNow] = useState(() => Date.now());
-  useEffect(() => {
-    const id = setInterval(() => setNow(Date.now()), 1000);
-    return () => clearInterval(id);
-  }, []);
-  const withinWindow = lastAddAt ? now - lastAddAt < cooldownMs : false;
-
-  // No hard lock — a glass can be added anytime; adding again inside the window
-  // is flagged `rapid` (server-side) and alerts the coach.
-  function add() {
+  // Log whenever, however much — no cooldown, no timing flag.
+  function add(count = 1) {
     if (ml >= goalMl) return;
-    haptic(ml + GLASS_ML >= goalMl ? "success" : "tick");
-    addGlass();
+    // Never log past the goal in one go.
+    const room = Math.max(1, Math.round((goalMl - ml) / GLASS_ML));
+    const n = Math.min(count, room);
+    haptic(ml + n * GLASS_ML >= goalMl ? "success" : "tick");
+    addGlasses(n);
   }
 
+  // Tapping any glass sets the total to that level, so catching up on six
+  // glasses is one tap rather than six. Tapping the last filled one undoes it.
   function tapGlass(i: number) {
-    if (i === filled) add();
-    else if (i === filled - 1) removeGlass();
-    // tapping ahead / middle is ignored — one glass at a time.
+    if (i === filled - 1) {
+      haptic("tick");
+      removeGlass();
+      return;
+    }
+    if (i < filled) {
+      haptic("tick");
+      setGlasses(i + 1);
+      return;
+    }
+    haptic((i + 1) * GLASS_ML >= goalMl ? "success" : "tick");
+    setGlasses(i + 1);
   }
 
   return (
     <SectionCard
       className="h-full"
       title="Hydration"
-      subtitle={`${(ml / 1000).toFixed(2)} L of ${(goalMl / 1000).toFixed(0)} L · one glass at a time`}
+      subtitle={`${(ml / 1000).toFixed(2)} L of ${(goalMl / 1000).toFixed(0)} L · log anytime`}
       action={
         ml >= goalMl ? (
           <span className="inline-flex items-center gap-1 rounded-full bg-[#0ea5e9]/15 px-2 py-0.5 text-[11px] font-semibold text-[#0369a1]">
@@ -164,7 +166,7 @@ export function WaterTracker({
             </button>
             <button
               type="button"
-              onClick={add}
+              onClick={() => add(1)}
               disabled={ml >= goalMl}
               className="inline-flex h-11 flex-1 items-center justify-center gap-1.5 rounded-xl bg-[#0ea5e9] text-sm font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-50"
             >
@@ -172,17 +174,28 @@ export function WaterTracker({
             </button>
           </div>
 
-          {withinWindow ? (
-            <p className="mt-2 flex items-start gap-1 text-[11px] text-amber-600">
-              <AlertTriangle className="mt-0.5 h-3 w-3 shrink-0" />
-              You logged a glass recently — logging again within 30 min is flagged and your coach is
-              notified.
-            </p>
-          ) : (
-            <p className="mt-2 text-[11px] text-muted-foreground">
-              {filled} / {glasses} glasses · completes “Drink Water” at {(goalMl / 1000).toFixed(0)}L.
-            </p>
+          {/* Catch-up in one go, for anyone logging after the fact rather than
+              at every sip. Hidden once the goal is reached. */}
+          {ml < goalMl && (
+            <div className="mt-2 flex flex-wrap items-center gap-1.5">
+              <span className="text-[11px] text-muted-foreground">Add several:</span>
+              {[2, 4, 8].map((n) => (
+                <button
+                  key={n}
+                  type="button"
+                  onClick={() => add(n)}
+                  className="rounded-full border border-[#0ea5e9]/40 bg-[#0ea5e9]/10 px-2.5 py-1 text-[11px] font-semibold text-[#0369a1] transition-colors hover:bg-[#0ea5e9]/20"
+                >
+                  +{n} ({((n * GLASS_ML) / 1000).toFixed(1)}L)
+                </button>
+              ))}
+            </div>
           )}
+
+          <p className="mt-2 text-[11px] text-muted-foreground">
+            {filled} / {glasses} glasses · completes “Drink Water” at {(goalMl / 1000).toFixed(0)}L.
+            Log one at a time or several at once, whenever suits.
+          </p>
         </div>
       </div>
     </SectionCard>

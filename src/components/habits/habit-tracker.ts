@@ -696,9 +696,13 @@ export function useDailySteps(programDay: number, goal: number) {
 }
 
 // ---------------------------------------------------------------------------
-// Daily water (ml) — each glass is an audited event (anti-fraud).
-// A 30-minute cooldown is recommended between glasses; logging sooner is
-// allowed but requires a reason and is flagged `rapid` for staff review.
+// Daily water (ml) — every change is an audited event.
+//
+// There is deliberately NO cooldown and no timing check. People drink away from
+// their phone and log the catch-up later, which the old 30-minute `rapid` flag
+// treated as suspicious and reported to their coach. Glasses can be logged one
+// at a time or several at once, whenever suits. The `rapid` column is kept for
+// historical rows but is no longer set.
 // ---------------------------------------------------------------------------
 export const GLASS_ML = 250;
 export const WATER_GOAL_ML = 4000;
@@ -791,17 +795,45 @@ export function useDailyWater(programDay: number) {
     [user, todayDate, programDay, goalMl],
   );
 
-  const addGlass = useCallback(() => {
-    const now = Date.now();
-    // Logged again within 30 min of the previous glass → flag it (alerts staff).
-    const rapid = lastAddRef.current != null && now - lastAddRef.current < WATER_COOLDOWN_MS;
-    lastAddRef.current = now;
-    const total = mlRef.current + GLASS_ML;
-    mlRef.current = total;
-    setMl(total);
-    setLastAddAt(now);
-    writeEvent(GLASS_ML, total, null, rapid);
-  }, [writeEvent]);
+  /**
+   * Log one or more glasses at once.
+   *
+   * Someone who drank four glasses while away from their phone had to tap four
+   * separate times, and each tap after the first was flagged `rapid` and
+   * reported to their coach — punishing honest catch-up logging. A count is now
+   * written as ONE audited event rather than N, so the trail stays truthful
+   * without the row churn, and nothing is flagged for timing.
+   */
+  const addGlasses = useCallback(
+    (count = 1) => {
+      const n = Math.max(1, Math.round(count));
+      const now = Date.now();
+      lastAddRef.current = now;
+      const total = mlRef.current + n * GLASS_ML;
+      mlRef.current = total;
+      setMl(total);
+      setLastAddAt(now);
+      writeEvent(n * GLASS_ML, total, null, false);
+    },
+    [writeEvent],
+  );
+
+  const addGlass = useCallback(() => addGlasses(1), [addGlasses]);
+
+  /** Jump straight to a total, so tapping the 6th glass logs all six at once. */
+  const setGlasses = useCallback(
+    (target: number) => {
+      const clamped = Math.max(0, Math.round(target));
+      const total = clamped * GLASS_ML;
+      const delta = total - mlRef.current;
+      if (delta === 0) return;
+      mlRef.current = total;
+      setMl(total);
+      setLastAddAt(Date.now());
+      writeEvent(delta, total, null, false);
+    },
+    [writeEvent],
+  );
 
   const removeGlass = useCallback(() => {
     const total = Math.max(0, mlRef.current - GLASS_ML);
@@ -811,7 +843,16 @@ export function useDailyWater(programDay: number) {
     writeEvent(-GLASS_ML, total, null, false);
   }, [writeEvent]);
 
-  return { ml, goalMl, lastAddAt, cooldownMs: WATER_COOLDOWN_MS, addGlass, removeGlass };
+  return {
+    ml,
+    goalMl,
+    lastAddAt,
+    cooldownMs: WATER_COOLDOWN_MS,
+    addGlass,
+    addGlasses,
+    setGlasses,
+    removeGlass,
+  };
 }
 
 // ---------------------------------------------------------------------------

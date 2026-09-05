@@ -35,6 +35,7 @@ import {
   useHabitTracker,
   useDailySteps,
   useDailyWater,
+  useWorkouts,
   type TrackerConfig,
   type HabitCategory,
   type HabitDef,
@@ -42,6 +43,7 @@ import {
 import { HabitGrid } from "@/components/habits/habit-grid";
 import { ExemptionRequestCard } from "@/components/habits/exemption-request-card";
 import { WaterTracker } from "@/components/habits/water-tracker";
+import { WorkoutCard } from "@/components/habits/workout-card";
 import { usePedometer } from "@/components/habits/use-pedometer";
 import { uploadAttachment } from "@/components/chat/chat-data";
 import {
@@ -58,6 +60,7 @@ export function HabitTrackerPage() {
   const steps = useDailySteps(t.programDay, t.config.stepGoal);
   const ped = usePedometer(steps.addStep);
   const water = useDailyWater(t.programDay);
+  const workouts = useWorkouts(t.programDay);
   const [proofHabit, setProofHabit] = useState<HabitDef | null>(null);
 
   const walkingHabit = HABITS.find((h) => h.id === "walking");
@@ -134,12 +137,21 @@ export function HabitTrackerPage() {
         <WaterTracker
           ml={water.ml}
           goalMl={water.goalMl}
-          lastAddAt={water.lastAddAt}
-          cooldownMs={water.cooldownMs}
-          addGlass={water.addGlass}
+          addGlasses={water.addGlasses}
+          setGlasses={water.setGlasses}
           removeGlass={water.removeGlass}
         />
       </div>
+
+      {/* Gym & workouts. The card and its hook already existed but were never
+          rendered anywhere, so sessions could not be logged at all — which is
+          why workout_logs was empty. */}
+      <WorkoutCard
+        items={workouts.items}
+        totalMinutes={workouts.totalMinutes}
+        addWorkout={workouts.addWorkout}
+        removeWorkout={workouts.removeWorkout}
+      />
 
       {/* Single habit-completion surface (grouped Body / Mind / Business). */}
       <SectionCard
@@ -156,7 +168,11 @@ export function HabitTrackerPage() {
 
       {/* Special request: excuse a missed day (fever/health/travel) so the
           streak isn't broken — reviewed by staff, max 3/month. */}
-      <ExemptionRequestCard programDay={t.programDay} dayState={t.dayState} anchor={t.startedAt ?? undefined} />
+      <ExemptionRequestCard
+        programDay={t.programDay}
+        dayState={t.dayState}
+        anchor={t.startedAt ?? undefined}
+      />
 
       {/* Reference material — collapsed by default to keep the page short. */}
       <AnalyticsZone t={t} />
@@ -195,8 +211,9 @@ function NotStartedGate({ config }: { config: TrackerConfig }) {
         </span>
         <h2 className="relative mt-4 text-2xl font-bold sm:text-3xl">You're on Day 0</h2>
         <p className="relative mt-2 max-w-xl text-sm text-white/80 sm:text-base">
-          Your daily habits, streak and program clock start on <span className="font-semibold">Day 1</span> —
-          the day you begin your program. Start it from Program Progress and this page unlocks right away.
+          Your daily habits, streak and program clock start on{" "}
+          <span className="font-semibold">Day 1</span> — the day you begin your program. Start it
+          from Program Progress and this page unlocks right away.
         </p>
         <Button
           asChild
@@ -404,7 +421,6 @@ function StepsCard({
           </Button>
         )}
       </div>
-
     </div>
   );
 }

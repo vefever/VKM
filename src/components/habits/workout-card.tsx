@@ -33,7 +33,10 @@ export function WorkoutCard({
   return (
     <SectionCard
       title="Gym & Workouts"
-      subtitle="Log a session — completes “Gym / Workout”"
+      // There is no "Gym / Workout" habit in the six-habit set, so this no
+      // longer claims to complete one — sessions are logged for the record and
+      // shown to your coach.
+      subtitle="Log a session — your minutes are shared with your coach"
       action={
         totalMinutes > 0 ? (
           <span className="inline-flex items-center gap-1 rounded-full bg-[#ef4444]/12 px-2 py-0.5 text-[11px] font-semibold text-[#b91c1c]">

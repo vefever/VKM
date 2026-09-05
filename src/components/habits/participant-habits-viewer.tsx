@@ -49,7 +49,13 @@ import { SectionCard } from "@/components/vkm/section-card";
 import { AvatarBadge } from "@/components/vkm/avatar-badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
 import {
@@ -77,7 +83,9 @@ export function ParticipantHabitsViewer({ eyebrow = "Coach" }: { eyebrow?: strin
   const [batchKey, setBatchKey] = useState<string | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
   const [view, setView] = useState<"grid" | "list">(() =>
-    typeof window === "undefined" ? "list" : (localStorage.getItem(VIEW_KEY) as "grid" | "list") || "list",
+    typeof window === "undefined"
+      ? "list"
+      : (localStorage.getItem(VIEW_KEY) as "grid" | "list") || "list",
   );
   const [q, setQ] = useState("");
   const [sort, setSort] = useState<Sort>("name");
@@ -115,7 +123,10 @@ export function ParticipantHabitsViewer({ eyebrow = "Coach" }: { eyebrow?: strin
   // Per-day habit snapshot for the batch (list view "6 rounds").
   // Selection is a calendar date (always defaults to today) — each participant's
   // program day_no is derived from their own start date for that calendar day.
-  const activeIds = useMemo(() => (activeBatch ? activeBatch.rows.map((r) => r.id) : []), [activeBatch]);
+  const activeIds = useMemo(
+    () => (activeBatch ? activeBatch.rows.map((r) => r.id) : []),
+    [activeBatch],
+  );
   const { doneFor } = useBatchDayHabits(activeIds);
   const [selectedDate, setSelectedDate] = useState<Date>(() => startOfToday());
   const isToday = isSameDay(selectedDate, startOfToday());
@@ -189,7 +200,11 @@ export function ParticipantHabitsViewer({ eyebrow = "Coach" }: { eyebrow?: strin
       head.eachCell((c, col) => {
         c.font = { bold: true, color: { argb: "FFFFFFFF" }, size: 11 };
         c.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF0B2545" } };
-        c.alignment = { vertical: "middle", horizontal: col === 1 ? "left" : "center", wrapText: true };
+        c.alignment = {
+          vertical: "middle",
+          horizontal: col === 1 ? "left" : "center",
+          wrapText: true,
+        };
         c.border = { bottom: { style: "thin", color: { argb: "FFC9A227" } } };
       });
       rowData().forEach((r) => {
@@ -256,7 +271,11 @@ export function ParticipantHabitsViewer({ eyebrow = "Coach" }: { eyebrow?: strin
       doc.setFont("helvetica", "normal");
       doc.setFontSize(9);
       doc.setTextColor(210, 214, 220);
-      doc.text(`Habit completions — ${filtered.length} participants${isToday ? " · Today" : ""}`, 40, 44);
+      doc.text(
+        `Habit completions — ${filtered.length} participants${isToday ? " · Today" : ""}`,
+        40,
+        44,
+      );
       doc.setTextColor(201, 162, 39);
       doc.setFont("helvetica", "bold");
       doc.text("VK MENTORSHIP", pageW - 40, 30, { align: "right" });
@@ -270,13 +289,22 @@ export function ParticipantHabitsViewer({ eyebrow = "Coach" }: { eyebrow?: strin
           r.total,
         ]),
         styles: { fontSize: 9, cellPadding: 6, halign: "center", valign: "middle" },
-        headStyles: { fillColor: [11, 37, 69], textColor: [255, 255, 255], fontStyle: "bold", halign: "center" },
+        headStyles: {
+          fillColor: [11, 37, 69],
+          textColor: [255, 255, 255],
+          fontStyle: "bold",
+          halign: "center",
+        },
         columnStyles: { 0: { halign: "left", fontStyle: "bold", cellWidth: 150 } },
         alternateRowStyles: { fillColor: [248, 246, 240] },
         margin: { left: 40, right: 40 },
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         didParseCell: (data: any) => {
-          if (data.section === "body" && data.column.index > 0 && data.column.index <= HABITS.length) {
+          if (
+            data.section === "body" &&
+            data.column.index > 0 &&
+            data.column.index <= HABITS.length
+          ) {
             const on = data.cell.raw === "✓";
             data.cell.styles.textColor = on ? [21, 128, 61] : [180, 185, 195];
             data.cell.styles.fontStyle = "bold";
@@ -347,7 +375,11 @@ export function ParticipantHabitsViewer({ eyebrow = "Coach" }: { eyebrow?: strin
           >
             <ChevronLeft className="h-4 w-4" /> {activeBatch?.name ?? "Participants"}
           </button>
-          <HabitDetail key={selectedPerson.id} userId={selectedPerson.id} name={selectedPerson.name} />
+          <HabitDetail
+            key={selectedPerson.id}
+            userId={selectedPerson.id}
+            name={selectedPerson.name}
+          />
         </div>
       ) : !activeBatch ? (
         // ── Level 1: batch cards ──
@@ -370,7 +402,9 @@ export function ParticipantHabitsViewer({ eyebrow = "Coach" }: { eyebrow?: strin
             </Button>
             <div>
               <h2 className="text-base font-semibold text-foreground">{activeBatch.name}</h2>
-              <p className="text-[11px] text-muted-foreground">{activeBatch.rows.length} participants</p>
+              <p className="text-[11px] text-muted-foreground">
+                {activeBatch.rows.length} participants
+              </p>
             </div>
             <div className="ml-auto flex flex-wrap items-center gap-2">
               <div className="relative">
@@ -405,10 +439,18 @@ export function ParticipantHabitsViewer({ eyebrow = "Coach" }: { eyebrow?: strin
                 <AlertTriangle className="h-3.5 w-3.5" /> At risk
               </button>
               <div className="flex rounded-full border border-border p-0.5">
-                <ViewBtn active={view === "grid"} onClick={() => setViewPersist("grid")} label="Grid">
+                <ViewBtn
+                  active={view === "grid"}
+                  onClick={() => setViewPersist("grid")}
+                  label="Grid"
+                >
                   <LayoutGrid className="h-4 w-4" />
                 </ViewBtn>
-                <ViewBtn active={view === "list"} onClick={() => setViewPersist("list")} label="List">
+                <ViewBtn
+                  active={view === "list"}
+                  onClick={() => setViewPersist("list")}
+                  label="List"
+                >
                   <ListIcon className="h-4 w-4" />
                 </ViewBtn>
               </div>
@@ -436,7 +478,12 @@ export function ParticipantHabitsViewer({ eyebrow = "Coach" }: { eyebrow?: strin
                 />
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <Button variant="outline" size="sm" className="h-9 shrink-0 rounded-full" disabled={exporting}>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-9 shrink-0 rounded-full"
+                      disabled={exporting}
+                    >
                       {exporting ? (
                         <Loader2 className="h-4 w-4 animate-spin" />
                       ) : (
@@ -464,13 +511,18 @@ export function ParticipantHabitsViewer({ eyebrow = "Coach" }: { eyebrow?: strin
               </div>
 
               {/* Captured area for image export (header gives the export context). */}
-              <div ref={exportRef} className="overflow-hidden rounded-2xl border border-border bg-white">
+              <div
+                ref={exportRef}
+                className="overflow-hidden rounded-2xl border border-border bg-white"
+              >
                 <div className="flex items-center justify-between gap-2 border-b border-border bg-secondary/40 px-4 py-2.5">
                   <div className="min-w-0">
                     <p className="text-sm font-semibold text-foreground">
                       {activeBatch.name} · {isToday ? "Today" : dateLabel}
                       {isToday ? (
-                        <span className="ml-1.5 font-normal text-muted-foreground">· {dateLabel}</span>
+                        <span className="ml-1.5 font-normal text-muted-foreground">
+                          · {dateLabel}
+                        </span>
                       ) : null}
                     </p>
                     <p className="text-[11px] text-muted-foreground">
@@ -520,7 +572,9 @@ function ViewBtn({
       aria-pressed={active}
       className={cn(
         "inline-flex h-8 items-center gap-1.5 rounded-full px-3 text-xs font-medium transition-colors",
-        active ? "bg-gradient-navy text-primary-foreground" : "text-muted-foreground hover:text-foreground",
+        active
+          ? "bg-gradient-navy text-primary-foreground"
+          : "text-muted-foreground hover:text-foreground",
       )}
     >
       {children}
@@ -554,7 +608,13 @@ function BatchPicker({ groups, onPick }: { groups: BatchGroup[]; onPick: (key: s
             <div className="flex items-center justify-between">
               <div className="flex -space-x-2">
                 {g.rows.slice(0, 5).map((p) => (
-                  <AvatarBadge key={p.id} name={p.name} src={p.avatar_url} size="sm" className="ring-2 ring-card" />
+                  <AvatarBadge
+                    key={p.id}
+                    name={p.name}
+                    src={p.avatar_url}
+                    size="sm"
+                    className="ring-2 ring-card"
+                  />
                 ))}
                 {g.rows.length > 5 && (
                   <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-secondary text-[10px] font-semibold text-muted-foreground ring-2 ring-card">
@@ -587,7 +647,9 @@ function PersonCard({ p, onOpen }: { p: ParticipantRow; onOpen: () => void }) {
         <AvatarBadge name={p.name} src={p.avatar_url} size="lg" />
         <div className="min-w-0 flex-1">
           <p className="truncate text-sm font-semibold text-foreground">{p.name}</p>
-          <p className="truncate text-[11px] text-muted-foreground">{p.batchName ?? "Unassigned"}</p>
+          <p className="truncate text-[11px] text-muted-foreground">
+            {p.batchName ?? "Unassigned"}
+          </p>
         </div>
         {p.atRisk && (
           <span className="rounded-full bg-destructive/15 px-2 py-0.5 text-[10px] font-semibold text-destructive">
@@ -678,13 +740,38 @@ function HabitDetail({ userId, name }: { userId: string; name: string }) {
   return (
     <div className="space-y-5">
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 sm:gap-4 lg:grid-cols-7">
-        <Stat icon={CheckCircle2} accent="text-[#10b981]" label="Today" value={`${t.todayDone}/${HABITS.length}`} />
+        <Stat
+          icon={CheckCircle2}
+          accent="text-[#10b981]"
+          label="Today"
+          value={`${t.todayDone}/${HABITS.length}`}
+        />
         <Stat icon={Flame} accent="text-[#f59e0b]" label="Streak" value={`${t.streak}d`} />
-        <Stat icon={Activity} accent="text-[#3b82f6]" label="Days done" value={`${t.completedDays}`} />
-        <Stat icon={Trophy} accent="text-[oklch(0.5_0.11_80)]" label="Points" value={`${t.points}`} />
+        <Stat
+          icon={Activity}
+          accent="text-[#3b82f6]"
+          label="Days done"
+          value={`${t.completedDays}`}
+        />
+        <Stat
+          icon={Trophy}
+          accent="text-[oklch(0.5_0.11_80)]"
+          label="Points"
+          value={`${t.points}`}
+        />
         <Stat icon={Footprints} accent="text-[#10b981]" label="Steps" value={`${t.steps}`} />
-        <Stat icon={Droplets} accent="text-[#0ea5e9]" label="Water" value={`${(t.waterMl / 1000).toFixed(1)}L`} />
-        <Stat icon={Dumbbell} accent="text-[#ef4444]" label="Workout" value={`${t.workoutMinutes}m`} />
+        <Stat
+          icon={Droplets}
+          accent="text-[#0ea5e9]"
+          label="Water"
+          value={`${(t.waterMl / 1000).toFixed(1)}L`}
+        />
+        <Stat
+          icon={Dumbbell}
+          accent="text-[#ef4444]"
+          label="Workout"
+          value={`${t.workoutMinutes}m`}
+        />
       </div>
 
       {t.loading ? (
@@ -704,10 +791,7 @@ function HabitDetail({ userId, name }: { userId: string; name: string }) {
             defaultOpen
           />
           {t.waterEvents.length > 0 && (
-            <SectionCard
-              title="Water log · today"
-              subtitle="Each glass is timestamped · ⚠ flags rapid logs"
-            >
+            <SectionCard title="Water log · today" subtitle="Each entry is timestamped">
               <ul className="divide-y divide-border">
                 {t.waterEvents.map((e) => (
                   <li key={e.id} className="flex items-start gap-3 py-2.5">
@@ -723,9 +807,11 @@ function HabitDetail({ userId, name }: { userId: string; name: string }) {
                       <p className="text-sm text-foreground">
                         {e.ml > 0 ? "+" : ""}
                         {e.ml} ml
-                        {e.rapid && (
-                          <span className="ml-2 inline-flex items-center gap-1 rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700">
-                            <AlertTriangle className="h-3 w-3" /> rapid
+                        {/* Timing is no longer judged — a multi-glass entry is
+                            someone catching up, not something to flag. */}
+                        {e.ml > 250 && (
+                          <span className="ml-2 rounded-full bg-secondary px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
+                            {Math.round(e.ml / 250)} glasses
                           </span>
                         )}
                       </p>
@@ -834,7 +920,11 @@ function HabitRounds({ done }: { done: Set<string> }) {
 }
 
 /** Map a calendar date → this participant's program day_no (1…totalDays), or null if outside range. */
-function programDayOnDate(startedAt: Date | null, date: Date, totalDays = DEFAULT_CONFIG.totalDays): number | null {
+function programDayOnDate(
+  startedAt: Date | null,
+  date: Date,
+  totalDays = DEFAULT_CONFIG.totalDays,
+): number | null {
   const anchor = startOfDay(startedAt ?? START_DATE);
   const day = differenceInCalendarDays(startOfDay(date), anchor) + 1;
   if (day < 1 || day > totalDays) return null;
@@ -966,7 +1056,9 @@ function Stat({
     <div className="rounded-2xl border border-border bg-card p-3.5 shadow-vkm">
       <Icon className={cn("h-5 w-5", accent)} />
       <p className="mt-1.5 text-xl font-bold tabular-nums text-foreground">{value}</p>
-      <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">{label}</p>
+      <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+        {label}
+      </p>
     </div>
   );
 }
