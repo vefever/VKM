@@ -62,15 +62,28 @@ export function HabitGrid({
   const { weeks, daysPerWeek } = config;
   const interactive = !!isDone;
 
-  // Column labels from the weekday of the first week's days.
+  // Column labels are the weekdays of the first week — the grid runs
+  // sequentially from day 1, so column 1 IS the programme's start weekday, not
+  // Monday. Batch 16 starts Wednesday 1 July, so the row reads W T F S S M T.
+  //
+  // Without a known anchor this used to fall back to a hardcoded 2026-04-27
+  // (a Monday), printing a confident "M T W T F S S" that put every day under
+  // the wrong weekday. Day numbers are shown instead until the anchor loads.
   const cols = Array.from({ length: daysPerWeek }, (_, i) =>
-    format(dateForDay(i + 1, anchor), "EEEEE"),
+    anchor ? format(dateForDay(i + 1, anchor), "EEEEE") : `${i + 1}`,
   );
 
   return (
     <SectionCard
       title={title}
-      subtitle={subtitle ?? `${weeks} weeks · ${daysPerWeek}-day weeks`}
+      // Showing the start date makes the whole grid verifiable at a glance —
+      // if the weekday columns look wrong, this is the number to check.
+      subtitle={
+        subtitle ??
+        (anchor
+          ? `Started ${format(anchor, "EEE d MMM")} · ${weeks} weeks · ${daysPerWeek}-day weeks`
+          : `${weeks} weeks · ${daysPerWeek}-day weeks`)
+      }
       action={
         <button
           type="button"
